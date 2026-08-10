@@ -1,9 +1,13 @@
 # Documentation
 
-This directory contains application-specific documentation such as API references, user guides, deployment instructions, and operational runbooks.
+Soft Factory Runner is a TypeScript and Node.js CLI for deterministic orchestration of visible, isolated, and recoverable RPIV issue delivery.
 
-Add documentation here as the application evolves.
+The product contract currently lives in [`PRD.md`](../PRD.md). Application documentation added during RPIV delivery belongs here, including:
 
-The RPIV Implement stage updates every application document affected by a change, including README content, API references, configuration instructions, usage examples, migration notes, explanatory architecture documentation, and operational or deployment instructions. The Verify stage independently checks that committed documentation is complete and accurate.
+- CLI usage and command references
+- configuration and schema references
+- architecture explanations
+- recovery and operational runbooks
+- installation, migration, and deployment guidance
 
-For project management documentation (architecture decisions, core-components, and work-item pipeline artifacts), see the [`project/`](../project/) directory.
+Use the root `justfile` for setup, development, and validation. For architecture decisions, shared behavioral contracts, and work-item artifacts, see [`project/`](../project/).

@@ -1,10 +1,32 @@
-# Project Name
+# Soft Factory Runner
 
-<!-- Replace with a short description of your project. -->
 [![APS version](https://img.shields.io/badge/APS-v1.2.2-blue?logo=github)](https://github.com/chris-buckley/agnostic-prompt-standard/releases/tag/v1.2.2)
+
+Soft Factory Runner is a local-first command-line application that deterministically runs autonomous software-delivery workflows against explicit GitHub issues.
+
+Its goal is to safely coordinate isolated, visible, and recoverable RPIV executions, then reconcile their Git and GitHub outcomes using observable evidence. Runner controls state, locks, worktrees, tmux processes, and recovery; RPIV owns software engineering decisions.
+
+## Development
+
+The root `justfile` is the project command interface:
+
+```text
+just setup
+just run
+just test
+just lint
+just format-check
+just type-check
+just build
+just verify-focused
+just verify
+```
+
+Feature behavior is defined in [`PRD.md`](PRD.md) and must be delivered through GitHub issues and the RPIV pipeline.
 
 ## Documentation
 
+- [`PRD.md`](PRD.md) — product requirements, scope, requirements, and staged MVP evolution
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — pipeline workflow, how to contribute via GitHub Issues, and where artifacts belong
 - [`AGENTS.md`](AGENTS.md) — agent definitions, guardrails, and pipeline specification
 - [`docs/`](docs/) — application-specific documentation (API docs, user guides, etc.)

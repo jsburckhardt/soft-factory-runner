@@ -2,6 +2,14 @@ AGENTS.md                                                   — Agent definition
 CONTRIBUTING.md                                             — Human contribution guide
 LLM.txt                                                     — This file; repo map for AI agents
 README.md                                                   — Project overview
+PRD.md                                                      — Product requirements, boundaries, functional requirements, and staged MVP evolution
+package.json                                                — Node package metadata and npm script definitions
+tsconfig.json                                               — Strict TypeScript compiler configuration
+eslint.config.mjs                                           — TypeScript ESLint configuration
+jest.config.cjs                                             — Jest and coverage configuration
+justfile                                                    — Canonical project setup, operation, and validation commands
+src/index.ts                                                — Minimal bootstrapped CLI entry point
+src/index.test.ts                                           — Bootstrap entry-point tests
 .devcontainer/devcontainer.json                             — Dev container configuration
 .devcontainer/post-create.sh                                — One-time container setup for tmux config and GitHub CLI aliases
 .devcontainer/post-start.sh                                 — Per-start shared tmux session and dynamic environment setup
@@ -17,20 +25,27 @@ README.md                                                   — Project overview
 .github/agents/rpiv-planner.agent.md                  — rpiv-planner agent (ADRs, core-components, action plans, task breakdown, test plans)
 .github/agents/rpiv-research.agent.md                 — rpiv-research agent (exploration, scope classification)
 .github/agents/issue-generator.agent.md               — Issue-generator agent (structured issue creation with acceptance criteria)
+.github/agents/prd-to-gh-issues.agent.md              — PRD backlog agent (linked epic, feature, and story GitHub issues)
 .github/skills/README.md                              — APS Skill index
 .github/skills/agnostic-prompt-standard/SKILL.md      — APS reference framework Skill
 .github/PULL_REQUEST_TEMPLATE.md                      — PR template (acceptance criteria, verification checklist)
 docs/README.md                                              — Application documentation index
 project/README.md                                             — Project documentation index
 project/architecture/README.md                                 — Architecture documentation index
-project/architecture/soft-factory-pipeline.excalidraw          — Pipeline diagram source
 project/architecture/ADR/ADR-260101-template.md                — ADR template (read-only, copy to create date-based artifacts)
 project/architecture/ADR/DECISION-LOG.md                       — Registry of all ADR and core-component decisions
+project/architecture/ADR/ADR-260810-typescript-node-cli.md      — TypeScript and Node.js CLI technology decision
 project/architecture/core-components/CORE-COMPONENT-260101-template.md — Core-component template (read-only, copy to create date-based artifacts)
 project/architecture/core-components/CORE-COMPONENT-260505-commit-standards.md — Commit standards (Conventional Commits, Co-authored-by)
 project/architecture/core-components/CORE-COMPONENT-260806-rpiv-stage-contract.md — RPIV stage ownership and handoff contract
 project/architecture/core-components/CORE-COMPONENT-260806-project-command-interface.md — Justfile command contract
 project/architecture/core-components/CORE-COMPONENT-260806-agent-executable-acceptance-criteria.md — Agent-executable issue criteria contract
 project/architecture/core-components/CORE-COMPONENT-260806-architecture-artifact-naming.md — Date-based architecture artifact naming contract
+project/architecture/core-components/CORE-COMPONENT-260810-structured-events.md — Structured event logging contract
+project/architecture/core-components/CORE-COMPONENT-260810-error-handling.md — Explicit error classification and reporting contract
+project/architecture/core-components/CORE-COMPONENT-260810-persistence-recovery.md — Atomic snapshots, append-only events, and recovery contract
+project/architecture/core-components/CORE-COMPONENT-260810-subprocess-execution.md — Safe external process execution contract
+project/architecture/core-components/CORE-COMPONENT-260810-issue-worktree-locking.md — Issue ownership and worktree isolation contract
+project/architecture/core-components/CORE-COMPONENT-260810-development-standards.md — TypeScript coding and testing standards
 project/architecture/core-components/README.md                 — Core-components index
 project/work-items/README.md                                   — Work-items index and canonical structure
