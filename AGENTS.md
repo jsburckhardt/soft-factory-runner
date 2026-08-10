@@ -353,6 +353,29 @@ issue-generator:
     - must dispatch a rubber-duck subagent to critique the draft before creating the issue
     - must incorporate rubber-duck feedback before issue creation
     - must not create an issue without rubber-duck review
+prd-to-gh-issues:
+  file: .github/agents/prd-to-gh-issues.agent.md
+  purpose: Analyze a PRD and existing repository context, preview an epic/feature/story hierarchy, then create linked GitHub backlog issues after explicit user approval.
+  tools:
+    - codebase exploration and reading
+    - web fetch and search
+    - terminal execution
+    - GitHub CLI (gh)
+    - subagent dispatch
+  read_paths:
+    - PRD files, folders, URLs, or inline requirements supplied by the user
+    - application source code
+    - existing GitHub issues and labels
+  write_paths:
+    - GitHub labels and issues (via gh)
+  templates: []
+  guardrails:
+    - must represent hierarchy tiers with epic, feature, and story labels
+    - must discover related existing issues before proposing new issues
+    - must preview the full hierarchy and receive explicit user approval before creation
+    - must create parents before children and link children from parent task lists
+    - must preserve structured acceptance-criteria markers
+    - must not invent implementation details absent from the PRD or user input
 >>
 TEMPLATE_PATHS: YAML<<
 adr: project/architecture/ADR/ADR-260101-template.md

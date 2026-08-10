@@ -6,7 +6,7 @@ This file is the single registry of all architectural decisions and core-compone
 
 | ID | Title | Status | Date |
 |----|-------|--------|------|
-| _No ADRs yet. Copy `ADR-260101-template.md` and name it `ADR-yymmdd-short-slug.md`._ | | | |
+| ADR-260810-typescript-node-cli | TypeScript and Node.js CLI | Accepted | 2026-08-10 |
 
 ## Core-Components
 
@@ -17,6 +17,12 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260806-project-command-interface | Project Command Interface | Adopted | 2026-08-06 |
 | CORE-COMPONENT-260806-agent-executable-acceptance-criteria | Agent-Executable Acceptance Criteria | Adopted | 2026-08-06 |
 | CORE-COMPONENT-260806-architecture-artifact-naming | Architecture Artifact Naming | Adopted | 2026-08-06 |
+| CORE-COMPONENT-260810-structured-events | Structured Events | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260810-error-handling | Error Handling | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260810-persistence-recovery | Persistence and Recovery | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260810-subprocess-execution | Subprocess Execution | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260810-issue-worktree-locking | Issue and Worktree Locking | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260810-development-standards | Development Standards | Adopted | 2026-08-10 |
 
 ## Decisions
 
@@ -49,3 +55,10 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 23 | Require Implement to update affected application documentation and Verify to inspect it | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
 | 24 | Store RPIV artifacts under stable `project/work-items/<issue-number>-<short-description>/` paths | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-07 |
 | 25 | Reuse an existing same-issue work-item directory before creating a new artifact path | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-07 |
+| 26 | Build and distribute Runner as a strict TypeScript Node.js CLI through npm without selecting an application framework at bootstrap | ADR-260810-typescript-node-cli | 2026-08-10 |
+| 27 | Derive human and machine output from versioned, redacted, append-only structured lifecycle events | CORE-COMPONENT-260810-structured-events | 2026-08-10 |
+| 28 | Represent expected failures with stable typed codes and fail safe when ownership or state is ambiguous | CORE-COMPONENT-260810-error-handling | 2026-08-10 |
+| 29 | Persist atomic versioned snapshots and append-only events, then reconcile them against observed runtime state | CORE-COMPONENT-260810-persistence-recovery | 2026-08-10 |
+| 30 | Execute external tools through a typed adapter using validated argument arrays and redacted results | CORE-COMPONENT-260810-subprocess-execution | 2026-08-10 |
+| 31 | Acquire atomic per-issue ownership and modify or clean resources only when recorded and observed ownership agree | CORE-COMPONENT-260810-issue-worktree-locking | 2026-08-10 |
+| 32 | Enforce strict TypeScript, configured static checks, Conventional Commits, deterministic tests, and at least 80% coverage | CORE-COMPONENT-260810-development-standards | 2026-08-10 |

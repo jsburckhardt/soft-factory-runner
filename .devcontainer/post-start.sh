@@ -6,14 +6,18 @@ workspace_dir="$PWD"
 config_file="$workspace_dir/.devcontainer/tmux.conf"
 socket_file="$workspace_dir/.devcontainer/.tmux-shared"
 
-if ! tmux -S "$socket_file" has-session -t soft-factory 2>/dev/null; then
-    tmux -S "$socket_file" -f "$config_file" new-session -d -s soft-factory -c "$workspace_dir"
+if ! tmux -S "$socket_file" has-session -t soft-factory-runner 2>/dev/null; then
+    tmux -S "$socket_file" -f "$config_file" new-session -d -s soft-factory-runner -c "$workspace_dir"
 fi
 
 tmux -S "$socket_file" source-file "$config_file"
 
 if [[ -n "${BROWSER:-}" ]]; then
     tmux -S "$socket_file" set-environment -g BROWSER "$BROWSER"
+fi
+
+if [[ -n "${VSCODE_IPC_HOOK_CLI:-}" ]]; then
+    tmux -S "$socket_file" set-environment -g VSCODE_IPC_HOOK_CLI "$VSCODE_IPC_HOOK_CLI"
 fi
 
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
