@@ -1,3 +1,5 @@
 reports/
-records/
 telemetry/
+records/*
+!records/retro/
+!records/retro/**

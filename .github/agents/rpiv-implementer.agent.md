@@ -29,6 +29,11 @@ You MUST read the test plan before implementing.
 You MUST read every relevant ADR and core-component before implementing.
 You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
 You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
+You MUST capture concrete retries, backtracking, hidden setup, unclear failures, missing proof, and inference when they occur with `harness observe "<description>" --kind <kind> --agent rpiv-implementer`.
+You MUST NOT manufacture friction observations when no concrete friction occurred.
+You MUST drain pending rpiv, rpiv-research, rpiv-planner, and rpiv-implementer observations into tracked retro records before writing implementation notes.
+You MUST clear a stage observation buffer only after its retro record is written successfully.
+You MUST include generated retro records in the implementation commit and handoff evidence.
 You MUST validate that the root justfile exposes verify-focused and verify before implementation.
 You MUST treat the root justfile recipes as the validation source.
 You MUST NOT infer, invent, or auto-detect validation commands outside the root justfile.
@@ -82,6 +87,12 @@ DOCUMENTATION_SCOPE: YAML<<
 - explanatory architecture documentation
 - operational runbooks and deployment instructions
 >>
+FRICTION_AGENTS: YAML<<
+- rpiv
+- rpiv-research
+- rpiv-planner
+- rpiv-implementer
+>>
 </constants>
 
 <formats>
@@ -107,6 +118,9 @@ DOCUMENTATION_SCOPE: YAML<<
 ## Full Validation
 <FULL_RESULTS>
 
+## Harness Friction Records
+<FRICTION_RECORDS>
+
 ## Status
 Implementation is complete and committed.
 Final acceptance remains owned by Verify.
@@ -119,6 +133,7 @@ WHERE:
 - <DOCUMENTATION_EVIDENCE> is Markdown.
 - <FOCUSED_RESULTS> is Markdown.
 - <FULL_RESULTS> is Markdown.
+- <FRICTION_RECORDS> is Markdown.
 - <ISSUE_NUMBER> is String.
 </format>
 
@@ -141,6 +156,7 @@ WHERE:
 <runtime>
 ISSUE_NUMBER: ""
 WORK_ITEM_PATH: ""
+WORK_ITEM_ID: ""
 ACTION_PLAN_FILE_COUNT: 0
 ACTION_PLAN_PATH: ""
 TASK_BREAKDOWN_PATH: ""
@@ -163,6 +179,7 @@ DOCUMENTATION_CHANGES: []
 DOCUMENTATION_EVIDENCE: []
 FOCUSED_RESULTS: []
 FULL_RESULTS: []
+FRICTION_RECORDS: []
 BRANCH_NAME: ""
 COMMIT_SHA: ""
 CLEAN_TREE: false
@@ -179,10 +196,11 @@ RUN `load-context`
 RUN `implement-tasks`
 RUN `update-application-documentation`
 RUN `run-full-validation`
+RUN `drain-rpiv-friction`
 RUN `write-implementation-notes`
 RUN `commit-implementation`
 RUN `prepare-handoff`
-RETURN: format="IMPLEMENT_HANDOFF", ac_evidence=AC_EVIDENCE, branch_name=BRANCH_NAME, clean_tree=CLEAN_TREE, commit_sha=COMMIT_SHA, completed_tasks=COMPLETED_TASKS, documentation_evidence=DOCUMENTATION_EVIDENCE, focused_results=FOCUSED_RESULTS, full_results=FULL_RESULTS, issue_number=ISSUE_NUMBER
+RETURN: format="IMPLEMENT_HANDOFF", ac_evidence=AC_EVIDENCE, branch_name=BRANCH_NAME, clean_tree=CLEAN_TREE, commit_sha=COMMIT_SHA, completed_tasks=COMPLETED_TASKS, documentation_evidence=DOCUMENTATION_EVIDENCE, focused_results=FOCUSED_RESULTS, friction_records=FRICTION_RECORDS, full_results=FULL_RESULTS, issue_number=ISSUE_NUMBER
 </process>
 
 <process id="load-context" name="Load plan, architecture, and project validation commands">
@@ -193,6 +211,7 @@ SET ACTION_PLAN_FILE_COUNT := <COUNT> (from "Agent Inference" using ACTION_PLAN_
 IF ACTION_PLAN_FILE_COUNT != 1:
   RETURN: format="IMPLEMENT_ERROR", details=ACTION_PLAN_FILES, error_message="Exactly one work-item action plan must exist", issue_number=ISSUE_NUMBER, return_stage="plan"
 SET WORK_ITEM_PATH := <PATH> (from "Agent Inference" using ACTION_PLAN_FILES; remove /plan/01-action-plan.md)
+SET WORK_ITEM_ID := <ID> (from "Agent Inference" using WORK_ITEM_PATH; use the final path segment)
 SET ACTION_PLAN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/01-action-plan.md)
 SET TASK_BREAKDOWN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/02-task-breakdown.md)
 SET TEST_PLAN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/03-test-plan.md)
@@ -293,11 +312,37 @@ IF FULL_PASSED is false:
 SET FULL_RESULTS := FULL_RESULTS + [{command: "just verify", passed: true}] (from "Agent Inference")
 </process>
 
+<process id="drain-rpiv-friction" name="Persist pre-verification RPIV friction">
+FOREACH frictionAgent IN FRICTION_AGENTS:
+  USE `execute/runInTerminal` where: command="harness observe --list --agent <frictionAgent> --json"
+  CAPTURE PENDING_FRICTION from `execute/runInTerminal`
+  SET FRICTION_ENTRIES := <ENTRIES> (from "Agent Inference" using PENDING_FRICTION)
+  IF FRICTION_ENTRIES is not empty:
+    USE `execute/runInTerminal` where: command="harness record retro --slug issue-<ISSUE_NUMBER>-<frictionAgent> --json"
+    CAPTURE RETRO_SCAFFOLD from `execute/runInTerminal`
+    SET RETRO_PATH := <PATH> (from "Agent Inference" using RETRO_SCAFFOLD)
+    USE `read/readFile` where: filePath=RETRO_PATH
+    CAPTURE RETRO_TEMPLATE from `read/readFile`
+    SET RETRO_CONTENT := <CONTENT> (from "Agent Inference" using FRICTION_ENTRIES, ISSUE_NUMBER, WORK_ITEM_ID, RETRO_TEMPLATE, frictionAgent; preserve scaffold provenance, preserve every entry, set plan_id to WORK_ITEM_ID, set disposition kept, and produce schema version 1.2)
+    USE `edit/editFiles` where: content=RETRO_CONTENT, filePath=RETRO_PATH
+    USE `read/readFile` where: filePath=RETRO_PATH
+    CAPTURE PERSISTED_RETRO from `read/readFile`
+    SET RETRO_PERSISTED := <VALID> (from "Agent Inference" using PERSISTED_RETRO, FRICTION_ENTRIES, WORK_ITEM_ID, frictionAgent; require schema version 1.2, matching plan_id and agent, and every pending observation)
+    IF RETRO_PERSISTED is false:
+      RETURN: format="IMPLEMENT_ERROR", details=RETRO_PATH, error_message="RPIV friction record was not persisted completely", issue_number=ISSUE_NUMBER, return_stage="implement"
+    USE `execute/runInTerminal` where: command="harness observe --clear --agent <frictionAgent> --json"
+    CAPTURE CLEAR_RESULT from `execute/runInTerminal`
+    SET CLEAR_PASSED := <PASSED> (from "Agent Inference" using CLEAR_RESULT; require exit code zero and a successful JSON envelope)
+    IF CLEAR_PASSED is false:
+      RETURN: format="IMPLEMENT_ERROR", details=CLEAR_RESULT, error_message="Persisted RPIV friction could not be cleared from the transient buffer", issue_number=ISSUE_NUMBER, return_stage="implement"
+    SET FRICTION_RECORDS := FRICTION_RECORDS + [RETRO_PATH] (from "Agent Inference")
+</process>
+
 <process id="write-implementation-notes" name="Record task completion and AC evidence">
 SET EVIDENCE_COMPLETE := <COMPLETE> (from "Agent Inference" using ACCEPTANCE_CATALOG, AC_EVIDENCE; require evidence for every AC-* ID)
 IF EVIDENCE_COMPLETE is false:
   RETURN: format="IMPLEMENT_ERROR", details=AC_EVIDENCE, error_message="Implementation evidence is incomplete", issue_number=ISSUE_NUMBER, return_stage="implement"
-SET NOTES_CONTENT := <CONTENT> (from "Agent Inference" using ISSUE_NUMBER, COMPLETED_TASKS, ACCEPTANCE_CATALOG, AC_EVIDENCE, DOCUMENTATION_EVIDENCE, FOCUSED_RESULTS, FULL_RESULTS; include every AC-* ID, documentation evidence or no-impact rationale, and avoid final acceptance claims)
+SET NOTES_CONTENT := <CONTENT> (from "Agent Inference" using ISSUE_NUMBER, COMPLETED_TASKS, ACCEPTANCE_CATALOG, AC_EVIDENCE, DOCUMENTATION_EVIDENCE, FOCUSED_RESULTS, FRICTION_RECORDS, FULL_RESULTS; include every AC-* ID, documentation evidence or no-impact rationale, generated friction record paths, and avoid final acceptance claims)
 USE `edit/createDirectory` where: dirPath=IMPLEMENTATION_DIR
 TRY:
   USE `read/readFile` where: filePath=IMPLEMENTATION_NOTES_PATH
@@ -311,7 +356,7 @@ USE `execute/runInTerminal` where: command="git status --porcelain"
 CAPTURE IMPLEMENTATION_STATUS from `execute/runInTerminal`
 IF IMPLEMENTATION_STATUS is empty:
   RETURN: format="IMPLEMENT_ERROR", details="No implementation changes are available to commit.", error_message="Implementation commit is missing", issue_number=ISSUE_NUMBER, return_stage="implement"
-SET COMMIT_GROUPS := <GROUPS> (from "Agent Inference" using IMPLEMENTATION_STATUS, TASKS, DOCUMENTATION_CHANGES; include application documentation, issue-related files, and logical atomic groups)
+SET COMMIT_GROUPS := <GROUPS> (from "Agent Inference" using IMPLEMENTATION_STATUS, TASKS, DOCUMENTATION_CHANGES, FRICTION_RECORDS; include application documentation, issue-related files, generated retro records, and logical atomic groups)
 FOREACH group IN COMMIT_GROUPS:
   USE `execute/runInTerminal` where: command="git add <group.files>"
   USE `execute/runInTerminal` where: command="git commit -m '<group.message>' -m '' -m '<CO_AUTHOR_TRAILER>'"

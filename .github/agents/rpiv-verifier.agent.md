@@ -31,6 +31,12 @@ You MUST return application documentation defects to Implement.
 You MUST validate implementation commit messages and required Co-authored-by trailers.
 You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
 You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
+You MUST capture concrete retries, backtracking, unclear failures, missing proof, and inference when they occur with `harness observe "<description>" --kind <kind> --agent rpiv-verifier`.
+You MUST NOT manufacture friction observations when no concrete friction occurred.
+You MUST drain pending rpiv-verifier observations into tracked retro records before closeout.
+You MUST clear the verifier observation buffer only after its retro record is written successfully.
+You MUST harvest the complete committed and newly drained RPIV retro set before creating the pull request.
+You MUST include the retro harvest result in the pull request and verification summary.
 You MUST validate that the root justfile exposes verify-focused and verify before validation.
 You MUST treat the root justfile recipes as the validation source.
 You MUST NOT infer, invent, or auto-detect validation commands outside the root justfile.
@@ -52,7 +58,7 @@ You MUST create the pull request from the verified feature branch.
 You MUST include every AC-* ID, status, and evidence in the pull request.
 You MUST use a Conventional Commit title for the pull request.
 You MUST write <WORK_ITEM_PATH>/verify/summary.md after pull request creation.
-You MAY commit and push only the generated verification summary after pull request creation.
+You MAY commit and push only the generated verification summary and generated verifier retro records after pull request creation.
 You MUST leave the working tree clean.
 You MUST NOT force-push or use --no-verify.
 </instructions>
@@ -78,6 +84,7 @@ DOCUMENTATION_SCOPE: YAML<<
 - explanatory architecture documentation
 - operational runbooks and deployment instructions
 >>
+VERIFIER_FRICTION_AGENT: "rpiv-verifier"
 </constants>
 
 <formats>
@@ -132,6 +139,7 @@ WHERE:
 <runtime>
 ISSUE_NUMBER: ""
 WORK_ITEM_PATH: ""
+WORK_ITEM_ID: ""
 ACTION_PLAN_FILE_COUNT: 0
 ACTION_PLAN_PATH: ""
 TASK_BREAKDOWN_PATH: ""
@@ -168,6 +176,8 @@ AC_ALL_PASSED: false
 FAILURE_OWNER: ""
 PR_URL: ""
 COMMAND_INTERFACE_VALID: false
+FRICTION_RECORDS: []
+RETRO_HARVEST: {}
 </runtime>
 
 <triggers>
@@ -192,6 +202,8 @@ IF VALIDATION_PASSED is false:
 RUN `decide-acceptance`
 IF AC_ALL_PASSED is false:
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details="Every AC-* ID must pass independently before shipping.", error_message="Acceptance verification failed", issue_number=ISSUE_NUMBER, return_stage=FAILURE_OWNER, validation_results=VALIDATION_RESULTS
+RUN `drain-verifier-friction`
+RUN `harvest-rpiv-friction`
 RUN `check-github-auth`
 RUN `push-branch`
 RUN `create-pull-request`
@@ -199,6 +211,40 @@ RUN `update-issue-checkboxes`
 RUN `write-verification-summary`
 RUN `verify-clean`
 RETURN: format="VERIFY_REPORT", ac_results=AC_RESULTS, branch_name=BRANCH_NAME, commit_sha=HANDOFF_COMMIT, issue_number=ISSUE_NUMBER, pr_url=PR_URL, validation_results=VALIDATION_RESULTS
+</process>
+
+<process id="drain-verifier-friction" name="Persist verifier friction before closeout">
+USE `execute/runInTerminal` where: command="harness observe --list --agent rpiv-verifier --json"
+CAPTURE PENDING_FRICTION from `execute/runInTerminal`
+SET FRICTION_ENTRIES := <ENTRIES> (from "Agent Inference" using PENDING_FRICTION)
+IF FRICTION_ENTRIES is not empty:
+  USE `execute/runInTerminal` where: command="harness record retro --slug issue-<ISSUE_NUMBER>-rpiv-verifier --json"
+  CAPTURE RETRO_SCAFFOLD from `execute/runInTerminal`
+  SET RETRO_PATH := <PATH> (from "Agent Inference" using RETRO_SCAFFOLD)
+  USE `read/readFile` where: filePath=RETRO_PATH
+  CAPTURE RETRO_TEMPLATE from `read/readFile`
+  SET RETRO_CONTENT := <CONTENT> (from "Agent Inference" using FRICTION_ENTRIES, ISSUE_NUMBER, RETRO_TEMPLATE, WORK_ITEM_ID; preserve scaffold provenance, preserve every entry, set plan_id to WORK_ITEM_ID, set disposition kept, and produce schema version 1.2)
+  USE `edit/editFiles` where: content=RETRO_CONTENT, filePath=RETRO_PATH
+  USE `read/readFile` where: filePath=RETRO_PATH
+  CAPTURE PERSISTED_RETRO from `read/readFile`
+  SET RETRO_PERSISTED := <VALID> (from "Agent Inference" using PERSISTED_RETRO, FRICTION_ENTRIES, WORK_ITEM_ID; require schema version 1.2, matching plan_id and rpiv-verifier agent, and every pending observation)
+  IF RETRO_PERSISTED is false:
+    RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=RETRO_PATH, error_message="Verifier friction record was not persisted completely", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
+  USE `execute/runInTerminal` where: command="harness observe --clear --agent rpiv-verifier --json"
+  CAPTURE CLEAR_RESULT from `execute/runInTerminal`
+  SET CLEAR_PASSED := <PASSED> (from "Agent Inference" using CLEAR_RESULT; require exit code zero and a successful JSON envelope)
+  IF CLEAR_PASSED is false:
+    RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=CLEAR_RESULT, error_message="Persisted verifier friction could not be cleared from the transient buffer", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
+  SET FRICTION_RECORDS := FRICTION_RECORDS + [RETRO_PATH] (from "Agent Inference")
+</process>
+
+<process id="harvest-rpiv-friction" name="Harvest durable RPIV friction">
+USE `execute/runInTerminal` where: command="harness retro insights --plan <WORK_ITEM_ID> --json"
+CAPTURE RETRO_HARVEST from `execute/runInTerminal`
+SET HARVEST_PASSED := <PASSED> (from "Agent Inference" using RETRO_HARVEST, WORK_ITEM_ID; require exit code zero, status ok, schema version harness.retro-insights/v1, and scope plans containing WORK_ITEM_ID)
+SET VALIDATION_RESULTS := VALIDATION_RESULTS + [{id: "rpiv-friction-harvest", passed: HARVEST_PASSED, evidence: RETRO_HARVEST}] (from "Agent Inference")
+IF HARVEST_PASSED is false:
+  RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=RETRO_HARVEST, error_message="RPIV friction harvest failed", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 </process>
 
 <process id="load-handoff" name="Load the Plan and Implement handoffs">
@@ -212,6 +258,7 @@ IF ACTION_PLAN_FILE_COUNT != 1:
   SET FAILURE_OWNER := "plan" (from "Agent Inference")
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=ACTION_PLAN_FILES, error_message="Exactly one work-item action plan must exist", issue_number=ISSUE_NUMBER, return_stage=FAILURE_OWNER, validation_results=VALIDATION_RESULTS
 SET WORK_ITEM_PATH := <PATH> (from "Agent Inference" using ACTION_PLAN_FILES; remove /plan/01-action-plan.md)
+SET WORK_ITEM_ID := <ID> (from "Agent Inference" using WORK_ITEM_PATH; use the final path segment)
 SET ACTION_PLAN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/01-action-plan.md)
 SET TASK_BREAKDOWN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/02-task-breakdown.md)
 SET TEST_PLAN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/03-test-plan.md)
@@ -327,7 +374,7 @@ CAPTURE PUSH_RESULT from `execute/runInTerminal`
 USE `read/readFile` where: filePath=PR_TEMPLATE_PATH
 CAPTURE PR_TEMPLATE from `read/readFile`
 SET PR_TITLE := <TITLE> (from "Agent Inference" using ISSUE_NUMBER, ISSUE_TITLE; follow Conventional Commits)
-SET PR_BODY := <BODY> (from "Agent Inference" using PR_TEMPLATE, ISSUE_NUMBER, HANDOFF_COMMIT, AC_RESULTS, DOCUMENTATION_RESULTS, VALIDATION_RESULTS, ACTION_PLAN; include every AC-* ID, documentation review, passed status, evidence, and Closes #<ISSUE_NUMBER>)
+SET PR_BODY := <BODY> (from "Agent Inference" using PR_TEMPLATE, ISSUE_NUMBER, HANDOFF_COMMIT, AC_RESULTS, DOCUMENTATION_RESULTS, VALIDATION_RESULTS, ACTION_PLAN, RETRO_HARVEST; include every AC-* ID, documentation review, passed status, evidence, friction-harvest summary, and Closes #<ISSUE_NUMBER>)
 USE `edit/createFile` where: content=PR_BODY, filePath="/tmp/rpiv-pr-body.md"
 USE `execute/runInTerminal` where: command="gh pr create --title '<PR_TITLE>' --body-file /tmp/rpiv-pr-body.md"
 CAPTURE PR_RESULT from `execute/runInTerminal`
@@ -341,14 +388,16 @@ USE `execute/runInTerminal` where: command="gh issue edit <ISSUE_NUMBER> --body-
 </process>
 
 <process id="write-verification-summary" name="Write and publish verification metadata only">
-SET SUMMARY_CONTENT := <CONTENT> (from "Agent Inference" using ISSUE_NUMBER, ISSUE_TITLE, BRANCH_NAME, HANDOFF_COMMIT, PR_URL, AC_RESULTS, DOCUMENTATION_RESULTS, VALIDATION_RESULTS, FULL_DIFF; include every AC-* ID, documentation results, and omit secrets, raw output, and absolute paths)
+SET SUMMARY_CONTENT := <CONTENT> (from "Agent Inference" using ISSUE_NUMBER, ISSUE_TITLE, BRANCH_NAME, HANDOFF_COMMIT, PR_URL, AC_RESULTS, DOCUMENTATION_RESULTS, VALIDATION_RESULTS, FULL_DIFF, FRICTION_RECORDS, RETRO_HARVEST; include every AC-* ID, documentation results, friction record paths, retro harvest summary, and omit secrets, raw output, and absolute paths)
 USE `edit/createDirectory` where: dirPath=VERIFY_DIR
 USE `edit/createFile` where: content=SUMMARY_CONTENT, filePath=VERIFY_SUMMARY_PATH
 USE `execute/runInTerminal` where: command="git add <VERIFY_SUMMARY_PATH>"
+FOREACH frictionRecord IN FRICTION_RECORDS:
+  USE `execute/runInTerminal` where: command="git add <frictionRecord>"
 USE `execute/runInTerminal` where: command="git diff --cached --name-only"
 CAPTURE STAGED_FILES from `execute/runInTerminal`
-SET SUMMARY_ONLY := <ONLY_SUMMARY> (from "Agent Inference" using STAGED_FILES, VERIFY_SUMMARY_PATH; allow only the verification summary)
-IF SUMMARY_ONLY is false:
+SET VERIFY_METADATA_ONLY := <ONLY_METADATA> (from "Agent Inference" using STAGED_FILES, VERIFY_SUMMARY_PATH, FRICTION_RECORDS; allow only the verification summary and generated verifier retro records)
+IF VERIFY_METADATA_ONLY is false:
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=STAGED_FILES, error_message="Verifier attempted to stage files outside the verification summary", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 USE `execute/runInTerminal` where: command="git commit -m 'docs: add verification summary for #<ISSUE_NUMBER>' -m '' -m '<CO_AUTHOR_TRAILER>'"
 USE `execute/runInTerminal` where: command="git push origin <BRANCH_NAME>"

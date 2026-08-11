@@ -22,12 +22,25 @@ Run the CLI through the root `just run` recipe. The bootstrap currently accepts 
 
 Use `--json` harness output. Inspect `status`, `data`, per-stage exit codes, bounded stdout/stderr, `error.code`, and `next_action`; do not scrape terminal prose. Runtime evidence is intentionally returned to the caller rather than committed.
 
+RPIV agents capture concrete workflow friction at the moment it occurs with
+`harness observe`, using their stage identity (`rpiv`, `rpiv-research`,
+`rpiv-planner`, `rpiv-implementer`, or `rpiv-verifier`). Agent buckets are
+repository-shared files under `.harness/temp/`, so observations survive stage
+subagent boundaries. Implement drains pending Research, Plan, Implement, and
+coordinator observations before its commit. Verify drains its own observations,
+harvests the complete issue retro set, and commits the resulting retro records
+with verification metadata. A stage buffer is cleared only after its retro
+record has been read back and checked for every pending observation.
+
 ## Deterministic signal inventory
 
 - `harness doctor --json`: runtime, extension, convention, and verb readiness.
 - `harness boot --json`: built application startup, exact smoke signal, and composed full-check verdict.
 - `harness checks --focused --json`: focused tests and diff hygiene through the root recipe.
 - `harness checks --json`: lint, formatting, types, tests/coverage, build, and diff hygiene through the root recipe.
+- `harness observe --agent <stage> --json`: repository-shared, stage-bucketed friction capture and inspection.
+- `harness record retro --slug <slug> --json`: schema v1.2 retro record scaffolding.
+- `harness retro insights --plan <work-item-id> --json`: plan-scoped durable friction harvest.
 - `just verify-focused` and `just verify`: authoritative direct RPIV boundary gates.
 
 ## Evidence paths
@@ -35,17 +48,19 @@ Use `--json` harness output. Inspect `status`, `data`, per-stage exit codes, bou
 - Command evidence: JSON on stdout for the invoking session or CI log.
 - Governance and briefings: `.harness/engineering-harness.md` and `.harness/extensions/*/instructions.md`.
 - RPIV evidence: `project/work-items/<issue-number>-<short-description>/implementation/00-implementation.md`.
-- `.harness/temp/`, reports, records, and telemetry are transient and ignored unless a future plan explicitly adopts an artifact.
+- RPIV friction records: `.harness/records/retro/<date>/`.
+- `.harness/temp/`, reports, and telemetry are transient and ignored.
 
 ## Injection map
 
 | Seam event | Fires from | What fires it |
 |---|---|---|
 | session-start / pre-flight | `AGENTS.md` cold-session instructions | Read `harness instructions` and this governance contract. |
+| any RPIV stage / coding | RPIV coordinator and stage agents | Capture concrete retries, inference, unclear failures, missing proof, and workflow friction with stage-identified `harness observe` calls. |
 | pre-implement / pre-flight | `AGENTS.md` and RPIV Implement | Run `harness boot --json` before product work. |
 | task-pause / coding | RPIV Implement task loop | Run `harness checks --focused --json`, then direct `just verify-focused` as required. |
-| phase-end / post-coding | RPIV Implement handoff preparation | Run full `harness checks --json`, then direct `just verify`. |
-| plan-complete / post-flight | RPIV Verify | Independently evaluate the exact commit and direct root validation; Verify owns acceptance. |
+| phase-end / post-coding | RPIV Implement handoff preparation | Drain pending coordinator, Research, Plan, and Implement observations into tracked retro records before committing; run full harness and direct validation. |
+| plan-complete / post-flight | RPIV Verify | Drain Verify observations, harvest the issue retro set, record the result in verification metadata, and independently decide acceptance. |
 
 ## Back-pressure gaps
 

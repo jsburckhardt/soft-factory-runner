@@ -22,6 +22,11 @@ This component applies to tracked `.harness/` governance, extensions and briefin
 - `harness boot` MUST start the short-lived application from a built known state through a root recipe, capture its result, compose full checks, and return an inspectable envelope.
 - Automation MUST evaluate JSON envelope fields and exit codes rather than scrape human prose.
 - Agent instructions MUST direct cold agents to harness instructions, boot, and checks while retaining RPIV stage-boundary `just` commands.
+- Every RPIV stage MUST capture concrete workflow friction when it occurs with a stage-specific `harness observe` identity.
+- Stage-specific observation buffers MUST use repository-shared `.harness/temp/` files that survive RPIV subagent boundaries.
+- Implement MUST drain coordinator, Research, Plan, and Implement observation buffers into tracked retro records before committing, and MUST clear a buffer only after reading back a complete valid record.
+- Verify MUST drain verifier observations under the same read-back-before-clear rule, validate the plan-scoped harvest envelope, and include the harvest result in verification metadata.
+- RPIV retro records under `.harness/records/retro/` MUST be tracked; transient observation buffers under `.harness/temp/` MUST remain ignored.
 
 ### Interfaces
 - `harness instructions`, `harness help --json`, and per-verb briefings provide discovery.
@@ -29,6 +34,9 @@ This component applies to tracked `.harness/` governance, extensions and briefin
 - `harness boot --json` reports application-start and composed full-check evidence.
 - `harness checks --focused --json` and `harness checks --json` expose focused and full validation.
 - `just verify-focused` and `just verify` remain direct RPIV validation interfaces.
+- `harness observe --agent <stage> --json` provides repository-shared, stage-identified in-flight friction capture.
+- `harness record retro --slug <slug> --json` scaffolds durable RPIV friction records under `.harness/records/retro/`.
+- `harness retro insights --plan <work-item-id> --json` provides deterministic plan-scoped closeout harvest evidence.
 
 ### Expectations
 - A clean checkout is operable after setup when the pinned ambient CLI and development tools are available.
@@ -58,7 +66,7 @@ How should other parts of the system integrate with this component?
 - Change raw operating behavior in the root `justfile` first, then update the delegating harness extension and briefing.
 - Keep boot suitable for the current application shape; do not invent a persistent service for the short-lived CLI.
 - Record host-flow injection points in harness governance and reinforce them in `AGENTS.md` and repository maps.
-- Preserve transient harness paths through ignore rules and inspect `git status` after harness commands.
+- Preserve transient harness paths through ignore rules, track RPIV retro records, and inspect `git status` after harness commands.
 
 ## Exceptions
 

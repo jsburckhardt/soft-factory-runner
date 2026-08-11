@@ -69,3 +69,5 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 35 | Require harness boot to start the application and compose full checks | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
 | 36 | Expose focused and full harness checks through root justfile delegation | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
 | 37 | Commit harness governance, extension briefings, and cold-agent injection cues | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
+| 38 | Capture stage-identified RPIV friction in shared buffers and clear only after durable retro read-back | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
+| 39 | Require Verify to validate the plan-scoped RPIV friction harvest before publishing closeout evidence | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |

@@ -28,6 +28,9 @@ You MUST start autonomous product-development sessions with `harness instruction
 You MUST run `harness boot --json` before product work and evaluate its JSON envelope and exit code.
 You MUST use `harness checks --focused --json` during implementation and `harness checks --json` for full harness feedback.
 You MUST still run direct `just verify-focused` and `just verify` at required RPIV boundaries.
+You MUST capture concrete RPIV workflow friction when it occurs with `harness observe` and the current RPIV stage identity.
+You MUST require Implement to drain repository-shared coordinator, Research, Plan, and Implement observations into tracked `.harness/records/retro/` records before committing and clear each buffer only after durable read-back.
+You MUST require Verify to drain verifier observations under the same read-back-before-clear rule, validate the plan-scoped issue retro harvest, and include the result in verification metadata.
 You MUST treat root justfile recipes as the default validation source for Implement and Verify.
 You MUST require the root justfile to expose verify-focused and verify before RPIV.
 You MUST enforce this RPIV boundary: RPIV orchestrates, Research investigates, Plan proves coverage, Implement builds and provides evidence, Verify decides acceptance and creates the PR.
@@ -74,6 +77,7 @@ rpiv:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/
+    - .harness/temp/
   templates: []
   guardrails:
     - must create or confirm the issue feature branch before Research
@@ -86,6 +90,8 @@ rpiv:
     - verification code, test, or application documentation failures return to Implement
     - verification plan, architecture, scope, or acceptance coverage failures return to Plan
     - must stop with a pipeline error when a stage fails
+    - must capture orchestration friction with the rpiv harness identity
+    - must require stage-specific capture, Implement drain, and Verify harvest
 rpiv-research:
   file: .github/agents/rpiv-research.agent.md
   purpose: Investigate the issue and record constraints, risks, relevant architecture, acceptance criteria, and repository findings.
@@ -103,6 +109,7 @@ rpiv-research:
     - application source code
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/research/00-research.md
+    - .harness/temp/
   templates:
     - Research Brief (Section 5.1)
   guardrails:
@@ -112,6 +119,7 @@ rpiv-research:
     - inspect existing repo code and docs before recording findings
     - record only constraints, risks, relevant ADRs and core-components, and repository findings
     - must not design solutions, create tasks, define tests, or propose architectural artifacts
+    - must capture concrete Research friction with the rpiv-research harness identity
 rpiv-planner:
   file: .github/agents/rpiv-planner.agent.md
   purpose: Own the Plan stage — read the research brief, commit architectural decisions via ADRs and core-components, then produce the action plan, task breakdown, and test plan.
@@ -133,6 +141,7 @@ rpiv-planner:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/01-action-plan.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/02-task-breakdown.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/03-test-plan.md
+    - .harness/temp/
   templates:
     - project/architecture/ADR/ADR-260101-template.md
     - project/architecture/core-components/CORE-COMPONENT-260101-template.md
@@ -153,6 +162,7 @@ rpiv-planner:
     - every task must have explicit test coverage requirements
     - every task must identify expected evidence
     - tasks must reference relevant ADRs and core-components
+    - must capture concrete Plan friction with the rpiv-planner harness identity
 rpiv-implementer:
   file: .github/agents/rpiv-implementer.agent.md
   purpose: Execute dependency-ordered tasks, maintain tests and application documentation, run configured validation, record evidence, and commit.
@@ -175,6 +185,8 @@ rpiv-implementer:
     - affected application documentation
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/02-task-breakdown.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/implementation/00-implementation.md
+    - .harness/temp/
+    - .harness/records/retro/
   templates: []
   guardrails:
     - must implement within architectural boundaries defined by ADRs and core-components
@@ -191,6 +203,8 @@ rpiv-implementer:
     - record concrete implementation evidence for every AC ID
     - commit the implementation and hand off a clean working tree
     - must not check GitHub acceptance criteria or claim final verification
+    - must drain coordinator, Research, Plan, and Implement observations before committing
+    - must commit generated retro records with implementation evidence
 rpiv-verifier:
   file: .github/agents/rpiv-verifier.agent.md
   purpose: Verify the exact committed implementation and documentation, decide acceptance, update GitHub criteria, push, and open a PR for review.
@@ -212,6 +226,8 @@ rpiv-verifier:
     - API, configuration, usage, migration, architecture, operational, and deployment documentation
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/verify/summary.md
+    - .harness/temp/
+    - .harness/records/retro/
   templates:
     - .github/PULL_REQUEST_TEMPLATE.md
   guardrails:
@@ -233,6 +249,8 @@ rpiv-verifier:
     - must not modify application source code, tests, or application documentation
     - must verify the branch is clean after all commits
     - must write summary.md to project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/verify/ after PR creation
+    - must drain verifier observations and harvest issue retros before closeout
+    - may commit only verification summary and generated verifier retro records
 issue-generator:
   file: .github/agents/issue-generator.agent.md
   purpose: Analyze codebase history for issue-quality gaps, draft a problem-focused GitHub issue with structured agent-executable acceptance criteria, dispatch a rubber-duck subagent to critique it, then create the issue via gh. Runs before the RPIV pipeline to produce feasible work without preempting RPIV Research or Plan.
