@@ -7,6 +7,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ID | Title | Status | Date |
 |----|-------|--------|------|
 | ADR-260810-typescript-node-cli | TypeScript and Node.js CLI | Accepted | 2026-08-10 |
+| ADR-260811-engineering-harness-surface | Engineering Harness Development Surface | Accepted | 2026-08-11 |
 
 ## Core-Components
 
@@ -23,6 +24,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260810-subprocess-execution | Subprocess Execution | Adopted | 2026-08-10 |
 | CORE-COMPONENT-260810-issue-worktree-locking | Issue and Worktree Locking | Adopted | 2026-08-10 |
 | CORE-COMPONENT-260810-development-standards | Development Standards | Adopted | 2026-08-10 |
+| CORE-COMPONENT-260811-engineering-harness-interface | Engineering Harness Interface | Adopted | 2026-08-11 |
 
 ## Decisions
 
@@ -62,3 +64,8 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 30 | Execute external tools through a typed adapter using validated argument arrays and redacted results | CORE-COMPONENT-260810-subprocess-execution | 2026-08-10 |
 | 31 | Acquire atomic per-issue ownership and modify or clean resources only when recorded and observed ownership agree | CORE-COMPONENT-260810-issue-worktree-locking | 2026-08-10 |
 | 32 | Enforce strict TypeScript, configured static checks, Conventional Commits, deterministic tests, and at least 80% coverage | CORE-COMPONENT-260810-development-standards | 2026-08-10 |
+| 33 | Adopt engineering harness v0.13.0 as the ambient agent-facing development surface | ADR-260811-engineering-harness-surface | 2026-08-11 |
+| 34 | Preserve root justfile command ownership behind delegating harness extensions | ADR-260811-engineering-harness-surface | 2026-08-11 |
+| 35 | Require harness boot to start the application and compose full checks | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
+| 36 | Expose focused and full harness checks through root justfile delegation | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
+| 37 | Commit harness governance, extension briefings, and cold-agent injection cues | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |

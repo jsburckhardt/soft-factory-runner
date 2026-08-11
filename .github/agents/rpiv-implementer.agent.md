@@ -27,6 +27,8 @@ You MUST preserve the resolved work-item directory name for implementation artif
 You MUST read the task breakdown before implementing.
 You MUST read the test plan before implementing.
 You MUST read every relevant ADR and core-component before implementing.
+You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
+You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
 You MUST validate that the root justfile exposes verify-focused and verify before implementation.
 You MUST treat the root justfile recipes as the validation source.
 You MUST NOT infer, invent, or auto-detect validation commands outside the root justfile.

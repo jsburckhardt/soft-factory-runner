@@ -10,6 +10,10 @@ Research → Plan → Implement → Verify
 
 Each stage has clear inputs, outputs, and artifact locations. No stage may be skipped.
 
+## Engineering Harness
+
+Provide Node.js 22+, `just`, and ambient engineering harness v0.13.0, then run `just setup`. Start autonomous work with `harness instructions` and `harness boot --json`; use `harness checks --focused --json` during tasks and `harness checks --json` for full feedback. The harness delegates to root recipes; Implement and Verify still run direct `just verify-focused` and `just verify` at their required RPIV boundaries. See [`.harness/engineering-harness.md`](.harness/engineering-harness.md).
+
 ## How to Start Work on an Issue
 
 1. **Create a GitHub Issue** describing the work to be done.

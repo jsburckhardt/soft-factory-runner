@@ -27,6 +27,8 @@ agents:
 You MUST read AGENTS.md before starting.
 You MUST read project/architecture/ADR/DECISION-LOG.md before starting.
 You MUST inspect existing documentation under docs/ and project/ before dispatching any stage.
+You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
+You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
 You MUST validate that the root justfile exposes verify-focused and verify before dispatching any stage.
 You MUST use the GitHub issue number as the pipeline identifier.
 You MUST use project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/ for pipeline artifacts.

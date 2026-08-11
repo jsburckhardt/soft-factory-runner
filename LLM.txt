@@ -7,7 +7,12 @@ package.json                                                — Node package met
 tsconfig.json                                               — Strict TypeScript compiler configuration
 eslint.config.mjs                                           — TypeScript ESLint configuration
 jest.config.cjs                                             — Jest and coverage configuration
-justfile                                                    — Canonical project setup, operation, and validation commands
+justfile                                                    — Canonical raw project setup, operation, boot, and RPIV validation commands
+.harness/engineering-harness.md                              — Canonical harness governance, lifecycle injection map, signals, and evidence contract
+.harness/extensions/boot/extension.ts                        — Structured known-state application boot and composed full checks
+.harness/extensions/boot/instructions.md                     — Agent briefing for harness boot
+.harness/extensions/checks/extension.ts                      — Structured focused/full validation delegation
+.harness/extensions/checks/instructions.md                   — Agent briefing for harness checks
 src/index.ts                                                — Minimal bootstrapped CLI entry point
 src/index.test.ts                                           — Bootstrap entry-point tests
 .devcontainer/devcontainer.json                             — Dev container configuration
@@ -33,6 +38,7 @@ project/architecture/README.md                                 — Architecture 
 project/architecture/ADR/ADR-260101-template.md                — ADR template (read-only, copy to create date-based artifacts)
 project/architecture/ADR/DECISION-LOG.md                       — Registry of all ADR and core-component decisions
 project/architecture/ADR/ADR-260810-typescript-node-cli.md      — TypeScript and Node.js CLI technology decision
+project/architecture/ADR/ADR-260811-engineering-harness-surface.md — Ambient harness development-surface decision
 project/architecture/core-components/CORE-COMPONENT-260101-template.md — Core-component template (read-only, copy to create date-based artifacts)
 project/architecture/core-components/CORE-COMPONENT-260505-commit-standards.md — Commit standards (Conventional Commits, Co-authored-by)
 project/architecture/core-components/CORE-COMPONENT-260806-rpiv-stage-contract.md — RPIV stage ownership and handoff contract
@@ -45,5 +51,6 @@ project/architecture/core-components/CORE-COMPONENT-260810-persistence-recovery.
 project/architecture/core-components/CORE-COMPONENT-260810-subprocess-execution.md — Safe external process execution contract
 project/architecture/core-components/CORE-COMPONENT-260810-issue-worktree-locking.md — Issue ownership and worktree isolation contract
 project/architecture/core-components/CORE-COMPONENT-260810-development-standards.md — TypeScript coding and testing standards
+project/architecture/core-components/CORE-COMPONENT-260811-engineering-harness-interface.md — Harness governance, boot, checks, and agent-interface contract
 project/architecture/core-components/README.md                 — Core-components index
 project/work-items/README.md                                   — Work-items index and canonical structure

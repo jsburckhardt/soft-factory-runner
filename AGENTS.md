@@ -24,6 +24,10 @@ You MUST return to the Plan stage if implementation diverges from an ADR or core
 You MUST inspect existing repo code and documentation before proposing new work.
 You MUST NOT skip any stage in the pipeline.
 You MUST keep raw project operating commands in the root justfile.
+You MUST start autonomous product-development sessions with `harness instructions` and read `.harness/engineering-harness.md`.
+You MUST run `harness boot --json` before product work and evaluate its JSON envelope and exit code.
+You MUST use `harness checks --focused --json` during implementation and `harness checks --json` for full harness feedback.
+You MUST still run direct `just verify-focused` and `just verify` at required RPIV boundaries.
 You MUST treat root justfile recipes as the default validation source for Implement and Verify.
 You MUST require the root justfile to expose verify-focused and verify before RPIV.
 You MUST enforce this RPIV boundary: RPIV orchestrates, Research investigates, Plan proves coverage, Implement builds and provides evidence, Verify decides acceptance and creates the PR.
@@ -365,3 +369,25 @@ SET VERIFY_RESULT := <OUTCOME> (from "Agent Inference" using ISSUE_NUMBER, WORK_
 <input>
 USER_INPUT is the GitHub issue number, URL, or description for pipeline routing.
 </input>
+
+<!-- BEGIN harness:commit-guidance -->
+## Committing in this repo
+
+Use `harness commit "<message>" -- <paths>` rather than a chained
+`git add … && git commit …`.
+
+A `harness commit` is **verified or named**: it probes the collector ingress,
+commits, and then tells you WHICH outcome you got. It never blocks and never
+rolls back. The outcomes are:
+
+- **confirmed** — when the collector ingress socket is reachable: harness commits with no trace2 override, waits (bounded) for the `refs/notes/ai` note, and tells you whether it landed. A landed note is the healthy shape, and a miss is reported to you rather than hidden — with the next step named in the command's own output. Nothing was buffered on this path, so there is nothing to drain.
+- **buffered and named** — when git's configured trace2 target is a plain FILE, or when the ingress is blocked, absent or unconfigured: the commit is made with its trace2 events going to a buffer file instead of the collector, so attribution is DEFERRED, not lost — and it isn't proven yet either. `harness commit` names the buffer it used; when the configured target is a plain FILE it must be pointed back at the socket first, because while it names a file there is no ingress to replay into. Drain it with `harness doctor telemetry-nudge` from an UNSANDBOXED shell. Recovery is POSIX-ONLY: the drain replays into an af_unix socket, so on a Windows host `harness doctor telemetry-nudge` refuses on platform grounds and drains nothing — the buffered events stay on disk, untouched, until they are drained from a host whose collector ingress is an af_unix socket.
+- **NOT VERIFIED on this platform** — when trace2 points at a Windows NAMED PIPE (\\.\pipe\…): the commit is made with no trace2 override (git talks to the pipe as usual), nothing was buffered, nothing was written beside the pipe — and nothing is claimed about attribution, because nothing was measured. Check for yourself with `git notes --ref=ai show HEAD`. Do NOT run `harness doctor telemetry-nudge` — there is no buffer to drain and no replay path for the named-pipe transport, and it will refuse.
+
+A chained or compound `git commit` can **silently lose attribution** — agent
+command sandboxes block git-ai's socket, git quietly disables trace2, and the
+commit's authorship may later be recorded as human.
+
+Neither shape guarantees delivery. What `harness commit` guarantees is that the
+outcome is never silent. Read `harness instructions commit` for the detail.
+<!-- END harness:commit-guidance -->

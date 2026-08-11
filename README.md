@@ -8,19 +8,19 @@ Its goal is to safely coordinate isolated, visible, and recoverable RPIV executi
 
 ## Development
 
-The root `justfile` is the project command interface:
+Install Node.js 22 or newer, `just`, and ambient `@ai-substrate/engineering-harness` v0.13.0, then run `just setup`. The harness is an external development prerequisite and is not a project dependency.
+
+Autonomous agents use the tracked engineering harness as the deterministic product-development surface:
 
 ```text
-just setup
-just run
-just test
-just lint
-just format-check
-just type-check
-just build
-just verify-focused
-just verify
+harness instructions
+harness doctor --json
+harness boot --json
+harness checks --focused --json
+harness checks --json
 ```
+
+The root `justfile` remains command authority for humans and RPIV boundaries. Discover recipes with `just --list`; direct `just verify-focused` and `just verify` remain required validation entry points. See [`.harness/engineering-harness.md`](.harness/engineering-harness.md) for governance and evidence contracts.
 
 Feature behavior is defined in [`PRD.md`](PRD.md) and must be delivered through GitHub issues and the RPIV pipeline.
 

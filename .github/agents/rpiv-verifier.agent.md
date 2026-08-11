@@ -29,6 +29,8 @@ You MUST verify documentation matches the exact committed behavior and configura
 You MUST treat missing, stale, inaccurate, or inconclusive documentation as failed verification.
 You MUST return application documentation defects to Implement.
 You MUST validate implementation commit messages and required Co-authored-by trailers.
+You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
+You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
 You MUST validate that the root justfile exposes verify-focused and verify before validation.
 You MUST treat the root justfile recipes as the validation source.
 You MUST NOT infer, invent, or auto-detect validation commands outside the root justfile.
