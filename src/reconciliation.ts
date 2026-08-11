@@ -402,8 +402,22 @@ function buildCompletedReport(
       (observation.state === "unknown" || observation.state === "mismatch"),
   );
   const explicitReady = canExplicitCleanup(persisted, observations);
+  const automaticCleanupCompleted = cleanupStepsCompleted(persisted, [
+    "worktree",
+    "lease",
+    "lock",
+  ]);
+  const explicitCleanupCompleted = cleanupStepsCompleted(persisted, [
+    "tmux",
+    "worktree",
+    "lease",
+    "lock",
+  ]);
   const attach = observations.tmux.state === "match" ? ["attach" as const] : [];
-  const explicit = explicitReady ? ["explicit_clean" as const] : [];
+  const explicit =
+    explicitReady && !explicitCleanupCompleted
+      ? ["explicit_clean" as const]
+      : [];
   if (nonGitHubProblems.length > 0)
     return report(
       persisted,
@@ -424,6 +438,17 @@ function buildCompletedReport(
       attach,
       diagnostics,
       "Preserve the completed run and restore every required exact or same-owner recorded cleanup fact.",
+    );
+
+  if (automaticCleanupCompleted)
+    return report(
+      persisted,
+      observations,
+      "inactive",
+      "CLEANUP_ALREADY_COMPLETED",
+      [...attach, ...explicit],
+      [],
+      null,
     );
 
   const merge = observations.github.facts;
@@ -466,6 +491,19 @@ function buildCompletedReport(
     [...attach, ...explicit],
     diagnostics,
     "Preserve completed state and resources; restore complete expected-PR source-head and ownership proof before automatic cleanup.",
+  );
+}
+
+function cleanupStepsCompleted(
+  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  steps: readonly CleanupStep[],
+): boolean {
+  const progress = persisted.cleanup;
+  return (
+    progress !== null &&
+    progress.ownerId === persisted.ownerId &&
+    progress.runId === persisted.runId &&
+    steps.every((step) => progress.completedSteps.includes(step))
   );
 }
 

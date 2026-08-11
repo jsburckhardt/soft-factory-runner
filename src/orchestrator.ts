@@ -1298,12 +1298,14 @@ export class IssueRunService {
         "Recorded cleanup progress belongs to a different owner or run.",
         "Preserve all resources and restore same-owner cleanup progress.",
       );
-    const previous =
-      snapshot.cleanup?.mode === mode ? snapshot.cleanup.completedSteps : [];
     const allSteps: readonly CleanupStep[] =
       mode === "explicit"
         ? ["tmux", "worktree", "lease", "lock"]
         : ["worktree", "lease", "lock"];
+    const previous = allSteps.filter(
+      (step) => snapshot.cleanup?.completedSteps.includes(step) ?? false,
+    );
+    if (previous.length === allSteps.length) return snapshot;
     let cleanup: CleanupFactsV1 = {
       mode,
       ownerId: snapshot.ownerId,
@@ -1419,7 +1421,9 @@ export class IssueRunService {
             "Preserve the replacement lock and reconcile ownership.",
           );
       }
-      const completedSteps = [...cleanup.completedSteps, step];
+      const completedSteps = allSteps.filter(
+        (entry) => cleanup.completedSteps.includes(entry) || entry === step,
+      );
       cleanup = {
         ...cleanup,
         completedSteps,

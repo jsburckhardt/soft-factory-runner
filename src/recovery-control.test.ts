@@ -88,6 +88,7 @@ function requireMerged(
 
 class ControlFiles implements FilePort {
   public readonly values = new Map<string, string>();
+  public readonly compareAndDeleteTrace: string[] = [];
   public failSnapshotAfterStep: CleanupStep | null = null;
   private failureInjected = false;
   public async readText(filePath: string) {
@@ -147,6 +148,7 @@ class ControlFiles implements FilePort {
     this.values.set(filePath, (this.values.get(filePath) ?? "") + content);
   }
   public async compareAndDelete(filePath: string, expected: string) {
+    this.compareAndDeleteTrace.push(filePath);
     if (this.values.get(filePath) !== expected) return false;
     this.values.delete(filePath);
     return true;
@@ -861,23 +863,91 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     });
   }
 
-  it("automatically removes only the clean exact worktree and issue lock for matching merged source head", async () => {
-    const f = await fixture(completed());
-    const status = await new IssueRunService(f.ports).status(5, root);
-    expect(f.git.trace).toEqual(["remove-worktree-no-force"]);
-    expect(await f.store.readOwner(5)).toBeNull();
-    expect(f.tmux.present).toBe(true);
-    expect(status.persisted).toMatchObject({
-      state: "completed",
-      cleanup: {
-        mode: "automatic_merged",
-        completedSteps: ["worktree", "lease", "lock"],
+  it.each(["status", "list", "reconcile"] as const)(
+    "automatically cleans once through %s and reports repeat reconciliation as already cleaned",
+    async (trigger) => {
+      const f = await fixture({ ...completed(), admission: lease });
+      const service = new IssueRunService(f.ports);
+      const invoke = async (): Promise<string | undefined> => {
+        if (trigger === "status") {
+          const report = (await service.status(5, root)).reconciliation;
+          expect(report.safeActions).not.toContain("automatic_clean");
+          return report.decisionCode;
+        }
+        if (trigger === "reconcile") {
+          const report = await service.reconcile(5, root);
+          expect(report.safeActions).not.toContain("automatic_clean");
+          return report.decisionCode;
+        }
+        const listed = await service.list(root);
+        expect(listed.code).toBe("INVENTORY_READY");
+        return listed.facts.find((entry) => entry.issueNumber === 5)?.code;
+      };
+
+      await expect(invoke()).resolves.toBe("CLEANUP_ALREADY_COMPLETED");
+      expect(f.git.trace).toEqual(["remove-worktree-no-force"]);
+      expect(f.files.compareAndDeleteTrace).toEqual([
+        f.store.leasePath(lease.slot),
+        f.store.lockPath(5),
+      ]);
+      expect(await f.store.readLease(lease.slot)).toBeNull();
+      expect(await f.store.readOwner(5)).toBeNull();
+      expect(f.tmux.trace).toEqual([]);
+      expect(f.tmux.present).toBe(true);
+
+      const cleaned = await f.store.load(5);
+      expect(cleaned).toMatchObject({
+        state: "completed",
+        admission: null,
+        cleanup: {
+          mode: "automatic_merged",
+          completedSteps: ["worktree", "lease", "lock"],
+          remainingSteps: [],
+        },
+        mergedPullRequest: {
+          sourceHeadSha: sha,
+          mergeCommitSha: "b".repeat(40),
+        },
+      });
+      expect(cleaned.branch).toBe(branch);
+      expect(f.files.values.has(f.store.eventsPath(5))).toBe(true);
+      expect(f.files.values.has(f.store.snapshotPath(5))).toBe(true);
+      const cleanedRevision = cleaned.revision;
+      const cleanedEventCount = (await f.store.loadHistory(5)).length;
+      const destructiveTrace = {
+        git: [...f.git.trace],
+        tmux: [...f.tmux.trace],
+        compareAndDelete: [...f.files.compareAndDeleteTrace],
+      };
+
+      await expect(invoke()).resolves.toBe("CLEANUP_ALREADY_COMPLETED");
+      expect((await f.store.load(5)).revision).toBe(cleanedRevision);
+      expect(await f.store.loadHistory(5)).toHaveLength(cleanedEventCount);
+      expect({
+        git: f.git.trace,
+        tmux: f.tmux.trace,
+        compareAndDelete: f.files.compareAndDeleteTrace,
+      }).toEqual(destructiveTrace);
+    },
+  );
+
+  it("lets explicit clean remove retained tmux after automatic cleanup without repeating prior steps", async () => {
+    const f = await fixture({ ...completed(), admission: lease });
+    const service = new IssueRunService(f.ports);
+    await service.status(5, root);
+    const worktreeCalls = [...f.git.trace];
+    const deleteCalls = [...f.files.compareAndDeleteTrace];
+
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_COMPLETED",
+      exitCode: 0,
+      facts: {
+        completedSteps: ["tmux", "worktree", "lease", "lock"],
       },
-      mergedPullRequest: { sourceHeadSha: sha, mergeCommitSha: "b".repeat(40) },
     });
-    expect(status.persisted.branch).toBe(branch);
-    expect(f.files.values.has(f.store.eventsPath(5))).toBe(true);
-    expect(f.files.values.has(f.store.snapshotPath(5))).toBe(true);
+    expect(f.tmux.trace).toEqual(["capture", "remove-window"]);
+    expect(f.git.trace).toEqual(worktreeCalls);
+    expect(f.files.compareAndDeleteTrace).toEqual(deleteCalls);
   });
 
   it("returns an idempotent already-cleaned result after explicit cleanup", async () => {
