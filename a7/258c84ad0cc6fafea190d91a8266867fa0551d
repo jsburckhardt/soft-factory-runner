@@ -1,0 +1,121 @@
+.github/agents/rpiv-verifier.agent.md
+  s_a9bdb675ebcad7::t_4405597bd44688 142,224-227,242,261,395-396
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 34-39,61,87,179-180,205-206,216-223,238-241,243,248-249,377,391,399-400
+  s_a9bdb675ebcad7::t_616908c06ebfe7 228-237,244-247
+project/architecture/ADR/DECISION-LOG.md
+  s_a9bdb675ebcad7::t_616908c06ebfe7 72-73
+.harness/.gitignore
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 3-5
+.github/agents/rpiv-research.agent.md
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 32-34,135,142-147
+  s_a9bdb675ebcad7::t_4405597bd44688 51
+AGENTS.md
+  s_a9bdb675ebcad7::t_4405597bd44688 80,93-94,112,122,144,165,188-189,206-207,229-230,252-253
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 31
+  s_a9bdb675ebcad7::t_27a83934f74845 32-33
+.harness/engineering-harness.md
+  s_a9bdb675ebcad7::t_616908c06ebfe7 27-33,41-43
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 25-26,34,51-52,59,62-63
+.github/agents/rpiv.agent.md
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 32-35,263,277,298,319
+.github/agents/rpiv-implementer.agent.md
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 32-36,90-95,121-123,136,182,199,203,315-323,338-340,345,359
+  s_a9bdb675ebcad7::t_4405597bd44688 159,214,324-327
+  s_a9bdb675ebcad7::t_616908c06ebfe7 328-337
+.github/agents/rpiv-planner.agent.md
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 30-32,401,417-420
+  s_a9bdb675ebcad7::t_1a3430944addc5 421-422
+project/architecture/core-components/CORE-COMPONENT-260811-engineering-harness-interface.md
+  s_a9bdb675ebcad7::t_13b7f8630d5cb1 25,29,69
+  s_a9bdb675ebcad7::t_616908c06ebfe7 26-28,37-39
+.harness/records/retro/2026-08-11/001-issue-2-rpiv.md
+  s_a9bdb675ebcad7::t_dfc31784f36f39 1-6,9,14-16,24,43-44,46
+  s_a9bdb675ebcad7::t_5ad1e4e413e27a 7-8,10-11,17-23,25-28,45,47
+  s_a9bdb675ebcad7::t_d2960e7221d5f2 12-13,29-42
+skills-lock.json
+  s_a9bdb675ebcad7::t_02f56d2fc38d0e 1-40
+.agents/skills/eng-harness-0-harnessability-assessment/AUTHORING.md
+  s_a9bdb675ebcad7::t_59bab14a7cf222 1-106
+.agents/skills/eng-harness-0-harnessability-assessment/README.md
+  s_a9bdb675ebcad7::t_9c632ad5c22cc7 1-63
+.agents/skills/eng-harness-0-harnessability-assessment/SKILL.md
+  s_a9bdb675ebcad7::t_77f9d64befef14 1-1102
+.agents/skills/eng-harness-0-harnessability-assessment/templates/assessment-latest.json
+  s_a9bdb675ebcad7::t_6cdab5af80a3e8 1-239
+.agents/skills/eng-harness-0-harnessability-assessment/templates/assessment-latest.md
+  s_a9bdb675ebcad7::t_fe1d322fd31124 1-244
+.agents/skills/eng-harness-0-harnessability-assessment/templates/assessment-report.md
+  s_a9bdb675ebcad7::t_6b5e16649955f9 1-185
+.agents/skills/eng-harness-0-harnessability-assessment/templates/assessment-report.schema.json
+  s_a9bdb675ebcad7::t_8724eed74a199e 1-679
+.agents/skills/eng-harness-0-harnessability-assessment/templates/canonical-boundary.txt
+  s_a9bdb675ebcad7::t_2069672c2ef132 1-2
+.agents/skills/eng-harness-0-harnessability-assessment/templates/codebase-affordance-record.json
+  s_a9bdb675ebcad7::t_983a68f6474843 1-21
+.agents/skills/eng-harness-0-harnessability-assessment/templates/evidence-log.jsonl
+  s_a9bdb675ebcad7::t_eb787315d201fe 1-2
+.agents/skills/eng-harness-0-harnessability-assessment/templates/summary.md
+  s_a9bdb675ebcad7::t_e21c986f029028 1-27
+.agents/skills/eng-harness-flow/SKILL.md
+  s_a9bdb675ebcad7::t_5d940bbce0374e 1-161
+.agents/skills/eng-harness-flow/references/00-routing.md
+  s_a9bdb675ebcad7::t_0b3b1b3c9334e6 1-422
+.agents/skills/eng-harness-flow/references/coach.md
+  s_a9bdb675ebcad7::t_6cb89dd05d58d3 1-136
+.agents/skills/eng-harness-flow/references/flight-plan-ops.md
+  s_a9bdb675ebcad7::t_8c4c24fbd2493c 1-205
+.agents/skills/eng-harness-flow/references/getting-started.md
+  s_a9bdb675ebcad7::t_e75fc3a1c2719f 1-307
+.agents/skills/eng-harness-flow/references/governance-doc.md
+  s_a9bdb675ebcad7::t_c7a52d225b8d9b 1-71
+.agents/skills/eng-harness-flow/references/maturity-assessment.md
+  s_a9bdb675ebcad7::t_bfa3314788c7aa 1-44
+.agents/skills/eng-harness-flow/references/retro.schema.json
+  s_a9bdb675ebcad7::t_6c5af089b7883e 1-141
+.agents/skills/eng-harness-flow/references/stages/add-extension.md
+  s_a9bdb675ebcad7::t_df20629f569d07 1-95
+.agents/skills/eng-harness-flow/references/stages/adopt.md
+  s_a9bdb675ebcad7::t_b58ea4b92ae7e8 1-268
+.agents/skills/eng-harness-flow/references/stages/backpressure.md
+  s_a9bdb675ebcad7::t_5515446d6bc489 1-273
+.agents/skills/eng-harness-flow/references/stages/boot.md
+  s_a9bdb675ebcad7::t_178ba640faeec1 1-169
+.agents/skills/eng-harness-flow/references/stages/retro.md
+  s_a9bdb675ebcad7::t_4c08eb2d6513d4 1-543
+.agents/skills/eng-harness-in-a-box/SKILL.md
+  s_a9bdb675ebcad7::t_4a88eb11bc4597 1-69
+.agents/skills/grill-agent-done/SKILL.md
+  s_a9bdb675ebcad7::t_9c1a966f0b150e 1-70
+.agents/skills/plan-0-v2-constitution/SKILL.md
+  s_a9bdb675ebcad7::t_cee2a9d2f85b3a 1-470
+.agents/skills/plan-v2-extract-domain/SKILL.md
+  s_a9bdb675ebcad7::t_b2b10c180221f8 1-410
+.agents/skills/validate-v2/SKILL.md
+  s_a9bdb675ebcad7::t_973326935f5ca7 1-209
+.agents/skills/validate-v2/references/artifact-checks.md
+  s_a9bdb675ebcad7::t_94a8c78b9981eb 1-53
+.agents/skills/validate-v2/references/contract-and-forward-compatibility.md
+  s_a9bdb675ebcad7::t_70c3db44490a80 1-80
+.agents/skills/validate-v2/references/examples.md
+  s_a9bdb675ebcad7::t_5a8f516da364d6 1-41
+.agents/skills/validate-v2/references/record-template.md
+  s_a9bdb675ebcad7::t_a80519da9c8853 1-43
+.harness/skills.lock.json
+  s_a9bdb675ebcad7::t_b165bdef83ce02 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a7258c84ad0cc6fafea190d91a8266867fa0551d",
+  "prompts": {},
+  "sessions": {
+    "s_a9bdb675ebcad7": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "877500c8-cba6-4eff-8fc4-8b9e7f315e16",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
