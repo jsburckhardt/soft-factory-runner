@@ -21,6 +21,10 @@ type-check:
 build:
     npm run build
 
+boot:
+    npm run build
+    npm run start
+
 verify-focused *args:
     npm run test:focused -- {{args}}
     git diff --check

@@ -24,6 +24,13 @@ You MUST return to the Plan stage if implementation diverges from an ADR or core
 You MUST inspect existing repo code and documentation before proposing new work.
 You MUST NOT skip any stage in the pipeline.
 You MUST keep raw project operating commands in the root justfile.
+You MUST start autonomous product-development sessions with `harness instructions` and read `.harness/engineering-harness.md`.
+You MUST run `harness boot --json` before product work and evaluate its JSON envelope and exit code.
+You MUST use `harness checks --focused --json` during implementation and `harness checks --json` for full harness feedback.
+You MUST still run direct `just verify-focused` and `just verify` at required RPIV boundaries.
+You MUST capture concrete RPIV workflow friction when it occurs with `harness observe` and the current RPIV stage identity.
+You MUST require Implement to drain repository-shared coordinator, Research, Plan, and Implement observations into tracked `.harness/records/retro/` records before committing and clear each buffer only after durable read-back.
+You MUST require Verify to drain verifier observations under the same read-back-before-clear rule, validate the plan-scoped issue retro harvest, and include the result in verification metadata.
 You MUST treat root justfile recipes as the default validation source for Implement and Verify.
 You MUST require the root justfile to expose verify-focused and verify before RPIV.
 You MUST enforce this RPIV boundary: RPIV orchestrates, Research investigates, Plan proves coverage, Implement builds and provides evidence, Verify decides acceptance and creates the PR.
@@ -70,6 +77,7 @@ rpiv:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/
+    - .harness/temp/
   templates: []
   guardrails:
     - must create or confirm the issue feature branch before Research
@@ -82,6 +90,8 @@ rpiv:
     - verification code, test, or application documentation failures return to Implement
     - verification plan, architecture, scope, or acceptance coverage failures return to Plan
     - must stop with a pipeline error when a stage fails
+    - must capture orchestration friction with the rpiv harness identity
+    - must require stage-specific capture, Implement drain, and Verify harvest
 rpiv-research:
   file: .github/agents/rpiv-research.agent.md
   purpose: Investigate the issue and record constraints, risks, relevant architecture, acceptance criteria, and repository findings.
@@ -99,6 +109,7 @@ rpiv-research:
     - application source code
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/research/00-research.md
+    - .harness/temp/
   templates:
     - Research Brief (Section 5.1)
   guardrails:
@@ -108,6 +119,7 @@ rpiv-research:
     - inspect existing repo code and docs before recording findings
     - record only constraints, risks, relevant ADRs and core-components, and repository findings
     - must not design solutions, create tasks, define tests, or propose architectural artifacts
+    - must capture concrete Research friction with the rpiv-research harness identity
 rpiv-planner:
   file: .github/agents/rpiv-planner.agent.md
   purpose: Own the Plan stage — read the research brief, commit architectural decisions via ADRs and core-components, then produce the action plan, task breakdown, and test plan.
@@ -129,6 +141,7 @@ rpiv-planner:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/01-action-plan.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/02-task-breakdown.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/03-test-plan.md
+    - .harness/temp/
   templates:
     - project/architecture/ADR/ADR-260101-template.md
     - project/architecture/core-components/CORE-COMPONENT-260101-template.md
@@ -149,6 +162,7 @@ rpiv-planner:
     - every task must have explicit test coverage requirements
     - every task must identify expected evidence
     - tasks must reference relevant ADRs and core-components
+    - must capture concrete Plan friction with the rpiv-planner harness identity
 rpiv-implementer:
   file: .github/agents/rpiv-implementer.agent.md
   purpose: Execute dependency-ordered tasks, maintain tests and application documentation, run configured validation, record evidence, and commit.
@@ -171,6 +185,8 @@ rpiv-implementer:
     - affected application documentation
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/plan/02-task-breakdown.md
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/implementation/00-implementation.md
+    - .harness/temp/
+    - .harness/records/retro/
   templates: []
   guardrails:
     - must implement within architectural boundaries defined by ADRs and core-components
@@ -187,6 +203,8 @@ rpiv-implementer:
     - record concrete implementation evidence for every AC ID
     - commit the implementation and hand off a clean working tree
     - must not check GitHub acceptance criteria or claim final verification
+    - must drain coordinator, Research, Plan, and Implement observations before committing
+    - must commit generated retro records with implementation evidence
 rpiv-verifier:
   file: .github/agents/rpiv-verifier.agent.md
   purpose: Verify the exact committed implementation and documentation, decide acceptance, update GitHub criteria, push, and open a PR for review.
@@ -208,6 +226,8 @@ rpiv-verifier:
     - API, configuration, usage, migration, architecture, operational, and deployment documentation
   write_paths:
     - project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/verify/summary.md
+    - .harness/temp/
+    - .harness/records/retro/
   templates:
     - .github/PULL_REQUEST_TEMPLATE.md
   guardrails:
@@ -229,6 +249,8 @@ rpiv-verifier:
     - must not modify application source code, tests, or application documentation
     - must verify the branch is clean after all commits
     - must write summary.md to project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/verify/ after PR creation
+    - must drain verifier observations and harvest issue retros before closeout
+    - may commit only verification summary and generated verifier retro records
 issue-generator:
   file: .github/agents/issue-generator.agent.md
   purpose: Analyze codebase history for issue-quality gaps, draft a problem-focused GitHub issue with structured agent-executable acceptance criteria, dispatch a rubber-duck subagent to critique it, then create the issue via gh. Runs before the RPIV pipeline to produce feasible work without preempting RPIV Research or Plan.
@@ -365,3 +387,25 @@ SET VERIFY_RESULT := <OUTCOME> (from "Agent Inference" using ISSUE_NUMBER, WORK_
 <input>
 USER_INPUT is the GitHub issue number, URL, or description for pipeline routing.
 </input>
+
+<!-- BEGIN harness:commit-guidance -->
+## Committing in this repo
+
+Use `harness commit "<message>" -- <paths>` rather than a chained
+`git add … && git commit …`.
+
+A `harness commit` is **verified or named**: it probes the collector ingress,
+commits, and then tells you WHICH outcome you got. It never blocks and never
+rolls back. The outcomes are:
+
+- **confirmed** — when the collector ingress socket is reachable: harness commits with no trace2 override, waits (bounded) for the `refs/notes/ai` note, and tells you whether it landed. A landed note is the healthy shape, and a miss is reported to you rather than hidden — with the next step named in the command's own output. Nothing was buffered on this path, so there is nothing to drain.
+- **buffered and named** — when git's configured trace2 target is a plain FILE, or when the ingress is blocked, absent or unconfigured: the commit is made with its trace2 events going to a buffer file instead of the collector, so attribution is DEFERRED, not lost — and it isn't proven yet either. `harness commit` names the buffer it used; when the configured target is a plain FILE it must be pointed back at the socket first, because while it names a file there is no ingress to replay into. Drain it with `harness doctor telemetry-nudge` from an UNSANDBOXED shell. Recovery is POSIX-ONLY: the drain replays into an af_unix socket, so on a Windows host `harness doctor telemetry-nudge` refuses on platform grounds and drains nothing — the buffered events stay on disk, untouched, until they are drained from a host whose collector ingress is an af_unix socket.
+- **NOT VERIFIED on this platform** — when trace2 points at a Windows NAMED PIPE (\\.\pipe\…): the commit is made with no trace2 override (git talks to the pipe as usual), nothing was buffered, nothing was written beside the pipe — and nothing is claimed about attribution, because nothing was measured. Check for yourself with `git notes --ref=ai show HEAD`. Do NOT run `harness doctor telemetry-nudge` — there is no buffer to drain and no replay path for the named-pipe transport, and it will refuse.
+
+A chained or compound `git commit` can **silently lose attribution** — agent
+command sandboxes block git-ai's socket, git quietly disables trace2, and the
+commit's authorship may later be recorded as human.
+
+Neither shape guarantees delivery. What `harness commit` guarantees is that the
+outcome is never silent. Read `harness instructions commit` for the detail.
+<!-- END harness:commit-guidance -->

@@ -23,3 +23,7 @@ Templates are read-only references — copy and rename them, don't edit them dir
 - `core-components/CORE-COMPONENT-260101-template.md` — copy within `core-components/` and name the artifact `CORE-COMPONENT-yymmdd-short-slug.md`
 
 Use the UTC creation date for `yymmdd`. The full date-and-slug basename is the artifact ID, and the date remains unchanged after later edits.
+
+## Adopted Development Surface
+
+[`ADR-260811-engineering-harness-surface`](ADR/ADR-260811-engineering-harness-surface.md) adopts the ambient harness, and [`CORE-COMPONENT-260811-engineering-harness-interface`](core-components/CORE-COMPONENT-260811-engineering-harness-interface.md) defines its tracked governance, boot, checks, and cold-agent contract.

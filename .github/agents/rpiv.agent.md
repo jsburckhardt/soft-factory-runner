@@ -27,6 +27,12 @@ agents:
 You MUST read AGENTS.md before starting.
 You MUST read project/architecture/ADR/DECISION-LOG.md before starting.
 You MUST inspect existing documentation under docs/ and project/ before dispatching any stage.
+You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
+You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
+You MUST capture orchestration, dispatch, and handoff friction when it occurs with `harness observe` using agent identity rpiv.
+You MUST require every stage prompt to capture concrete friction using its RPIV stage identity.
+You MUST require Implement to drain coordinator, Research, Plan, and Implement buffers before committing.
+You MUST require Verify to drain verifier friction and harvest issue retros before closeout.
 You MUST validate that the root justfile exposes verify-focused and verify before dispatching any stage.
 You MUST use the GitHub issue number as the pipeline identifier.
 You MUST use project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/ for pipeline artifacts.
@@ -254,6 +260,7 @@ ELSE:
 <process id="dispatch-research" name="Dispatch Research">
 SET CURRENT_STAGE := "research" (from "Agent Inference")
 SET RESEARCH_PROMPT := <PROMPT> (from "Agent Inference" using ISSUE_NUMBER, ISSUE_JSON, BRANCH_NAME, WORK_ITEM_PATH; require research-only findings and the exact work-item path)
+SET RESEARCH_PROMPT := <PROMPT> (from "Agent Inference" using RESEARCH_PROMPT; require immediate friction capture with harness observe --agent rpiv-research)
 USE `agent/runSubagent` where: agent="rpiv-research", prompt=RESEARCH_PROMPT
 CAPTURE RESEARCH_RESULT from `agent/runSubagent`
 SET RESEARCH_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /research/00-research.md)
@@ -267,6 +274,7 @@ IF PIPELINE_STATUS != "error":
 <process id="dispatch-plan" name="Dispatch Plan and validate acceptance coverage">
 SET CURRENT_STAGE := "plan" (from "Agent Inference")
 SET PLAN_PROMPT := <PROMPT> (from "Agent Inference" using ISSUE_NUMBER, ISSUE_JSON, WORK_ITEM_PATH, RESEARCH_BRIEF, VERIFY_RESULT)
+SET PLAN_PROMPT := <PROMPT> (from "Agent Inference" using PLAN_PROMPT; require immediate friction capture with harness observe --agent rpiv-planner)
 USE `agent/runSubagent` where: agent="rpiv-planner", prompt=PLAN_PROMPT
 CAPTURE PLAN_RESULT from `agent/runSubagent`
 SET ACTION_PLAN_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /plan/01-action-plan.md)
@@ -287,6 +295,7 @@ IF PIPELINE_STATUS != "error":
 <process id="dispatch-implement" name="Dispatch Implement and validate committed handoff">
 SET CURRENT_STAGE := "implement" (from "Agent Inference")
 SET IMPLEMENT_PROMPT := <PROMPT> (from "Agent Inference" using ISSUE_NUMBER, WORK_ITEM_PATH, BRANCH_NAME, PLAN_HANDOFF, VERIFY_RESULT)
+SET IMPLEMENT_PROMPT := <PROMPT> (from "Agent Inference" using IMPLEMENT_PROMPT; require immediate friction capture with harness observe --agent rpiv-implementer and draining all pre-verification RPIV buffers before commit)
 USE `agent/runSubagent` where: agent="rpiv-implementer", prompt=IMPLEMENT_PROMPT
 CAPTURE IMPLEMENT_RESULT from `agent/runSubagent`
 SET IMPLEMENTATION_NOTES_PATH := <PATH> (from "Agent Inference" using WORK_ITEM_PATH; append /implementation/00-implementation.md)
@@ -307,6 +316,7 @@ IF PIPELINE_STATUS != "error":
 <process id="dispatch-verify" name="Dispatch Verify against the implementation handoff">
 SET CURRENT_STAGE := "verify" (from "Agent Inference")
 SET VERIFY_PROMPT := <PROMPT> (from "Agent Inference" using ISSUE_NUMBER, WORK_ITEM_PATH, PLAN_HANDOFF, IMPLEMENT_HANDOFF)
+SET VERIFY_PROMPT := <PROMPT> (from "Agent Inference" using VERIFY_PROMPT; require immediate friction capture with harness observe --agent rpiv-verifier, verifier-buffer drain, and issue-retro harvest before closeout)
 USE `agent/runSubagent` where: agent="rpiv-verifier", prompt=VERIFY_PROMPT
 CAPTURE VERIFY_RESULT from `agent/runSubagent`
 SET PIPELINE_STATUS := <STATUS> (from "Agent Inference" using VERIFY_RESULT)

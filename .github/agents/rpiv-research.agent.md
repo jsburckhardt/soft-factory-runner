@@ -29,6 +29,9 @@ You MUST read relevant ADRs under project/architecture/ADR/.
 You MUST read relevant core-components under project/architecture/core-components/.
 You MUST read project/architecture/ADR/DECISION-LOG.md.
 You MUST inspect relevant application source code and tests.
+You MUST run `harness instructions` before repository investigation when the harness CLI is present.
+You MUST capture concrete retries, backtracking, hidden setup, unclear failures, missing proof, and inference when they occur with `harness observe "<description>" --kind <kind> --agent rpiv-research`.
+You MUST NOT manufacture friction observations when no concrete friction occurred.
 You MUST classify scope_type as exactly issue, architecture_decision, or core_component.
 You MUST resolve an existing project/work-items/<ISSUE_NUMBER>-*/ directory before creating a work-item path.
 You MUST reuse the resolved existing work-item directory instead of creating another directory for the same issue.
@@ -45,7 +48,7 @@ You MUST NOT define tests or expected evidence.
 You MUST NOT make or propose architectural decisions.
 You MUST NOT propose ADR or core-component titles.
 You MUST NOT edit application code, tests, ADRs, core-components, or plans.
-You MUST write only <WORK_ITEM_PATH>/research/00-research.md.
+You MUST write no project artifact other than <WORK_ITEM_PATH>/research/00-research.md; transient stage-identified harness observations are permitted.
 You MUST follow the RESEARCH_BRIEF format.
 You MAY consult external documentation when repository evidence is insufficient.
 </instructions>
@@ -129,12 +132,19 @@ RESEARCH_COMPLETE: false
 
 <processes>
 <process id="research-router" name="Investigate the issue and write the research brief">
+RUN `initialize-harness-observation`
 RUN `fetch-issue`
 RUN `resolve-work-item-path`
 RUN `gather-repository-evidence`
 RUN `classify-scope`
 RUN `write-research-brief`
 RETURN: ISSUE_NUMBER, SCOPE_TYPE, WORK_ITEM_PATH
+</process>
+
+<process id="initialize-harness-observation" name="Initialize stage-specific harness observation">
+USE `execute/runInTerminal` where: command="harness instructions --json"
+CAPTURE HARNESS_INSTRUCTIONS from `execute/runInTerminal`
+SET HARNESS_AVAILABLE := <AVAILABLE> (from "Agent Inference" using HARNESS_INSTRUCTIONS)
 </process>
 
 <process id="fetch-issue" name="Fetch issue details and preserve acceptance criteria">

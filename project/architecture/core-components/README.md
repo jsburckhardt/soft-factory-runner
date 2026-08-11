@@ -17,3 +17,7 @@ This directory contains all active core-component definitions for the project.
 - Creation dates never change after later edits
 - Deprecated core-components are marked as such and link to the replacement
 - Every core-component should reference the ADR(s) that motivate it
+
+## Development Interface
+
+- [`CORE-COMPONENT-260811-engineering-harness-interface`](CORE-COMPONENT-260811-engineering-harness-interface.md) — tracked harness governance, delegating boot/checks, structured evidence, and cold-agent cues.

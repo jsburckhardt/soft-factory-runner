@@ -27,6 +27,9 @@ You MUST read the decision log at DECISION_LOG_PATH before creating any ADR or c
 You MUST read all existing ADRs under project/architecture/ADR/ before creating new ones.
 You MUST read all existing core-components under project/architecture/core-components/ before creating new ones.
 You MUST inspect application source code before creating tasks.
+You MUST run `harness instructions` before planning when the harness CLI is present.
+You MUST capture concrete retries, backtracking, hidden constraints, unclear failures, missing proof, and inference when they occur with `harness observe "<description>" --kind <kind> --agent rpiv-planner`.
+You MUST NOT manufacture friction observations when no concrete friction occurred.
 You MUST assign stable acceptance criterion IDs in issue order using AC-1, AC-2, and subsequent integers.
 You MUST preserve each GitHub acceptance criterion text when assigning its stable ID.
 You MUST map every AC-* ID to implementation tasks.
@@ -395,6 +398,7 @@ TEST_PLAN_COMPLETE: false
 
 <processes>
 <process id="planner-router" name="Route planner request through architecture then task planning">
+RUN `initialize-harness-observation`
 IF CURRENT_ISSUE_NUMBER is empty:
   RUN `load-context`
 IF ARCHITECTURE_COMPLETE is false:
@@ -408,6 +412,12 @@ IF BREAKDOWN_COMPLETE is false:
 IF TEST_PLAN_COMPLETE is false:
   RUN `create-test-plan`
 RETURN: WORK_ITEM_PATH, CREATED_ADRS, CREATED_CORE_COMPONENTS, TASKS, TESTS
+</process>
+
+<process id="initialize-harness-observation" name="Initialize stage-specific harness observation">
+USE `execute/runInTerminal` where: command="harness instructions --json"
+CAPTURE HARNESS_INSTRUCTIONS from `execute/runInTerminal`
+SET HARNESS_AVAILABLE := <AVAILABLE> (from "Agent Inference" using HARNESS_INSTRUCTIONS)
 </process>
 
 <process id="load-context" name="Load research brief and existing artifacts">

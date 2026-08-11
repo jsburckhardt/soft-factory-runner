@@ -10,4 +10,6 @@ The product contract currently lives in [`PRD.md`](../PRD.md). Application docum
 - recovery and operational runbooks
 - installation, migration, and deployment guidance
 
-Use the root `justfile` for setup, development, and validation. For architecture decisions, shared behavioral contracts, and work-item artifacts, see [`project/`](../project/).
+Autonomous development starts with `harness instructions` and the canonical governance contract at [`.harness/engineering-harness.md`](../.harness/engineering-harness.md). Use `harness boot --json` before product work, focused/full `harness checks` while working, and direct root `justfile` validation at RPIV boundaries. The ambient harness v0.13.0 is an external prerequisite, not an npm dependency.
+
+For architecture decisions, shared behavioral contracts, and work-item artifacts, see [`project/`](../project/).
