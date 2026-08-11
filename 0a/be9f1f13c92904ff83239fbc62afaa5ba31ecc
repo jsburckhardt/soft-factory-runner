@@ -1,0 +1,34 @@
+src/recovery-control.test.ts
+  s_7bdfb6fe1c3d9d::t_f702bcdae91a90 91,151,866-871,882-945,948-950
+  s_7bdfb6fe1c3d9d::t_b68869f95523e4 872-881
+src/reconciliation.ts
+  s_7bdfb6fe1c3d9d::t_759fc567ff4e07 405-415,417-420,443-453,497-506
+  s_7bdfb6fe1c3d9d::t_64a3728c949549 507-509
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/implementation/00-implementation.md
+  s_7bdfb6fe1c3d9d::t_9f4adeef429d80 8-11,22,24,28-39,60,63,65,67,71,73-75,79-80,84-87,93-94,96,106,109,115-119
+  s_7bdfb6fe1c3d9d::t_955af139d0919f 61
+.harness/records/retro/2026-08-11/024-issue-5-rpiv.md
+  s_7bdfb6fe1c3d9d::t_74c7426645b8f8 1-6,9,14,23,28-29,31
+  s_7bdfb6fe1c3d9d::t_afaceee94f26ea 7-8,10-13,15-22,24-27,30,32
+.harness/records/retro/2026-08-11/025-issue-5-rpiv-implementer.md
+  s_7bdfb6fe1c3d9d::t_afaceee94f26ea 7-8,10-13,17-23,25-42,45,47
+  s_7bdfb6fe1c3d9d::t_74c7426645b8f8 1-6,9,14-16,24,43-44,46
+src/orchestrator.ts
+  s_7bdfb6fe1c3d9d::t_759fc567ff4e07 1305-1308,1424-1426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0abe9f1f13c92904ff83239fbc62afaa5ba31ecc",
+  "prompts": {},
+  "sessions": {
+    "s_7bdfb6fe1c3d9d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_9TV2WFdI1ZYd5N9sDYvbGYoM",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
