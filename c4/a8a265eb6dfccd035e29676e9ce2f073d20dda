@@ -1,0 +1,26 @@
+.harness/records/retro/2026-08-11/010-issue-3-rpiv-verifier.md
+  s_2056afa294bb26::t_ae77435fb73f85 7-8,10-13,17-23,25-42,45,47
+  s_2056afa294bb26::t_f2893eb507832d 1-6,9,14-16,24,43-44,46
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/verify/summary.md
+  s_2056afa294bb26::t_5f62445691a703 1-49,52,54-57
+  s_2056afa294bb26::t_1f4085db9ccf53 50-51,53
+.harness/records/retro/2026-08-11/011-issue-3-rpiv-verifier-signing.md
+  s_2056afa294bb26::t_8fa561901f49a0 7-8,10-13,17-23,25-28,31,33
+  s_2056afa294bb26::t_f104c832bfc4cd 1-6,9,14-16,24,29-30,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c4a8a265eb6dfccd035e29676e9ce2f073d20dda",
+  "prompts": {},
+  "sessions": {
+    "s_2056afa294bb26": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_3PnVZCHJYJW1FswOVbOhCLqd",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
