@@ -9,8 +9,8 @@ const guide = fs.readFileSync(
 );
 const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
 
-describe("Phase 1 operator documentation", () => {
-  it("documents the supported command and configuration contracts", () => {
+describe("Phase 2 operator documentation", () => {
+  it("documents commands, configuration, artifact schema, and command authority", () => {
     for (const phrase of [
       "just run run --issue <positive-integer> [--json]",
       "just run status <positive-integer> [--json]",
@@ -19,45 +19,88 @@ describe("Phase 1 operator documentation", () => {
       "repository.base_branch",
       "feature: feat",
       "FetchedBaseProofV1",
-      "ISSUE_ALREADY_OWNED",
-      "RESOURCE_OWNERSHIP_UNKNOWN",
-    ]) {
+      "AgentResultV1",
+      "agent-result.json",
+      "issueNumber",
+      "outcome",
+      "branch",
+      "headSha",
+      "prNumber",
+      "acceptanceCriteria",
+      "validations",
+      "completedAt",
+      "just verify-focused",
+      "just verify",
+    ])
       expect(guide).toContain(phrase);
-    }
     expect(readme).toContain("just run --help");
     expect(readme).toContain("just run run --issue 3");
+    expect(readme).toContain("agent-result.json");
     expect(readme).not.toMatch(/^soft-factory\s/m);
     expect(guide).not.toMatch(/^soft-factory\s/m);
   });
 
-  it("documents exact Issue 3 telemetry, ambient worktree protection, and deferrals", () => {
-    expect(guide).toContain(
+  it("documents persistence, terminal states, conjunction, rejection matrix, and deferrals", () => {
+    for (const phrase of [
+      "RunSnapshotV2",
+      "event append failure",
+      "legacy snapshot",
+      "`completed`",
+      "`failed`",
+      "`blocked`",
+      "`cancelled`",
+      "`interrupted`",
+      "local HEAD",
+      "remote branch SHA",
+      "open PR",
+      "closes the issue",
+      "every isolated mismatch",
+      "RESULT_MISSING",
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Restart recovery",
+      "resume",
+      "stop mechanics",
+      "cleanup",
+      "multiple-issue scheduling",
       "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
-    );
-    expect(guide).toContain("/workspaces/soft-factory-runner/.trees/3");
-    expect(guide).toContain(
+      "/workspaces/soft-factory-runner/.trees/3",
+    ])
+      expect(guide).toContain(phrase);
+    expect(guide).not.toContain(
       "zero Copilot exit is **`interrupted`**, never `completed`",
     );
-    for (const deferral of [
-      "restart recovery",
-      "resume",
-      "stop",
-      "clean",
-      "post-launch pull-request reconciliation",
-      "multiple-issue scheduling",
-    ]) {
-      expect(guide).toContain(deferral);
-    }
+    expect(readme).not.toContain("until a later completion protocol exists");
   });
 
+  it("names authoritative remote proof, incomplete classifications, and stale-cache divergence", () => {
+    const command =
+      "git ls-remote --refs <selected-remote> refs/heads/<issue-branch>";
+    expect(readme).toContain(command);
+    expect(guide).toContain(command);
+    for (const phrase of [
+      "15-second timeout",
+      "no shell",
+      "never reads `refs/remotes/...`",
+      "Zero records are missing proof",
+      "duplicate records",
+      "wrong ref",
+      "COMPLETION_PROOF_INCOMPLETE",
+      "RESULT_REMOTE_SHA_MISMATCH",
+      "stale-cache divergence fixture",
+      "SHA A",
+      "SHA B",
+    ])
+      expect(guide).toContain(phrase);
+    expect(readme).toContain("RESULT_REMOTE_SHA_MISMATCH");
+    expect(guide).not.toContain("tracking ref is fresh completion proof");
+  });
   it("executes documented commands through the root justfile without a global binary", () => {
     const help = spawnSync("just", ["run", "--help"], {
       cwd: root,
       encoding: "utf8",
     });
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Soft Factory Runner Phase 1");
-
+    expect(help.stdout).toContain("Soft Factory Runner Phase 2");
     const invalidRun = spawnSync(
       "just",
       ["run", "run", "--issue", "0", "--json"],
@@ -65,7 +108,6 @@ describe("Phase 1 operator documentation", () => {
     );
     expect(invalidRun.status).toBe(2);
     expect(invalidRun.stderr).toContain('"code": "CLI_INVALID"');
-
     const missingStatus = spawnSync(
       "just",
       ["run", "status", "2147483647", "--json"],
@@ -73,7 +115,6 @@ describe("Phase 1 operator documentation", () => {
     );
     expect(missingStatus.status).toBe(3);
     expect(missingStatus.stderr).toContain('"code": "STATE_NOT_FOUND"');
-
     const missingAttach = spawnSync("just", ["run", "attach", "2147483647"], {
       cwd: root,
       encoding: "utf8",

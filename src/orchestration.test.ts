@@ -33,6 +33,12 @@ class MemoryFiles implements FilePort {
     this.trace.push(`file:read:${filePath}`);
     return this.values.get(filePath) ?? null;
   }
+  public async readAgentResult(worktreePath: string): Promise<string | null> {
+    this.trace.push(`file:result:${worktreePath}`);
+    return (
+      this.values.get(`${worktreePath}/.soft-factory/agent-result.json`) ?? null
+    );
+  }
   public async exists(filePath: string): Promise<boolean> {
     this.trace.push(`file:exists:${filePath}`);
     return this.values.has(filePath);
@@ -60,6 +66,8 @@ class RecordingGit implements GitPort {
   public readonly trace: string[];
   public tracking: string | null = sha;
   public advertised = sha;
+  public remote = sha;
+  public remoteFailure: RunnerError | null = null;
   public branchPresent = false;
   public registered = false;
   public facts: RepositoryFacts;
@@ -106,6 +114,19 @@ class RecordingGit implements GitPort {
     this.trace.push("git:tracking-sha");
     return this.tracking;
   }
+  public async localHeadSha(worktreePath: string): Promise<string | null> {
+    this.trace.push(`git:local-head:${worktreePath}`);
+    return sha;
+  }
+  public async remoteBranchSha(
+    _root: string,
+    remote: string,
+    branch: string,
+  ): Promise<string | null> {
+    this.trace.push(`git:remote-head:${remote}:${branch}`);
+    if (this.remoteFailure !== null) throw this.remoteFailure;
+    return this.remote;
+  }
   public async createBranch(
     _root: string,
     branch: string,
@@ -135,6 +156,18 @@ class RecordingGitHub implements GitHubPort {
   ): Promise<IssueFacts | null> {
     this.trace.push(`github:issue:${repository}:${issueNumber}`);
     return this.issue;
+  }
+  public async loadPullRequest(_repository: string, pullRequestNumber: number) {
+    this.trace.push(`github:pr:${pullRequestNumber}`);
+    return {
+      number: pullRequestNumber,
+      state: "OPEN" as const,
+      baseBranch: "main",
+      headBranch: "feat/3-phase-1-run-one-issue",
+      headSha: sha,
+      closesIssues: [3],
+      complete: true,
+    };
   }
 }
 
@@ -239,6 +272,27 @@ function fixture(
     },
     ids: { nextOwnerId: () => `owner-${++id}`, nextRunId: () => `run-${++id}` },
   };
+  files.values.set(
+    "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json",
+    JSON.stringify({
+      schemaVersion: 1,
+      issueNumber: 3,
+      outcome: "succeeded",
+      branch: "feat/3-phase-1-run-one-issue",
+      headSha: sha,
+      prNumber: 13,
+      acceptanceCriteria: Array.from({ length: 10 }, (_, index) => ({
+        id: `AC-${index + 1}`,
+        status: "verified",
+        evidence: [`fixture:AC-${index + 1}`],
+      })),
+      validations: [
+        { command: "just verify-focused", status: "passed" },
+        { command: "just verify", status: "passed" },
+      ],
+      completedAt: "2026-08-11T07:01:00.000Z",
+    }),
+  );
   return { ports, trace, files, git, github, tmux, processes };
 }
 
@@ -270,7 +324,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
     );
     expect(worker).toEqual({
       exitCode: 0,
-      stdout: `RPIV worker 3 exited: interrupted.
+      stdout: `RPIV worker 3 exited: completed.
 `,
       stderr: "",
     });
@@ -280,7 +334,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
       f.ports,
     );
     expect(JSON.parse(status.stdout)).toMatchObject({
-      persisted: { state: "interrupted" },
+      persisted: { state: "completed" },
       observed: { paneId: "%3" },
     });
     const attached = await runCli(
@@ -298,8 +352,10 @@ describe("deterministic issue-to-RPIV fixture", () => {
       trackingRefSha: sha,
       matches: true,
     });
-    expect(snapshot.state).toBe("interrupted");
-    expect(snapshot.state).not.toBe("completed");
+    expect(snapshot.state).toBe("completed");
+    expect(snapshot.finalization).toMatchObject({
+      reconciliation: { passed: true, decisionCode: "COMPLETION_PROVED" },
+    });
     expect(f.trace).toContain(
       `git:create-branch:feat/3-phase-1-run-one-issue:${sha}`,
     );
@@ -340,6 +396,14 @@ describe("deterministic issue-to-RPIV fixture", () => {
     expect(
       f.trace.filter((entry) => entry.startsWith("process:copilot:")).length,
     ).toBe(1);
+    expect(
+      f.trace.filter((entry) => entry.startsWith("git:remote-head:")).length,
+    ).toBe(1);
+    expect(
+      f.trace.findIndex((entry) => entry.startsWith("process:copilot:")),
+    ).toBeLessThan(
+      f.trace.findIndex((entry) => entry.startsWith("git:remote-head:")),
+    );
   });
 
   it("applies exact names and telemetry for every repository and issue launch", async () => {
@@ -370,6 +434,69 @@ describe("deterministic issue-to-RPIV fixture", () => {
       copilot: { exitCode: 9 },
       error: { code: "EXTERNAL_COMMAND_FAILED" },
     });
+  });
+});
+
+describe("zero-exit false-completion rejection", () => {
+  it.each([
+    ["missing artifact", null],
+    ["malformed artifact", "{"],
+    ["unsupported artifact", JSON.stringify({ schemaVersion: 9 })],
+  ])("ends interrupted for %s", async (_name, artifact) => {
+    const f = fixture();
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const resultPath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json";
+    if (artifact === null) f.files.values.delete(resultPath);
+    else f.files.values.set(resultPath, artifact);
+    const final = await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(final.state).toBe("interrupted");
+    expect(final.state).not.toBe("completed");
+    const events =
+      f.files.values.get(
+        "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl",
+      ) ?? "";
+    expect(events).toContain("finalizing");
+    expect(events).not.toContain("COMPLETION_PROVED");
+    expect(f.trace.some((entry) => entry.startsWith("git:local-head:"))).toBe(
+      false,
+    );
+  });
+  it("persists authoritative remote divergence as a failed SHA mismatch", async () => {
+    const f = fixture();
+    f.git.remote = "b".repeat(40);
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const final = await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(final).toMatchObject({
+      state: "failed",
+      error: { code: "RESULT_REMOTE_SHA_MISMATCH" },
+      finalization: {
+        git: { remoteHeadSha: "b".repeat(40) },
+        reconciliation: { decisionCode: "RESULT_REMOTE_SHA_MISMATCH" },
+      },
+    });
+    const events =
+      f.files.values.get(
+        "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl",
+      ) ?? "";
+    expect(events).toContain("RESULT_REMOTE_SHA_MISMATCH");
+    expect(events).not.toContain("COMPLETION_PROVED");
+  });
+
+  it("persists an interrupted incomplete proof when the remote query fails", async () => {
+    const f = fixture();
+    f.git.remoteFailure = new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Authoritative remote query timed out.",
+      "Retry finalization.",
+    );
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const final = await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(final).toMatchObject({
+      state: "interrupted",
+      error: { code: "COMPLETION_PROOF_INCOMPLETE" },
+    });
+    expect(final.state).not.toBe("completed");
   });
 });
 

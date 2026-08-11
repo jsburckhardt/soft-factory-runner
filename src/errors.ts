@@ -23,7 +23,11 @@ export type ErrorCode =
   | "STATE_INVALID"
   | "TMUX_TARGET_MISSING"
   | "TMUX_TARGET_MISMATCH"
-  | "EXTERNAL_COMMAND_FAILED";
+  | "EXTERNAL_COMMAND_FAILED"
+  | "RESULT_MISSING"
+  | "RESULT_INVALID"
+  | "RESULT_VERSION_UNSUPPORTED"
+  | "COMPLETION_PROOF_INCOMPLETE";
 
 export class RunnerError extends Error {
   public readonly code: ErrorCode;

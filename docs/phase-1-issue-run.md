@@ -1,32 +1,27 @@
-# Phase 1 issue run
+# Issue run and Phase 2 completion proof
 
-Phase 1 proves one explicit GitHub issue can be validated, exclusively owned, placed on a branch and worktree created from a proven fetched base, and launched visibly through tmux into RPIV. Runner orchestrates operational facts; RPIV makes all software-engineering decisions.
+Runner validates and exclusively owns one explicit GitHub issue, creates its branch and worktree from a proven fetched base, launches RPIV visibly through tmux, and independently reconciles completion evidence. Runner controls operational facts; RPIV controls software-engineering decisions.
 
-## Prerequisites
+## Prerequisites and commands
 
-Install Node.js 22+, Git, GitHub CLI (`gh`), tmux, Copilot CLI, `just`, and the ambient engineering harness. Authenticate `gh` and Copilot without writing credentials into Runner configuration or state. Run commands inside a Git worktree whose common repository has one unambiguous GitHub identity.
+Install Node.js 22+, Git, GitHub CLI (`gh`), tmux, Copilot CLI, `just`, and the ambient engineering harness. Authenticate external tools without placing credentials in configuration, snapshots, events, result artifacts, or output.
 
-Build and inspect the CLI through root recipes:
+Use the root command surface:
 
 ```text
 just setup
 just build
 just run --help
-```
-
-`just setup` installs repository dependencies and `just build` compiles the project; neither recipe globally installs or links the `soft-factory` binary. From a repository checkout, keep operations on the root command surface. The no-argument command retains the harness bootstrap signal, and product syntax is strict:
-
-```text
 just run run --issue <positive-integer> [--json]
 just run status <positive-integer> [--json]
 just run attach <positive-integer>
 ```
 
-`internal run-agent` is private and is started by Runner in the owned tmux window; operators do not invoke it directly.
+`internal run-agent` is private. Root `just verify-focused` and `just verify` are the project validation authority. Harness checks delegate to those recipes but are not product completion evidence.
 
-## Configuration
+## Configuration and readiness
 
-Runner reads optional `.soft-factory/config.yml`. The runtime directory is ignored by Git. Supported Phase 1 fields are:
+Runner reads optional `.soft-factory/config.yml`:
 
 ```yaml
 repository:
@@ -38,100 +33,100 @@ rpiv:
   prompt: "Deliver issue #{issue}"
 ```
 
-Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. The optional `repository.base_branch` must equal the remote advertised default branch. The standard `feature: feat` mapping is present by default; exactly one issue label must map to an allowed Conventional Commit type. Runner does not infer intent from issue prose.
+Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. `repository.base_branch` must equal the advertised default branch. The default `feature: feat` mapping is available, and exactly one issue label must map to an allowed Conventional Commit type.
 
-The owner-qualified GitHub repository is normalized by lowercasing, replacing non-alphanumeric runs with `-`, and trimming `-`. For example, `jsburckhardt/soft-factory-runner` becomes `jsburckhardt-soft-factory-runner`.
+Before ownership, the issue must be open, unblocked, conflict-free, and contain exactly one `ACCEPTANCE_CRITERIA_START`/`ACCEPTANCE_CRITERIA_END` block with nonempty checkboxes. Runner assigns ordered IDs `AC-1` through `AC-n` and persists each exact criterion text. GitHub and tmux observations are bounded to 15 seconds; fetch and advertised-HEAD operations are bounded to 30 seconds.
 
-## Readiness and side-effect order
+After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, fetches the selected remote, and persists `FetchedBaseProofV1` before creating `<type>/<issue>-<slug>` and `.trees/<issue>`. Existing unowned resources, including `/workspaces/soft-factory-runner/.trees/3`, are preserved and blocked with `RESOURCE_OWNERSHIP_UNKNOWN`. For Issue 3, telemetry remains `project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3`.
 
-Before any owned resource is created, Runner proves the repository and issue facts. The issue must:
+## RPIV result artifact
 
-- exist and be open;
-- contain exactly one ordered `ACCEPTANCE_CRITERIA_START`/`ACCEPTANCE_CRITERIA_END` block with at least one nonempty Markdown checkbox;
-- have no case-insensitive `blocked` label or open blocked-by relationship;
-- have exactly one configured intent label mapping;
-- have no open pull request that closes the issue or uses its planned branch;
-- have complete, non-malformed GitHub evidence within the 10-page, 100-record page bound.
-
-GitHub and tmux observations are bounded to 15 seconds. Fetch and advertised-HEAD operations are bounded to 30 seconds. Timeout, truncation, malformed output, missing pages, or ambiguity blocks safely.
-
-After readiness, Runner atomically creates `.soft-factory/locks/<issue>.lock`. Under that ownership it fetches the selected remote, reads the advertised HEAD branch and SHA, reads the fetched tracking-ref SHA, and requires exact equality. `FetchedBaseProofV1` is persisted before branch or worktree creation. The branch is `<type>/<issue>-<slug>` and is created directly from `advertisedHeadSha`, never from a local default-branch name.
-
-## Ownership and files
-
-One active issue owns one lock, run snapshot, typed branch, worktree, and tmux window:
+After implementation and validation, RPIV writes only this owned path:
 
 ```text
-.soft-factory/locks/<issue>.lock
-.soft-factory/runs/<issue>.json
-.soft-factory/events/<issue>.jsonl
-.trees/<issue>
-sf-<normalized-project>:<issue>
+<owned-worktree>/.soft-factory/agent-result.json
 ```
 
-Locks use exclusive creation. Snapshots are schema-versioned atomic replacements. Events are schema-versioned append-only JSONL transitions. Existing paths, branches, registered worktrees, snapshots, or tmux windows are reused only when lock, recorded, and observed ownership agree. Phase 1 does not reconcile existing resources, so unknown resources block and are never modified or removed.
+The strict `AgentResultV1` schema is:
 
-This rule includes an outer RPIV checkout such as `/workspaces/soft-factory-runner/.trees/3`: its matching path does not establish Runner ownership. The deterministic tests create temporary repository roots and never reuse or modify that ambient worktree.
-
-## Visible RPIV and telemetry
-
-Runner creates the repository tmux session and one issue-number window rooted at `.trees/<issue>`. The pane visibly starts Runner's private internal worker for the issue from the isolated worktree. The worker command is owned by Runner rather than being an operator command.
-
-The worker starts Copilot with validated argument arrays, not shell interpolation:
-
-```text
-copilot --yolo --name issue-<issue> --agent rpiv --prompt "Deliver issue #<issue>"
+```json
+{
+  "schemaVersion": 1,
+  "issueNumber": 4,
+  "outcome": "succeeded",
+  "branch": "feat/4-prove-completion",
+  "headSha": "0123456789abcdef0123456789abcdef01234567",
+  "prNumber": 14,
+  "acceptanceCriteria": [
+    { "id": "AC-1", "status": "verified", "evidence": ["test:completion"] }
+  ],
+  "validations": [
+    { "command": "just verify-focused", "status": "passed" },
+    { "command": "just verify", "status": "passed" }
+  ],
+  "completedAt": "2026-08-11T12:00:00.000Z"
+}
 ```
 
-Every launch receives exactly:
+All fields are required. Issue and PR numbers are positive; the SHA is full hexadecimal; IDs and commands are unique and nonempty; each acceptance entry has nonempty evidence; and completion time is ISO-8601. Outcomes are `succeeded`, `failed`, `blocked`, `cancelled`, or `interrupted`. Only `succeeded` is completion-eligible.
 
-```text
-OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-owner-repository>,issue.id=issue-<issue>
-```
+## Finalization and false-completion protection
 
-For Issue 3 this is `project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3`, and the Copilot session name is exactly `issue-3`. Runner passes the delivery prompt to RPIV; no Runner adapter can select a solution, edit code, or interpret RPIV prose.
+A nonzero Copilot exit becomes `failed` and cannot be overridden by an artifact. A zero exit first persists `finalizing`; it is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
 
-## State, status, and attach
+- worktree `HEAD` and the selected remote issue-branch SHA from one authoritative `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` query;
+- the reported pull request by number, including open state, expected base, head branch, head SHA, and closing-issue links;
+- every Runner-owned required acceptance ID as `verified` with evidence;
+- exactly one passed `just verify-focused` and `just verify` result.
 
-Phase 1 persists preparation states, `running_rpiv`, and safe `blocked`, `failed`, or `interrupted` outcomes. A nonzero Copilot exit is `failed`. A zero Copilot exit is **`interrupted`**, never `completed`, because Phase 1 has no result-artifact completion proof.
+`completed` requires the complete conjunction: result issue and branch match the owned run; result SHA equals local HEAD, remote branch SHA, and PR head SHA; the open PR number/base/head match and closes the issue; all required acceptance and validation proof passes. Additional producer claims cannot replace a required fact.
 
-`just run status <issue>` loads the atomic snapshot and reports persisted state separately from a bounded tmux observation. `--json` renders the same structured facts used by human output. `just run attach <issue>` loads the snapshot, observes and exactly verifies session/window/pane/cwd, then attaches. The caller supplies no tmux identifiers. Missing, malformed, timed-out, mismatched, or ambiguous observations block without launch, recovery, cleanup, or mutation.
+Remote completion proof runs once after RPIV exits, from the repository root, with executable `git`, argument array `ls-remote`, `--refs`, the selected remote, and exact issue-branch ref, no shell, and a 15-second timeout. It does not fetch, poll, or retry and never reads `refs/remotes/...`; readiness `FetchedBaseProofV1.trackingRefSha` remains separate cache-based ancestry proof. Exactly one full-SHA/exact-ref record is authoritative. Zero records are missing proof. Query failure, timeout, malformed or truncated output, duplicate records, and a wrong ref are incomplete proof and persist `interrupted` with `COMPLETION_PROOF_INCOMPLETE`. One valid advertised SHA that differs from result/local/PR evidence persists `failed` with `RESULT_REMOTE_SHA_MISMATCH`.
+
+A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub observation becomes `interrupted`. A valid unsuccessful result maps to its named terminal. A contradictory issue, branch, SHA, PR, acceptance result, or validation becomes `failed` with a stable comparison code. No rejection path persists or renders `completed`.
+
+## Persistence and status
+
+New runs use atomic `RunSnapshotV2` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
+
+Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit version 2 transition can carry required evidence.
+
+The explicit terminal states are:
+
+- `completed` — every result, Git, GitHub, acceptance, and validation comparison passed;
+- `failed` — process failure, contradictory proof, failed proof, or a valid failed result;
+- `blocked` — prerequisite/ownership conflict or a valid blocked result;
+- `cancelled` — a valid RPIV cancellation result; operator cancellation control is deferred;
+- `interrupted` — absent, malformed, unsupported, or incomplete proof, or a valid interrupted result.
+
+Human and `--json` status derive from the same snapshot facts and expose the same state and safe reconciliation summary. Worker and command success is returned only for `completed`; noncompleted terminal outcomes are nonzero.
 
 ## Troubleshooting
 
-| Code                                                                 | Meaning                                                          | Operator action                                                 |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| `CLI_INVALID`                                                        | Unsupported syntax or issue value                                | Use `just run --help` and a positive integer.                   |
-| `REPOSITORY_INVALID`                                                 | Git/common-directory/GitHub identity proof failed                | Repair repository remotes and Git state.                        |
-| `CONFIG_INVALID`                                                     | Unsupported YAML shape or branch type                            | Use only documented fields and allowed commit types.            |
-| `ISSUE_NOT_FOUND`, `ISSUE_CLOSED`                                    | Issue cannot run                                                 | Select an existing open issue.                                  |
-| `ISSUE_BLOCKED`                                                      | Label or open dependency blocks work                             | Resolve blockers and remove the label.                          |
-| `ACCEPTANCE_CRITERIA_INVALID`                                        | Marker block is missing, duplicate, malformed, or empty          | Restore one nonempty checkbox block.                            |
-| `ISSUE_TYPE_UNMAPPED`, `ISSUE_TYPE_AMBIGUOUS`                        | Intent mapping is absent or conflicting                          | Leave exactly one mapped label.                                 |
-| `ISSUE_CONFLICT`                                                     | An open PR closes the issue or owns the branch                   | Reconcile the PR before retrying.                               |
-| `GITHUB_PROOF_INCOMPLETE`                                            | Query timed out, truncated, paginated incompletely, or malformed | Restore complete GitHub evidence and retry.                     |
-| `REMOTE_MISSING`, `REMOTE_AMBIGUOUS`                                 | Remote selection is not deterministic                            | Set `repository.remote`.                                        |
-| `REMOTE_FETCH_FAILED`, `REMOTE_HEAD_MISSING`                         | Fetch/default HEAD proof failed                                  | Repair access and remote default configuration.                 |
-| `BASE_BRANCH_CONFLICT`, `BASE_TRACKING_MISSING`, `BASE_SHA_MISMATCH` | Latest fetched base is unproved                                  | Correct base/refspecs or retry after propagation.               |
-| `ISSUE_ALREADY_OWNED`                                                | Another start won the exclusive lock                             | Inspect status and preserve the owner.                          |
-| `RESOURCE_OWNERSHIP_UNKNOWN`                                         | Existing resource ownership does not agree                       | Preserve and reconcile manually.                                |
-| `STATE_NOT_FOUND`, `STATE_INVALID`                                   | Snapshot is absent or unsupported                                | Preserve state; start once or migrate with a supported version. |
-| `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH`                        | Attach proof failed                                              | Inspect status and reconcile without cleanup.                   |
-| `EXTERNAL_COMMAND_FAILED`                                            | Git, tmux, filesystem, or Copilot failed                         | Use redacted diagnostics and repair the named tool.             |
+| Code | Meaning | Operator action |
+| --- | --- | --- |
+| `ISSUE_ALREADY_OWNED`, `RESOURCE_OWNERSHIP_UNKNOWN` | Ownership cannot be proven | Preserve resources and inspect status. |
+| `STATE_NOT_FOUND`, `STATE_INVALID` | Snapshot is absent, malformed, or unsupported | Preserve it and migrate with a supported version. |
+| `RESULT_MISSING`, `RESULT_INVALID`, `RESULT_VERSION_UNSUPPORTED` | Owned result proof is absent or invalid | Emit one strict schema-version-1 artifact. |
+| `COMPLETION_PROOF_INCOMPLETE` | Git or GitHub completion facts are unavailable or malformed | Restore the named observation and start a new bounded attempt. |
+| `RESULT_*_MISMATCH`, `PR_*_MISMATCH` | Identity, branch, SHA, or PR evidence contradicts the run | Reconcile the exact expected and observed facts. |
+| `AC_*_MISMATCH`, `VALIDATION_*_MISMATCH` | Required acceptance or root validation proof failed | Correct evidence and rerun RPIV validation. |
+| `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH` | Attach target is absent or contradictory | Preserve resources and inspect status. |
+| `EXTERNAL_COMMAND_FAILED` | Git, tmux, filesystem, or Copilot failed | Use redacted diagnostics to repair the tool. |
 
-Errors are nonzero, stable, actionable, and available as structured JSON where the command supports `--json`.
+## Deterministic evidence fixtures
 
-## Deterministic evidence fixture
+`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
 
-The credential-free suite injects declarative GitHub/tmux/process facts through normal application composition and uses temporary filesystem and Git roots:
+Run:
 
 ```text
 just verify-focused
 just verify
+harness checks --focused --json
+harness checks --json
 ```
 
-`src/orchestration.test.ts` proves the full Issue 3 operation transcript, exact multiplicity/order, status/attach, failures, names, and telemetry. `src/integration.test.ts` proves barrier-released exclusive ownership and exact temporary Git ancestry/worktree registration. Fixtures expose operational facts only; there is no production test switch or implementation-decision callback.
+## Remaining Prototype 3 deferrals
 
-## Phase 1 deferrals
-
-Phase 1 intentionally does not provide result artifacts, `completed`, restart recovery, resume, stop, clean, automatic stale-resource recovery, post-launch pull-request reconciliation, or multiple-issue scheduling. These require later Plan-stage contracts. Do not interpret tmux presence, Copilot exit zero, or agent prose as completion evidence.
+Restart recovery, resume, stop mechanics, cleanup, automatic stale-resource recovery, merged-PR cleanup, and multiple-issue scheduling remain deferred. `cancelled` is representable, but Runner-originated cancellation control is not implemented. Tmux presence, Copilot exit status, and RPIV prose are never completion evidence.

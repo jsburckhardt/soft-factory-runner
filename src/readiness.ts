@@ -3,6 +3,7 @@ import type {
   IssueFacts,
   PreparedIssue,
   RepositoryFacts,
+  RequiredAcceptanceCriterionV1,
   RunConfiguration,
 } from "./domain";
 import { issueSlug } from "./domain";
@@ -17,6 +18,7 @@ export function prepareIssue(
   configuration: RunConfiguration,
 ): PreparedIssue {
   validateIssue(issue);
+  const requiredAcceptanceCriteria = extractAcceptanceCriteria(issue.body);
   const mapped = issue.labels
     .map((label) => ({
       label: label.toLowerCase(),
@@ -54,7 +56,12 @@ export function prepareIssue(
       "Close or reconcile the conflicting pull request before retrying.",
     );
   }
-  return { issue, branchType: mapped[0].type, branchName };
+  return {
+    issue,
+    branchType: mapped[0].type,
+    branchName,
+    requiredAcceptanceCriteria,
+  };
 }
 
 export function validateIssue(issue: IssueFacts): void {
@@ -85,7 +92,9 @@ export function validateIssue(issue: IssueFacts): void {
   validateAcceptanceCriteria(issue.body);
 }
 
-export function validateAcceptanceCriteria(body: string): number {
+export function extractAcceptanceCriteria(
+  body: string,
+): readonly RequiredAcceptanceCriterionV1[] {
   const starts = count(body, AC_START);
   const ends = count(body, AC_END);
   const start = body.indexOf(AC_START);
@@ -108,7 +117,14 @@ export function validateAcceptanceCriteria(body: string): number {
       "Add at least one nonempty markdown checkbox criterion.",
     );
   }
-  return checkboxes.length;
+  return checkboxes.map((line, index) => ({
+    id: `AC-${index + 1}`,
+    text: line.replace(/^\s*-\s+\[[ xX]\]\s+/, "").trim(),
+  }));
+}
+
+export function validateAcceptanceCriteria(body: string): number {
+  return extractAcceptanceCriteria(body).length;
 }
 
 function count(value: string, needle: string): number {

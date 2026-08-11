@@ -1,14 +1,14 @@
-export const RUN_SNAPSHOT_SCHEMA_VERSION = 1 as const;
+export const RUN_SNAPSHOT_SCHEMA_VERSION = 2 as const;
 export const EVENT_SCHEMA_VERSION = 1 as const;
+export const AGENT_RESULT_SCHEMA_VERSION = 1 as const;
 
-export type RunState =
-  | "acquiring_lock"
-  | "preparing_worktree"
-  | "starting_tmux"
-  | "running_rpiv"
-  | "failed"
-  | "blocked"
-  | "interrupted";
+export type PreparationState =
+  "acquiring_lock" | "preparing_worktree" | "starting_tmux" | "running_rpiv";
+export type TerminalState =
+  "completed" | "failed" | "blocked" | "cancelled" | "interrupted";
+export type RunState = PreparationState | "finalizing" | TerminalState;
+export type LegacyRunState =
+  PreparationState | "failed" | "blocked" | "interrupted";
 
 export interface RepositoryIdentity {
   readonly nameWithOwner: string;
@@ -76,13 +76,11 @@ export interface CopilotLaunchFacts {
   readonly exitCode: number | null;
 }
 
-export interface RunSnapshotV1 {
-  readonly schemaVersion: 1;
+interface RunSnapshotBase {
   readonly runId: string;
   readonly ownerId: string;
   readonly repository: string;
   readonly issueNumber: number;
-  readonly state: RunState;
   readonly branchType: string;
   readonly branch: string;
   readonly worktreePath: string;
@@ -92,6 +90,99 @@ export interface RunSnapshotV1 {
   readonly error: { readonly code: string; readonly message: string } | null;
   readonly updatedAt: string;
 }
+
+export interface RunSnapshotV1 extends RunSnapshotBase {
+  readonly schemaVersion: 1;
+  readonly state: LegacyRunState;
+}
+
+export interface RequiredAcceptanceCriterionV1 {
+  readonly id: string;
+  readonly text: string;
+}
+
+export interface RequiredValidationV1 {
+  readonly command: "just verify-focused" | "just verify";
+}
+
+export const REQUIRED_VALIDATIONS: readonly RequiredValidationV1[] = [
+  { command: "just verify-focused" },
+  { command: "just verify" },
+];
+
+export type AgentOutcome =
+  "succeeded" | "failed" | "blocked" | "cancelled" | "interrupted";
+
+export interface AgentAcceptanceResultV1 {
+  readonly id: string;
+  readonly status: "verified" | "unverified";
+  readonly evidence: readonly string[];
+}
+
+export interface AgentValidationResultV1 {
+  readonly command: string;
+  readonly status: "passed" | "failed";
+}
+
+export interface AgentResultV1 {
+  readonly schemaVersion: 1;
+  readonly issueNumber: number;
+  readonly outcome: AgentOutcome;
+  readonly branch: string;
+  readonly headSha: string;
+  readonly prNumber: number;
+  readonly acceptanceCriteria: readonly AgentAcceptanceResultV1[];
+  readonly validations: readonly AgentValidationResultV1[];
+  readonly completedAt: string;
+}
+
+export interface CompletionGitFacts {
+  readonly localHeadSha: string | null;
+  readonly remote: string;
+  readonly remoteBranch: string;
+  readonly remoteHeadSha: string | null;
+}
+
+export interface CompletionPullRequestFacts {
+  readonly number: number;
+  readonly state: "OPEN" | "CLOSED" | "MERGED";
+  readonly baseBranch: string;
+  readonly headBranch: string;
+  readonly headSha: string;
+  readonly closesIssues: readonly number[];
+  readonly complete: boolean;
+}
+
+export interface CompletionComparisonV1 {
+  readonly code: string;
+  readonly expected: unknown;
+  readonly observed: unknown;
+  readonly passed: boolean;
+}
+
+export interface CompletionReconciliationV1 {
+  readonly schemaVersion: 1;
+  readonly comparisons: readonly CompletionComparisonV1[];
+  readonly passed: boolean;
+  readonly decisionCode: string;
+}
+
+export interface FinalizationFactsV1 {
+  readonly result: AgentResultV1 | null;
+  readonly git: CompletionGitFacts | null;
+  readonly pullRequest: CompletionPullRequestFacts | null;
+  readonly reconciliation: CompletionReconciliationV1 | null;
+}
+
+export interface RunSnapshotV2 extends RunSnapshotBase {
+  readonly schemaVersion: 2;
+  readonly state: RunState;
+  readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
+  readonly requiredValidations: readonly RequiredValidationV1[];
+  readonly finalization: FinalizationFactsV1 | null;
+}
+
+export type RunSnapshot = RunSnapshotV1 | RunSnapshotV2;
 
 export interface TransitionEventV1 {
   readonly schemaVersion: 1;
@@ -106,7 +197,7 @@ export interface TransitionEventV1 {
 export interface StatusFacts {
   readonly schemaVersion: 1;
   readonly issueNumber: number;
-  readonly persisted: RunSnapshotV1;
+  readonly persisted: RunSnapshot;
   readonly observed: TmuxIdentity | null;
 }
 
@@ -121,6 +212,7 @@ export interface PreparedIssue {
   readonly issue: IssueFacts;
   readonly branchType: string;
   readonly branchName: string;
+  readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
 }
 
 export function normalizeRepositoryName(nameWithOwner: string): string {

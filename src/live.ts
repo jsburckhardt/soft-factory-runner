@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  CompletionPullRequestFacts,
   IssueFacts,
   PullRequestFacts,
   RepositoryFacts,
@@ -20,25 +21,41 @@ import type {
   TmuxPort,
 } from "./ports";
 
-interface CommandResult {
+export interface CommandResult {
   readonly exitCode: number;
   readonly signal: NodeJS.Signals | null;
   readonly stdout: string;
   readonly stderr: string;
 }
 
-class CommandExecutor {
+export interface CommandRunner {
+  run(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+    timeoutMs: number,
+    shell?: false,
+  ): Promise<CommandResult>;
+  runInherited(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+  ): Promise<CommandResult>;
+}
+
+class CommandExecutor implements CommandRunner {
   public run(
     executable: string,
     args: readonly string[],
     cwd: string,
     timeoutMs: number,
+    shell: false = false,
   ): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(executable, args, {
         cwd,
         env: allowedEnvironment(),
-        shell: false,
+        shell,
         stdio: ["ignore", "pipe", "pipe"],
       });
       const stdout: Buffer[] = [];
@@ -126,6 +143,11 @@ class NodeFilePort implements FilePort {
       throw fileFailure("read", filePath, cause);
     }
   }
+  public async readAgentResult(worktreePath: string): Promise<string | null> {
+    return this.readText(
+      path.join(worktreePath, ".soft-factory", "agent-result.json"),
+    );
+  }
   public async exists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
@@ -188,7 +210,7 @@ class NodeFilePort implements FilePort {
 }
 
 class LiveGitPort implements GitPort {
-  public constructor(private readonly commands: CommandExecutor) {}
+  public constructor(private readonly commands: CommandRunner) {}
   public async discover(startPath: string): Promise<RepositoryFacts> {
     const top = await this.required(
       ["rev-parse", "--show-toplevel"],
@@ -328,6 +350,53 @@ class LiveGitPort implements GitPort {
     );
     return result.exitCode === 0 ? result.stdout.trim() : null;
   }
+  public async localHeadSha(worktreePath: string): Promise<string | null> {
+    return this.observedSha(["rev-parse", "--verify", "HEAD"], worktreePath);
+  }
+  public async remoteBranchSha(
+    repositoryRoot: string,
+    remote: string,
+    branch: string,
+  ): Promise<string | null> {
+    const ref = `refs/heads/${branch}`;
+    let result: CommandResult;
+    try {
+      result = await this.commands.run(
+        "git",
+        ["ls-remote", "--refs", remote, ref],
+        repositoryRoot,
+        15_000,
+        false,
+      );
+    } catch (cause: unknown) {
+      throw incompleteRemoteProof(
+        "The authoritative remote branch query did not complete.",
+        cause,
+      );
+    }
+    if (result.exitCode !== 0)
+      throw incompleteRemoteProof(
+        "The authoritative remote branch query failed.",
+        undefined,
+        result,
+      );
+    return parseRemoteBranchAdvertisement(result.stdout, ref);
+  }
+  private async observedSha(
+    args: readonly string[],
+    cwd: string,
+  ): Promise<string | null> {
+    const result = await this.commands.run("git", args, cwd, 15_000);
+    if (result.exitCode !== 0) return null;
+    const sha = result.stdout.trim();
+    if (!/^[0-9a-f]{40,64}$/.test(sha))
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Git returned a malformed completion SHA.",
+        "Repair the Git reference and retry finalization.",
+      );
+    return sha;
+  }
   public async createBranch(
     repositoryRoot: string,
     branch: string,
@@ -397,7 +466,7 @@ class LiveGitPort implements GitPort {
 }
 
 class LiveGitHubPort implements GitHubPort {
-  public constructor(private readonly commands: CommandExecutor) {}
+  public constructor(private readonly commands: CommandRunner) {}
   public async loadIssue(
     repository: string,
     issueNumber: number,
@@ -489,10 +558,39 @@ class LiveGitHubPort implements GitHubPort {
       complete: pullRequests.length <= 1000 && blockerFacts.complete,
     };
   }
+  public async loadPullRequest(
+    repository: string,
+    pullRequestNumber: number,
+  ): Promise<CompletionPullRequestFacts | null> {
+    const result = await this.commands.run(
+      "gh",
+      [
+        "pr",
+        "view",
+        String(pullRequestNumber),
+        "--repo",
+        repository,
+        "--json",
+        "number,state,baseRefName,headRefName,headRefOid,closingIssuesReferences",
+      ],
+      process.cwd(),
+      15_000,
+    );
+    if (result.exitCode !== 0) {
+      if (/not found|could not resolve/i.test(result.stderr)) return null;
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Pull-request completion query failed.",
+        "Restore complete GitHub access and retry finalization.",
+        { details: { stderr: redact(result.stderr) } },
+      );
+    }
+    return parseCompletionPullRequest(result.stdout);
+  }
 }
 
 class LiveTmuxPort implements TmuxPort {
-  public constructor(private readonly commands: CommandExecutor) {}
+  public constructor(private readonly commands: CommandRunner) {}
   public async createIssueWindow(input: {
     readonly sessionName: string;
     readonly windowName: string;
@@ -660,8 +758,9 @@ class LiveProcessPort implements ProcessPort {
   }
 }
 
-export function createLivePorts(): RunnerPorts {
-  const commands = new CommandExecutor();
+export function createLivePorts(
+  commands: CommandRunner = new CommandExecutor(),
+): RunnerPorts {
   return {
     files: new NodeFilePort(),
     git: new LiveGitPort(commands),
@@ -673,6 +772,47 @@ export function createLivePorts(): RunnerPorts {
   };
 }
 
+export function parseRemoteBranchAdvertisement(
+  stdout: string,
+  expectedRef: string,
+): string | null {
+  const normalized = stdout.replace(/\r\n/g, "\n").trim();
+  if (normalized === "") return null;
+  const rows = normalized.split("\n");
+  if (rows.length !== 1)
+    throw incompleteRemoteProof(
+      "The authoritative remote branch response contained multiple records.",
+    );
+  const record = /^((?:[0-9a-f]{40}|[0-9a-f]{64}))[ \t]+(\S+)$/.exec(rows[0]);
+  if (record === null || record[2] !== expectedRef)
+    throw incompleteRemoteProof(
+      "The authoritative remote branch response was malformed.",
+    );
+  return record[1];
+}
+
+function incompleteRemoteProof(
+  message: string,
+  cause?: unknown,
+  result?: CommandResult,
+): RunnerError {
+  return new RunnerError(
+    "COMPLETION_PROOF_INCOMPLETE",
+    message,
+    "Restore one complete remote branch advertisement and retry finalization.",
+    {
+      cause,
+      details:
+        result === undefined
+          ? {}
+          : {
+              exitCode: result.exitCode,
+              signal: result.signal,
+              stderr: redact(result.stderr),
+            },
+    },
+  );
+}
 function allowedEnvironment(): NodeJS.ProcessEnv {
   const keys = [
     "PATH",
@@ -910,5 +1050,52 @@ function parseBlockers(text: string): {
   return {
     open,
     complete: !blockedBy.pageInfo.hasNextPage,
+  };
+}
+
+function parseCompletionPullRequest(text: string): CompletionPullRequestFacts {
+  const value = parseObject(text, "Completion pull request");
+  const state = requireString(value, "state");
+  if (state !== "OPEN" && state !== "CLOSED" && state !== "MERGED")
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request state was unsupported.",
+      "Retry with compatible gh output.",
+    );
+  const closing = value.closingIssuesReferences;
+  if (!Array.isArray(closing))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request closing issues were incomplete.",
+      "Retry with complete gh output.",
+    );
+  const closesIssues = closing.map((entry, index) => {
+    if (
+      !isRecord(entry) ||
+      !Number.isSafeInteger(entry.number) ||
+      (entry.number as number) <= 0
+    )
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        `Pull-request closing issue ${index + 1} was malformed.`,
+        "Retry with complete gh output.",
+      );
+    return entry.number as number;
+  });
+  const headSha = requireString(value, "headRefOid");
+  if (!/^[0-9a-f]{40,64}$/.test(headSha))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request head SHA was malformed.",
+      "Retry with complete gh output.",
+    );
+  return {
+    number: requireNumber(value, "number"),
+    state,
+    baseBranch: requireString(value, "baseRefName"),
+    headBranch: requireString(value, "headRefName"),
+    headSha,
+    closesIssues,
+    complete: true,
   };
 }
