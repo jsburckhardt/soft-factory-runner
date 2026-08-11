@@ -287,6 +287,7 @@ class RecordingProcess implements ProcessPort {
   public exitCode = 0;
   public launches = 0;
   public observed: ProcessIdentityV1 | null = null;
+  public workerObserved: ProcessIdentityV1 | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
@@ -328,8 +329,30 @@ class RecordingProcess implements ProcessPort {
       },
     };
   }
+  public async identify(
+    pid: number,
+    paneLineage: ProcessIdentityV1["paneLineage"],
+    launchedAt: string,
+  ) {
+    const identity = {
+      schemaVersion: 1 as const,
+      pid,
+      processGroupId: pid,
+      startToken: "worker",
+      executable: "/usr/bin/soft-factory",
+      args: ["internal", "run-agent", "--issue", "3"],
+      cwd: paneLineage.sessionName,
+      launchedAt,
+      paneLineage,
+    };
+    this.workerObserved = identity;
+    return identity;
+  }
   public async observe(identity: ProcessIdentityV1) {
-    return this.observed?.pid === identity.pid ? this.observed : null;
+    if (this.observed?.pid === identity.pid) return this.observed;
+    return this.workerObserved?.pid === identity.pid
+      ? this.workerObserved
+      : null;
   }
   public async findLaunchCandidates() {
     return this.observed === null ? [] : [this.observed];
@@ -432,7 +455,14 @@ describe("deterministic issue-to-RPIV fixture", () => {
       f.ports,
     );
     expect(run.exitCode).toBe(0);
-    expect(JSON.parse(run.stdout).run.state).toBe("running_rpiv");
+    expect(JSON.parse(run.stdout).run).toMatchObject({
+      state: "running_rpiv",
+      workerProcess: {
+        pid: 300,
+        executable: "/usr/bin/soft-factory",
+        paneLineage: { paneId: "%3", panePid: 300 },
+      },
+    });
     const worker = await runCli(
       ["internal", "run-agent", "--issue", "3"],
       "/tmp/soft-factory-fixture/.trees/3",

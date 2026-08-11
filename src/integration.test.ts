@@ -11,7 +11,7 @@ import type {
   TmuxIdentity,
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
-import { createLivePorts } from "./live";
+import { createLivePorts, processObservationDisposition } from "./live";
 import type { CommandResult, CommandRunner } from "./live";
 import { RunnerError } from "./errors";
 import { IssueRunService } from "./orchestrator";
@@ -258,6 +258,17 @@ const unusedProcess: ProcessPort = {
     };
     return { identity, wait: async () => ({ exitCode: 0 }) };
   },
+  identify: async (pid, paneLineage, launchedAt) => ({
+    schemaVersion: 1,
+    pid,
+    processGroupId: pid,
+    startToken: "worker",
+    executable: "/usr/bin/soft-factory",
+    args: ["internal", "run-agent"],
+    cwd: "/repo",
+    launchedAt,
+    paneLineage,
+  }),
   observe: async () => null,
   findLaunchCandidates: async () => [],
   signalGroup: async () => undefined,
@@ -308,6 +319,15 @@ process.stdout.write(JSON.stringify(response));
 `;
   await fs.writeFile(executable, script, { mode: 0o755 });
 }
+
+describe("live process observation classification", () => {
+  it("treats only missing proc entries as absent and permissions as unknown", () => {
+    expect(processObservationDisposition("ENOENT")).toBe("absent");
+    expect(processObservationDisposition("EACCES")).toBe("unknown");
+    expect(processObservationDisposition("EPERM")).toBe("unknown");
+    expect(processObservationDisposition(null)).toBe("unknown");
+  });
+});
 
 describe("live GitHub proof parsing", () => {
   const validIssueResponse = {

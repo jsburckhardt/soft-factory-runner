@@ -693,6 +693,8 @@ function isCleanupFacts(value: unknown): boolean {
   return (
     isRecord(value) &&
     (value.mode === "explicit" || value.mode === "automatic_merged") &&
+    typeof value.ownerId === "string" &&
+    typeof value.runId === "string" &&
     typeof value.intentAt === "string" &&
     Array.isArray(value.completedSteps) &&
     value.completedSteps.every(

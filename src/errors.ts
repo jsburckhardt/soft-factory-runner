@@ -36,12 +36,15 @@ export type ErrorCode =
   | "RECONCILIATION_MISMATCH"
   | "PROCESS_IDENTITY_MISMATCH"
   | "PROCESS_IDENTITY_AMBIGUOUS"
+  | "PROCESS_OBSERVATION_UNKNOWN"
   | "RESUME_REFUSED"
   | "STOP_REFUSED"
+  | "STOP_PROCESS_STILL_ACTIVE"
   | "CLEANUP_ACTIVE"
   | "CLEANUP_DIRTY_WORKTREE"
   | "CLEANUP_OWNERSHIP_UNPROVED"
   | "CLEANUP_MERGE_NOT_PROVED"
+  | "CLEANUP_PARTIAL"
   | "LOG_NOT_FOUND";
 
 export class RunnerError extends Error {
@@ -80,7 +83,8 @@ export function errorExitCode(error: RunnerError): number {
     error.code === "CONCURRENCY_LIMIT_REACHED" ||
     error.code.startsWith("CLEANUP_") ||
     error.code === "RESUME_REFUSED" ||
-    error.code === "STOP_REFUSED"
+    error.code === "STOP_REFUSED" ||
+    error.code === "STOP_PROCESS_STILL_ACTIVE"
   )
     return 4;
   return 3;

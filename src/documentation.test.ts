@@ -26,6 +26,8 @@ describe("V-11 Phase 3 operator documentation", () => {
       expect(operations).toContain(`just run ${command}`);
     for (const phrase of [
       "Human and JSON",
+      "observation states/codes/facts",
+      "shared reconciliation report",
       "persisted state",
       "outcome code",
       "safe actions",
@@ -78,10 +80,17 @@ describe("V-11 Phase 3 operator documentation", () => {
       "RunSnapshotV1",
       "RunSnapshotV2",
       "never silently treated as v3",
+      "concurrency slot lease",
+      "strictly parsed result artifact identity and content",
+      "permission-denied process metadata",
     ])
       expect(operations).toContain(phrase);
     expect(issueRun).toContain("Phase 3 continuation");
     expect(issueRun).not.toContain("## Remaining Prototype 3 deferrals");
+    expect(issueRun).not.toContain("operator cancellation control is deferred");
+    expect(issueRun).not.toContain(
+      "Only an explicit version 2 transition can carry required evidence",
+    );
   });
 
   it("documents stop bounds, retained evidence, guarded cleanup, and merge-source proof", () => {
@@ -103,6 +112,12 @@ describe("V-11 Phase 3 operator documentation", () => {
       "retains tmux, local branch, snapshot, events, and logs",
       "completed steps",
       "remaining steps",
+      "STOP_PROCESS_STILL_ACTIVE",
+      "retain its process identity, running state, issue lock, slot lease",
+      "same owner and run",
+      "same-owner/run record",
+      "inject snapshot failure after every cleanup step",
+      "refuse unrelated replacements",
     ])
       expect(operations).toContain(phrase);
   });

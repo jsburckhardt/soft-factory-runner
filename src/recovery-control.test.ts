@@ -1,16 +1,20 @@
 import path from "node:path";
 import type {
   AgentResultV1,
+  CleanupStep,
+  ConcurrencyLeaseV1,
   IssueFacts,
   LaunchIntentV1,
   MergedPullRequestFactsV1,
   ProcessIdentityV1,
+  ReconciliationReportV1,
   RepositoryFacts,
   RunSnapshotV2,
   RunSnapshotV3,
   TmuxIdentity,
 } from "./domain";
 import { REQUIRED_VALIDATIONS } from "./domain";
+import { RunnerError } from "./errors";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
@@ -50,6 +54,16 @@ const processIdentity: ProcessIdentityV1 = {
     panePid: 500,
   },
 };
+const lease: ConcurrencyLeaseV1 = {
+  schemaVersion: 1,
+  slot: 1,
+  issueNumber: 5,
+  ownerId: "owner-5",
+  runId: "run-5",
+  repository: "owner/repo",
+  configuredLimit: 2,
+  acquiredAt: "2026-08-11T13:00:00.000Z",
+};
 const result: AgentResultV1 = {
   schemaVersion: 1,
   issueNumber: 5,
@@ -65,8 +79,17 @@ const result: AgentResultV1 = {
   completedAt: "2026-08-11T13:10:00.000Z",
 };
 
+function requireMerged(
+  value: MergedPullRequestFactsV1 | null,
+): MergedPullRequestFactsV1 {
+  if (value === null) throw new Error("fixture expected merged PR facts");
+  return value;
+}
+
 class ControlFiles implements FilePort {
   public readonly values = new Map<string, string>();
+  public failSnapshotAfterStep: CleanupStep | null = null;
+  private failureInjected = false;
   public async readText(filePath: string) {
     return this.values.get(filePath) ?? null;
   }
@@ -94,6 +117,30 @@ class ControlFiles implements FilePort {
     return true;
   }
   public async atomicWrite(filePath: string, content: string) {
+    if (
+      this.failSnapshotAfterStep !== null &&
+      !this.failureInjected &&
+      filePath.includes("/.soft-factory/runs/")
+    ) {
+      const parsed: unknown = JSON.parse(content);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "cleanup" in parsed &&
+        typeof parsed.cleanup === "object" &&
+        parsed.cleanup !== null &&
+        "completedSteps" in parsed.cleanup &&
+        Array.isArray(parsed.cleanup.completedSteps) &&
+        parsed.cleanup.completedSteps.includes(this.failSnapshotAfterStep)
+      ) {
+        this.failureInjected = true;
+        throw new RunnerError(
+          "CLEANUP_PARTIAL",
+          "Injected snapshot replacement failure after a cleanup step.",
+          "Retry from the durable event-ahead cleanup progress.",
+        );
+      }
+    }
     this.values.set(filePath, content);
   }
   public async append(filePath: string, content: string) {
@@ -177,7 +224,7 @@ class ControlGit implements GitPort {
 }
 
 class ControlGitHub implements GitHubPort {
-  public merged: MergedPullRequestFactsV1 = {
+  public merged: MergedPullRequestFactsV1 | null = {
     number: 15,
     state: "MERGED",
     mergedAt: "2026-08-11T14:00:00.000Z",
@@ -201,7 +248,9 @@ class ControlGitHub implements GitHubPort {
       complete: true,
     };
   }
+  public mergedFailure: RunnerError | null = null;
   public async loadMergedPullRequest() {
+    if (this.mergedFailure !== null) throw this.mergedFailure;
     return this.merged;
   }
 }
@@ -239,6 +288,8 @@ class ControlTmux implements TmuxPort {
 class ControlProcess implements ProcessPort {
   public readonly trace: string[] = [];
   public observed: ProcessIdentityV1 | null = processIdentity;
+  public workerObserved: ProcessIdentityV1 | null = null;
+  public observationFailure: RunnerError | null = null;
   public candidates: readonly ProcessIdentityV1[] = [];
   public launches = 0;
   public waitResults: boolean[] = [true];
@@ -265,8 +316,31 @@ class ControlProcess implements ProcessPort {
     this.observed = identity;
     return { identity, wait: async () => ({ exitCode: 0 }) };
   }
+  public async identify(
+    pid: number,
+    paneLineage: ProcessIdentityV1["paneLineage"],
+    launchedAt: string,
+  ) {
+    const identity = {
+      schemaVersion: 1 as const,
+      pid,
+      processGroupId: pid,
+      startToken: "worker",
+      executable: "/usr/bin/soft-factory",
+      args: ["internal", "run-agent", "--issue", "5"],
+      cwd: worktree,
+      launchedAt,
+      paneLineage,
+    };
+    this.workerObserved = identity;
+    return identity;
+  }
   public async observe(identity: ProcessIdentityV1) {
-    return this.observed?.pid === identity.pid ? this.observed : null;
+    if (this.observationFailure !== null) throw this.observationFailure;
+    if (this.observed?.pid === identity.pid) return this.observed;
+    return this.workerObserved?.pid === identity.pid
+      ? this.workerObserved
+      : null;
   }
   public async findLaunchCandidates() {
     return this.candidates;
@@ -301,7 +375,10 @@ function snapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
     fetchedBaseProof: null,
     tmux,
     copilot: null,
-    admission: null,
+    admission:
+      overrides.state === undefined || overrides.state === "running_rpiv"
+        ? lease
+        : null,
     launchIntent: null,
     workerProcess: null,
     rpivProcess: processIdentity,
@@ -346,6 +423,7 @@ async function fixture(initial: RunSnapshotV3) {
     repository: initial.repository,
     acquiredAt: "2026-08-11T13:00:00.000Z",
   });
+  if (initial.admission !== null) await store.acquireLease(initial.admission);
   await store.save(initial, null, "fixture");
   if (
     initial.finalization?.result !== undefined &&
@@ -405,6 +483,76 @@ describe("V-1 explicit legacy migration", () => {
   });
 });
 
+describe("V-2 collected reconciliation facts", () => {
+  it("classifies an exact lease separately and blocks a replacement lease before control", async () => {
+    const exact = await fixture(snapshot());
+    const exactReport = await new IssueRunService(exact.ports).reconcile(
+      5,
+      root,
+    );
+    expect(exactReport.observations.lease).toEqual({
+      state: "match",
+      facts: lease,
+      code: "LEASE_MATCH",
+    });
+
+    const replaced = await fixture(snapshot());
+    replaced.files.values.set(
+      replaced.store.leasePath(1),
+      JSON.stringify({ ...lease, ownerId: "replacement-owner" }),
+    );
+    const replacementReport = await new IssueRunService(
+      replaced.ports,
+    ).reconcile(5, root);
+    expect(replacementReport.observations.lease).toMatchObject({
+      state: "mismatch",
+      code: "LEASE_MISMATCH",
+    });
+    expect(replacementReport.safeActions).toEqual([]);
+  });
+
+  it("strictly parses and compares result identity and content instead of file presence", async () => {
+    const persisted = snapshot({
+      state: "completed",
+      rpivProcess: null,
+      finalization: {
+        result,
+        git: null,
+        pullRequest: null,
+        reconciliation: null,
+      },
+    });
+    const f = await fixture(persisted);
+    f.files.values.set(
+      path.join(worktree, ".soft-factory", "agent-result.json"),
+      JSON.stringify({ ...result, completedAt: "2026-08-11T13:11:00.000Z" }),
+    );
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report.observations.result).toMatchObject({
+      state: "mismatch",
+      code: "RESULT_CONTENT_MISMATCH",
+    });
+    expect(report.decisionCode).toBe("CLEANUP_OWNERSHIP_UNPROVED");
+    expect(f.git.trace).toEqual([]);
+  });
+
+  it("classifies process observation permission failure as unknown, never absent", async () => {
+    const f = await fixture(snapshot());
+    f.processes.observationFailure = new RunnerError(
+      "PROCESS_OBSERVATION_UNKNOWN",
+      "Permission denied while reading process metadata.",
+      "Restore process metadata permissions.",
+    );
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report.observations.rpivProcess).toEqual({
+      state: "unknown",
+      facts: null,
+      code: "PROCESS_OBSERVATION_UNKNOWN",
+    });
+    expect(report.decisionCode).toBe("RECONCILIATION_UNKNOWN");
+  });
+});
+
 describe("V-3 exact process preservation and adoption", () => {
   it("reconcile, resume, and worker preserve an exact active process without launch or attempt change", async () => {
     const f = await fixture(snapshot());
@@ -418,6 +566,17 @@ describe("V-3 exact process preservation and adoption", () => {
       facts: { launched: false, attempt: 1 },
     });
     expect(worker.attempt).toBe(1);
+    expect(worker.workerProcess).toMatchObject({
+      pid: 500,
+      paneLineage: { paneId: tmux.paneId },
+    });
+    expect(
+      (await f.store.loadHistory(5)).some(
+        (event) =>
+          event.schemaVersion === 2 &&
+          event.reason === "worker-process-identity-recorded",
+      ),
+    ).toBe(true);
     expect(f.processes.launches).toBe(0);
   });
 
@@ -476,6 +635,56 @@ describe("V-3 exact process preservation and adoption", () => {
       code: "PROCESS_IDENTITY_AMBIGUOUS",
     });
     expect(ambiguous.processes.launches).toBe(0);
+  });
+});
+
+describe("resume reconciliation gates", () => {
+  it.each([
+    ["preparation mismatch", "preparing_worktree" as const],
+    ["interrupted mismatch", "interrupted" as const],
+  ])(
+    "refuses %s without creating or restarting resources",
+    async (_label, state) => {
+      const f = await fixture(
+        snapshot({
+          state,
+          rpivProcess: null,
+          admission: state === "preparing_worktree" ? lease : null,
+        }),
+      );
+      f.processes.observed = null;
+      f.git.observedBranch = "feat/unrelated";
+      const resumed = await new IssueRunService(f.ports).resume(5, root);
+      expect(resumed).toMatchObject({ code: "RESUME_REFUSED", exitCode: 4 });
+      expect(resumed.report?.decisionCode).toBe("RECONCILIATION_MISMATCH");
+      expect(f.tmux.trace).not.toContain("restart");
+      expect(f.git.trace).toEqual([]);
+    },
+  );
+
+  it("refuses finalization retry when strict result reconciliation is mismatched", async () => {
+    const f = await fixture(
+      snapshot({
+        state: "finalizing",
+        rpivProcess: null,
+        finalization: {
+          result,
+          git: null,
+          pullRequest: null,
+          reconciliation: null,
+        },
+      }),
+    );
+    f.processes.observed = null;
+    f.files.values.set(
+      path.join(worktree, ".soft-factory", "agent-result.json"),
+      JSON.stringify({ ...result, prNumber: 99 }),
+    );
+    const resumed = await new IssueRunService(f.ports).resume(5, root);
+    expect(resumed).toMatchObject({ code: "RESUME_REFUSED", exitCode: 4 });
+    expect(resumed.report?.observations.result.code).toBe(
+      "RESULT_CONTENT_MISMATCH",
+    );
   });
 });
 
@@ -566,6 +775,48 @@ describe("V-7 bounded stop and retained evidence", () => {
       "SIGKILL",
       "wait:5000",
     ]);
+  });
+  it("preserves active process identity, ownership, and capacity after SIGKILL remains ineffective", async () => {
+    const f = await fixture(snapshot());
+    f.processes.waitResults = [false, false];
+    const stopped = await new IssueRunService(f.ports).stop(5, root);
+    expect(stopped).toMatchObject({
+      code: "STOP_PROCESS_STILL_ACTIVE",
+      exitCode: 4,
+      state: "running_rpiv",
+      facts: {
+        processIdentityPreserved: true,
+        leasePreserved: true,
+        escalated: true,
+      },
+    });
+    expect(f.processes.trace).toEqual([
+      "SIGTERM",
+      "wait:10000",
+      "SIGKILL",
+      "wait:5000",
+    ]);
+    const persisted = await f.store.load(5);
+    expect(persisted).toMatchObject({
+      state: "running_rpiv",
+      rpivProcess: processIdentity,
+      admission: lease,
+      stop: { completedAt: null, escalated: true },
+      error: { code: "STOP_PROCESS_STILL_ACTIVE" },
+    });
+    expect(await f.store.readLease(lease.slot)).toEqual(lease);
+    expect(await f.store.readOwner(5)).not.toBeNull();
+    expect(f.files.values.has(worktree)).toBe(true);
+    expect(f.tmux.present).toBe(true);
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report.decisionCode).toBe("active_preserved");
+    expect(
+      (await f.store.loadHistory(5)).every(
+        (event) =>
+          event.schemaVersion !== 2 ||
+          event.resultingSnapshot.state !== "cancelled",
+      ),
+    ).toBe(true);
   });
 });
 
@@ -673,7 +924,11 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
 
   it("preserves a closed-unmerged completed worktree with actionable blocked merge proof", async () => {
     const f = await fixture(completed());
-    f.github.merged = { ...f.github.merged, state: "CLOSED", mergedAt: null };
+    f.github.merged = {
+      ...requireMerged(f.github.merged),
+      state: "CLOSED",
+      mergedAt: null,
+    };
     const status = await new IssueRunService(f.ports).status(5, root);
     expect(status.reconciliation.decisionCode).toBe("CLEANUP_MERGE_NOT_PROVED");
     expect(status.persisted.state).toBe("completed");
@@ -692,6 +947,164 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     expect(cleaned.code).toBe("CLEANUP_OWNERSHIP_UNPROVED");
     expect(f.git.trace).toEqual([]);
     expect(f.files.values.get(worktree)).toBe(before);
+  });
+  it("proves lock and lease ownership before the first destructive cleanup step", async () => {
+    const f = await fixture({ ...completed(), admission: lease });
+    f.files.values.set(
+      f.store.leasePath(lease.slot),
+      JSON.stringify({ ...lease, runId: "replacement-run" }),
+    );
+    const cleaned = await new IssueRunService(f.ports).clean(5, root);
+    expect(cleaned).toMatchObject({
+      code: "CLEANUP_OWNERSHIP_UNPROVED",
+      exitCode: 4,
+    });
+    expect(f.tmux.trace).toEqual([]);
+    expect(f.git.trace).toEqual([]);
+    expect(f.files.values.has(worktree)).toBe(true);
+  });
+
+  it.each(["tmux", "worktree", "lease", "lock"] as const)(
+    "replays durable progress and safely retries after %s completion snapshot failure",
+    async (failedStep) => {
+      const f = await fixture(
+        snapshot({
+          state: "interrupted",
+          rpivProcess: null,
+          admission: lease,
+        }),
+      );
+      f.processes.observed = null;
+      f.files.failSnapshotAfterStep = failedStep;
+      const service = new IssueRunService(f.ports);
+      const partial = await service.clean(5, root);
+      expect(partial).toMatchObject({ code: "CLEANUP_PARTIAL", exitCode: 4 });
+      expect(partial.facts).toMatchObject({
+        completedSteps: expect.any(Array),
+      });
+      expect(
+        (partial.facts as { completedSteps: readonly CleanupStep[] })
+          .completedSteps,
+      ).toContain(failedStep);
+
+      const retried = await service.clean(5, root);
+      expect(["CLEANUP_COMPLETED", "CLEANUP_ALREADY_COMPLETED"]).toContain(
+        retried.code,
+      );
+      const persisted = await f.store.load(5);
+      expect(persisted.cleanup).toMatchObject({
+        ownerId: persisted.ownerId,
+        runId: persisted.runId,
+        completedSteps: ["tmux", "worktree", "lease", "lock"],
+        remainingSteps: [],
+      });
+      expect(
+        f.tmux.trace.filter((entry) => entry === "remove-window"),
+      ).toHaveLength(1);
+      expect(
+        f.git.trace.filter((entry) => entry === "remove-worktree-no-force"),
+      ).toHaveLength(1);
+    },
+  );
+
+  it("refuses an unrelated worktree replacement after recorded partial cleanup", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
+    );
+    f.processes.observed = null;
+    f.files.failSnapshotAfterStep = "worktree";
+    const service = new IssueRunService(f.ports);
+    const partial = await service.clean(5, root);
+    expect(partial.code).toBe("CLEANUP_PARTIAL");
+    expect(partial.facts).toMatchObject({
+      completedSteps: ["tmux", "worktree"],
+    });
+
+    f.files.values.set(worktree, "replacement bytes");
+    f.git.pathExists = true;
+    f.git.registered = true;
+    f.git.observedBranch = "feat/unrelated-replacement";
+    f.git.observedHead = "c".repeat(40);
+    const destructiveCalls = [...f.tmux.trace, ...f.git.trace];
+    const retried = await service.clean(5, root);
+    expect(retried).toMatchObject({
+      code: "CLEANUP_OWNERSHIP_UNPROVED",
+      exitCode: 4,
+    });
+    expect([...f.tmux.trace, ...f.git.trace]).toEqual(destructiveCalls);
+    expect(f.files.values.get(worktree)).toBe("replacement bytes");
+  });
+
+  it("blocks every unavailable, incomplete, missing, mismatched, or ambiguous expected-PR proof", async () => {
+    for (const variant of [
+      "closed-unmerged",
+      "missing",
+      "incomplete",
+      "source-mismatch",
+      "unavailable",
+    ] as const) {
+      const f = await fixture(completed());
+      if (variant === "closed-unmerged")
+        f.github.merged = {
+          ...requireMerged(f.github.merged),
+          state: "CLOSED",
+          mergedAt: null,
+        };
+      if (variant === "missing") f.github.merged = null;
+      if (variant === "incomplete")
+        f.github.merged = {
+          ...requireMerged(f.github.merged),
+          complete: false,
+        };
+      if (variant === "source-mismatch")
+        f.github.merged = {
+          ...requireMerged(f.github.merged),
+          sourceBranch: "feat/unrelated",
+        };
+      if (variant === "unavailable")
+        f.github.mergedFailure = new RunnerError(
+          "GITHUB_PROOF_INCOMPLETE",
+          "GitHub observation unavailable.",
+          "Retry the bounded GitHub observation.",
+        );
+      const status = await new IssueRunService(f.ports).status(5, root);
+      expect(status.persisted.state).toBe("completed");
+      expect(status.reconciliation).toMatchObject({
+        activity: "blocked",
+        decisionCode: "CLEANUP_MERGE_NOT_PROVED",
+      });
+      expect(status.reconciliation.remediation).toContain(
+        "Preserve completed state and resources",
+      );
+      expect(f.git.trace).toEqual([]);
+      expect(f.files.values.has(worktree)).toBe(true);
+      expect(await f.store.readOwner(5)).not.toBeNull();
+    }
+  });
+
+  it("blocks ambiguous completed ownership separately without rewriting completion", async () => {
+    const f = await fixture(completed());
+    f.files.values.set(
+      f.store.lockPath(5),
+      JSON.stringify({
+        schemaVersion: 1,
+        issueNumber: 5,
+        ownerId: "replacement-owner",
+        runId: "replacement-run",
+        repository: "owner/repo",
+        acquiredAt: "replacement-time",
+      }),
+    );
+    const status = await new IssueRunService(f.ports).status(5, root);
+    expect(status.persisted.state).toBe("completed");
+    expect(status.reconciliation).toMatchObject({
+      activity: "blocked",
+      decisionCode: "CLEANUP_OWNERSHIP_UNPROVED",
+    });
+    expect(status.reconciliation.remediation).toContain(
+      "Preserve the completed run",
+    );
+    expect(f.git.trace).toEqual([]);
   });
 });
 
@@ -751,5 +1164,85 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
     );
     expect(cleaned.exitCode).toBe(0);
     expect(cleaned.stdout).toContain("CLEANUP_COMPLETED");
+  });
+
+  it("renders human and JSON control outcomes from equivalent common facts", async () => {
+    const jsonFixture = await fixture(snapshot());
+    const jsonResponse = await runCli(
+      ["resume", "5", "--json"],
+      root,
+      jsonFixture.ports,
+    );
+    const structured = JSON.parse(jsonResponse.stdout) as {
+      state: string;
+      code: string;
+      facts: unknown;
+      remediation: string | null;
+      report: ReconciliationReportV1;
+    };
+    const humanFixture = await fixture(snapshot());
+    const humanResponse = await runCli(
+      ["resume", "5"],
+      root,
+      humanFixture.ports,
+    );
+    expect(humanResponse.stdout).toContain("Issue #5: " + structured.state);
+    expect(humanResponse.stdout).toContain("Outcome: " + structured.code);
+    expect(humanResponse.stdout).toContain(
+      "Facts: " + JSON.stringify(structured.facts),
+    );
+    expect(humanResponse.stdout).toContain(
+      "Persisted state: " + structured.report.persisted.state,
+    );
+    expect(humanResponse.stdout).toContain(
+      "Safe actions: " + structured.report.safeActions.join(", "),
+    );
+    for (const [boundary, observation] of Object.entries(
+      structured.report.observations,
+    ))
+      expect(humanResponse.stdout).toContain(
+        boundary +
+          "=" +
+          observation.state +
+          ":" +
+          observation.code +
+          ":" +
+          JSON.stringify(observation.facts),
+      );
+    expect(humanResponse.stdout).toContain("Remediation: none");
+
+    const refusedJsonFixture = await fixture(snapshot());
+    refusedJsonFixture.processes.observed = {
+      ...processIdentity,
+      startToken: "reused",
+    };
+    const refusedJson = await runCli(
+      ["stop", "5", "--json"],
+      root,
+      refusedJsonFixture.ports,
+    );
+    const refused = JSON.parse(refusedJson.stdout) as {
+      remediation: string;
+      report: { safeActions: readonly string[] };
+    };
+    const refusedHumanFixture = await fixture(snapshot());
+    refusedHumanFixture.processes.observed = {
+      ...processIdentity,
+      startToken: "reused",
+    };
+    const refusedHuman = await runCli(
+      ["stop", "5"],
+      root,
+      refusedHumanFixture.ports,
+    );
+    expect(refusedHuman.stdout).toContain(
+      "Safe actions: " +
+        (refused.report.safeActions.length === 0
+          ? "none"
+          : refused.report.safeActions.join(", ")),
+    );
+    expect(refusedHuman.stdout).toContain(
+      "Remediation: " + refused.remediation,
+    );
   });
 });

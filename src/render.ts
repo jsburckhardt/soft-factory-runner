@@ -23,22 +23,65 @@ export function renderReport(
   report: ReconciliationReportV1,
   json = false,
 ): string {
-  if (json) return `${JSON.stringify(report, null, 2)}\n`;
+  if (json) return JSON.stringify(report, null, 2) + "\n";
   const observations = Object.entries(report.observations)
-    .map(([boundary, observation]) => `${boundary}=${observation.state}`)
+    .map(
+      ([boundary, observation]) =>
+        boundary +
+        "=" +
+        observation.state +
+        ":" +
+        observation.code +
+        ":" +
+        JSON.stringify(observation.facts),
+    )
     .join(", ");
   const actions =
     report.safeActions.length === 0 ? "none" : report.safeActions.join(", ");
-  return `Issue #${report.issueNumber}\nPersisted state: ${report.persisted.state}\nReconciliation: ${report.decisionCode} (${report.activity})\nObservations: ${observations}\nSafe actions: ${actions}\n`;
+  const diagnostics =
+    report.diagnostics.length === 0 ? "none" : report.diagnostics.join(", ");
+  const remediation = report.remediation ?? "none";
+  return (
+    "Issue #" +
+    report.issueNumber +
+    "\nPersisted state: " +
+    report.persisted.state +
+    "\nReconciliation: " +
+    report.decisionCode +
+    " (" +
+    report.activity +
+    ")\nObservations: " +
+    observations +
+    "\nSafe actions: " +
+    actions +
+    "\nDiagnostics: " +
+    diagnostics +
+    "\nReconciliation remediation: " +
+    remediation +
+    "\n"
+  );
 }
 
 export function renderControl(result: ControlOutcomeV1, json: boolean): string {
-  if (json) return `${JSON.stringify(result, null, 2)}\n`;
+  if (json) return JSON.stringify(result, null, 2) + "\n";
   const issue =
-    result.issueNumber === null ? "Repository" : `Issue #${result.issueNumber}`;
-  const remediation =
-    result.remediation === null ? "" : `\nRemediation: ${result.remediation}`;
-  return `${issue}: ${result.state}\nOutcome: ${result.code}\nFacts: ${JSON.stringify(result.facts)}${remediation}\n`;
+    result.issueNumber === null ? "Repository" : "Issue #" + result.issueNumber;
+  const report =
+    result.report === null ? "" : "\n" + renderReport(result.report).trimEnd();
+  const remediation = result.remediation === null ? "none" : result.remediation;
+  return (
+    issue +
+    ": " +
+    result.state +
+    "\nOutcome: " +
+    result.code +
+    "\nFacts: " +
+    JSON.stringify(result.facts) +
+    report +
+    "\nRemediation: " +
+    remediation +
+    "\n"
+  );
 }
 
 export function renderAttach(target: TmuxIdentity): string {

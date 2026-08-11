@@ -262,7 +262,34 @@ export class IssueRunService {
         });
       }
       await this.ports.tmux.setRemainOnExit(tmux);
-      const running = this.next(snapshot, { state: "running_rpiv", tmux });
+      const workerPid = await this.ports.tmux.panePid(tmux);
+      if (workerPid === null)
+        throw new RunnerError(
+          "PROCESS_OBSERVATION_UNKNOWN",
+          "The newly created tmux worker has no observable process identity.",
+          "Preserve the pane and restore readable process metadata before retrying.",
+        );
+      const workerProcess = await this.ports.processes.identify(
+        workerPid,
+        {
+          sessionName: tmux.sessionName,
+          windowId: tmux.windowId,
+          paneId: tmux.paneId,
+          panePid: workerPid,
+        },
+        this.ports.clock.now(),
+      );
+      if (workerProcess === null)
+        throw new RunnerError(
+          "PROCESS_OBSERVATION_UNKNOWN",
+          "The newly created tmux worker disappeared before identity persistence.",
+          "Preserve the pane and reconcile worker ownership before retrying.",
+        );
+      const running = this.next(snapshot, {
+        state: "running_rpiv",
+        tmux,
+        workerProcess,
+      });
       await store.save(running, snapshot.state, "visible-worker-started");
       snapshot = running;
     }
@@ -288,6 +315,50 @@ export class IssueRunService {
       );
     let snapshot = loaded;
     const tmuxTarget = loaded.tmux;
+    if (snapshot.workerProcess === null) {
+      const workerPid = await this.ports.tmux.panePid(tmuxTarget);
+      if (workerPid === null)
+        throw new RunnerError(
+          "PROCESS_OBSERVATION_UNKNOWN",
+          "The tmux worker process identity is unavailable.",
+          "Preserve the pane and restore readable process metadata before retrying.",
+        );
+      const workerIdentity = await this.ports.processes.identify(
+        workerPid,
+        {
+          sessionName: tmuxTarget.sessionName,
+          windowId: tmuxTarget.windowId,
+          paneId: tmuxTarget.paneId,
+          panePid: workerPid,
+        },
+        snapshot.updatedAt,
+      );
+      if (workerIdentity === null)
+        throw new RunnerError(
+          "PROCESS_OBSERVATION_UNKNOWN",
+          "The tmux worker disappeared before its identity could be persisted.",
+          "Preserve the pane and reconcile worker ownership before retrying.",
+        );
+      snapshot = await this.persistTransition(
+        store,
+        snapshot,
+        { workerProcess: workerIdentity },
+        "worker-process-identity-recorded",
+      );
+    } else {
+      const observedWorker = await this.ports.processes.observe(
+        snapshot.workerProcess,
+      );
+      if (
+        observedWorker === null ||
+        !same(observedWorker, snapshot.workerProcess)
+      )
+        throw new RunnerError(
+          "PROCESS_IDENTITY_MISMATCH",
+          "The recorded worker identity does not match the active tmux worker.",
+          "Preserve the pane and refuse RPIV launch until worker identity is exact.",
+        );
+    }
     if (snapshot.rpivProcess !== null) {
       const observed = await this.ports.processes.observe(snapshot.rpivProcess);
       if (observed !== null && same(observed, snapshot.rpivProcess))
@@ -715,11 +786,25 @@ export class IssueRunService {
           launched: false,
         },
       );
-    if (
-      persisted.state === "finalizing" ||
+    const allowedResumeDecision =
+      (persisted.state === "finalizing" &&
+        report.decisionCode === "FINALIZATION_RETRY_AVAILABLE") ||
       (persisted.state === "interrupted" &&
-        report.observations.result.state === "match")
-    ) {
+        (report.decisionCode === "FINALIZATION_RETRY_AVAILABLE" ||
+          report.decisionCode === "RUN_INTERRUPTED")) ||
+      (["acquiring_lock", "preparing_worktree", "starting_tmux"].includes(
+        persisted.state,
+      ) &&
+        report.decisionCode === "PREPARATION_RESUME_AVAILABLE");
+    if (!allowedResumeDecision)
+      return refused(
+        issueNumber,
+        persisted.state,
+        "RESUME_REFUSED",
+        report,
+        "Resume requires the exact allowed reconciliation decision; unknown, mismatched, or blocked facts must be restored first.",
+      );
+    if (report.decisionCode === "FINALIZATION_RETRY_AVAILABLE") {
       const finalizing =
         persisted.state === "finalizing"
           ? persisted
@@ -780,10 +865,7 @@ export class IssueRunService {
         },
       );
     }
-    if (
-      report.decisionCode !== "RUN_INTERRUPTED" &&
-      persisted.state !== "interrupted"
-    )
+    if (report.decisionCode !== "RUN_INTERRUPTED")
       return refused(
         issueNumber,
         persisted.state,
@@ -829,6 +911,7 @@ export class IssueRunService {
         attempt: persisted.attempt + 1,
         admission: admission.lease,
         launchIntent: null,
+        workerProcess: null,
         rpivProcess: null,
         stop: null,
         error: null,
@@ -1023,45 +1106,69 @@ export class IssueRunService {
       after.content,
       before.truncated || after.truncated,
     );
+    const stopFacts = {
+      requestedAt,
+      termSentAt,
+      killSentAt,
+      completedAt: exited ? this.ports.clock.now() : null,
+      escalated: killSentAt !== null,
+      processIdentity,
+      beforeLog: log.path,
+      afterLog: log.path,
+    };
+    if (!exited) {
+      const stillActive = await this.persistTransition(
+        store,
+        stopping,
+        {
+          logs: mergeLog(stopping.logs, log),
+          stop: stopFacts,
+          error: {
+            code: "STOP_PROCESS_STILL_ACTIVE",
+            message:
+              "The exact RPIV process remained active after bounded escalation.",
+          },
+        },
+        "operator-stop-process-still-active",
+      );
+      return {
+        schemaVersion: 1,
+        issueNumber,
+        state: stillActive.state,
+        code: "STOP_PROCESS_STILL_ACTIVE",
+        exitCode: 4,
+        report,
+        facts: {
+          termWaitMs: 10_000,
+          killWaitMs: 5_000,
+          escalated: true,
+          processIdentityPreserved: true,
+          leasePreserved: stillActive.admission !== null,
+          worktreePreserved: true,
+          tmuxPreserved: true,
+          log: log.path,
+        },
+        remediation:
+          "The process is still active; inspect retained logs and retry stop only after exact identity remains observable or inactivity is proved.",
+      };
+    }
     const cancelled = this.next(stopping, {
       state: "cancelled",
       rpivProcess: null,
       logs: mergeLog(stopping.logs, log),
-      stop: {
-        requestedAt,
-        termSentAt,
-        killSentAt,
-        completedAt: this.ports.clock.now(),
-        escalated: killSentAt !== null,
-        processIdentity,
-        beforeLog: log.path,
-        afterLog: log.path,
-      },
-      error: exited
-        ? null
-        : {
-            code: "STOP_REFUSED",
-            message:
-              "Process identity remained observable after bounded escalation.",
-          },
+      stop: stopFacts,
+      error: null,
     });
     await store.save(cancelled, stopping.state, "operator-stop-completed");
     const released = await this.releaseTerminalLease(store, cancelled);
-    return outcome(
-      issueNumber,
-      released.state,
-      exited ? "STOPPED" : "STOP_ESCALATION_INCOMPLETE",
-      exited ? 0 : 4,
-      report,
-      {
-        termWaitMs: 10_000,
-        killWaitMs: killSentAt === null ? 0 : 5_000,
-        escalated: killSentAt !== null,
-        worktreePreserved: true,
-        tmuxPreserved: true,
-        log: log.path,
-      },
-    );
+    return outcome(issueNumber, released.state, "STOPPED", 0, report, {
+      termWaitMs: 10_000,
+      killWaitMs: killSentAt === null ? 0 : 5_000,
+      escalated: killSentAt !== null,
+      worktreePreserved: true,
+      tmuxPreserved: true,
+      log: log.path,
+    });
   }
 
   public async clean(
@@ -1122,16 +1229,50 @@ export class IssueRunService {
         report,
         "Restore exact inactive ownership and complete observations before cleanup.",
       );
-    const cleaned = await this.performCleanup(
-      "explicit",
-      report,
-      repository,
-      store,
-    );
-    return outcome(issueNumber, cleaned.state, "CLEANUP_COMPLETED", 0, report, {
-      completedSteps: cleaned.cleanup?.completedSteps ?? [],
-      retained: ["branch", "snapshot", "events", "logs"],
-    });
+    try {
+      const cleaned = await this.performCleanup(
+        "explicit",
+        report,
+        repository,
+        store,
+      );
+      return outcome(
+        issueNumber,
+        cleaned.state,
+        "CLEANUP_COMPLETED",
+        0,
+        report,
+        {
+          completedSteps: cleaned.cleanup?.completedSteps ?? [],
+          retained: ["branch", "snapshot", "events", "logs"],
+        },
+      );
+    } catch (cause: unknown) {
+      if (!isRunnerError(cause)) throw cause;
+      const partial = await store.load(issueNumber);
+      if (partial.schemaVersion !== 3) throw cause;
+      const partialReport = await collectReconciliation({
+        persisted: partial,
+        repositoryRoot: repository.root,
+        ports: this.ports,
+        store,
+      });
+      return {
+        schemaVersion: 1,
+        issueNumber,
+        state: partial.state,
+        code: cause.code.startsWith("CLEANUP_")
+          ? cause.code
+          : "CLEANUP_PARTIAL",
+        exitCode: 4,
+        report: partialReport,
+        facts: {
+          completedSteps: partial.cleanup?.completedSteps ?? [],
+          remainingSteps: partial.cleanup?.remainingSteps ?? [],
+        },
+        remediation: cause.remediation,
+      };
+    }
   }
 
   private async performCleanup(
@@ -1147,6 +1288,16 @@ export class IssueRunService {
         "Migrate through proved reconciliation first.",
       );
     let snapshot = report.persisted;
+    if (
+      snapshot.cleanup !== null &&
+      (snapshot.cleanup.ownerId !== snapshot.ownerId ||
+        snapshot.cleanup.runId !== snapshot.runId)
+    )
+      throw new RunnerError(
+        "CLEANUP_OWNERSHIP_UNPROVED",
+        "Recorded cleanup progress belongs to a different owner or run.",
+        "Preserve all resources and restore same-owner cleanup progress.",
+      );
     const previous =
       snapshot.cleanup?.mode === mode ? snapshot.cleanup.completedSteps : [];
     const allSteps: readonly CleanupStep[] =
@@ -1155,6 +1306,8 @@ export class IssueRunService {
         : ["worktree", "lease", "lock"];
     let cleanup: CleanupFactsV1 = {
       mode,
+      ownerId: snapshot.ownerId,
+      runId: snapshot.runId,
       intentAt:
         snapshot.cleanup?.mode === mode
           ? snapshot.cleanup.intentAt
@@ -1170,13 +1323,30 @@ export class IssueRunService {
       { cleanup },
       "cleanup-intent",
     );
+    const requiredAction =
+      mode === "explicit" ? "explicit_clean" : "automatic_clean";
     for (const step of allSteps) {
       if (cleanup.completedSteps.includes(step)) continue;
+      const currentReport = await collectReconciliation({
+        persisted: snapshot,
+        repositoryRoot: repository.root,
+        ports: this.ports,
+        store,
+      });
+      if (!currentReport.safeActions.includes(requiredAction))
+        throw new RunnerError(
+          "CLEANUP_OWNERSHIP_UNPROVED",
+          "Cleanup authorization changed before the next destructive step.",
+          currentReport.remediation ??
+            "Preserve all resources and restore exact ownership before retrying.",
+          { details: { step, decisionCode: currentReport.decisionCode } },
+        );
+      const exactOwner = currentReport.observations.lock.facts;
       snapshot = await this.persistTransition(
         store,
         snapshot,
         { cleanup: { ...cleanup, updatedAt: this.ports.clock.now() } },
-        `cleanup-${step}-started`,
+        "cleanup-" + step + "-started",
       );
       if (step === "tmux" && snapshot.tmux !== null) {
         const target = snapshot.tmux;
@@ -1198,15 +1368,37 @@ export class IssueRunService {
           "cleanup-terminal-log-retained",
         );
         await this.ports.tmux.removeWindow(target);
+        if ((await this.ports.tmux.observe(target)) !== null)
+          throw new RunnerError(
+            "CLEANUP_PARTIAL",
+            "The tmux window remained after its cleanup step.",
+            "Preserve the window and retry only after exact absence can be observed.",
+          );
       }
-      if (step === "worktree")
+      if (step === "worktree") {
         await this.ports.git.removeWorktree(
           repository.root,
           snapshot.worktreePath,
         );
+        const observed = await this.ports.git.observeWorktree(
+          repository.root,
+          snapshot.worktreePath,
+        );
+        if (
+          observed.pathExists ||
+          observed.registered ||
+          (await this.ports.files.exists(snapshot.worktreePath))
+        )
+          throw new RunnerError(
+            "CLEANUP_PARTIAL",
+            "The worktree remained after its cleanup step.",
+            "Preserve the path and registration; retry only after exact absence can be observed.",
+          );
+      }
       if (step === "lease" && snapshot.admission !== null) {
-        const released = await store.releaseLease(snapshot.admission);
-        if (!released)
+        const expectedLease = snapshot.admission;
+        const released = await store.releaseLease(expectedLease);
+        if (!released || (await store.readLease(expectedLease.slot)) !== null)
           throw new RunnerError(
             "CLEANUP_OWNERSHIP_UNPROVED",
             "The concurrency lease changed before cleanup could release it.",
@@ -1214,12 +1406,12 @@ export class IssueRunService {
           );
       }
       if (step === "lock") {
-        const owner = await store.readOwner(snapshot.issueNumber);
         if (
-          owner === null ||
-          owner.ownerId !== snapshot.ownerId ||
-          owner.runId !== snapshot.runId ||
-          !(await store.releaseOwner(snapshot.issueNumber, owner))
+          exactOwner === null ||
+          exactOwner.ownerId !== snapshot.ownerId ||
+          exactOwner.runId !== snapshot.runId ||
+          !(await store.releaseOwner(snapshot.issueNumber, exactOwner)) ||
+          (await store.readOwner(snapshot.issueNumber)) !== null
         )
           throw new RunnerError(
             "CLEANUP_OWNERSHIP_UNPROVED",
@@ -1247,7 +1439,7 @@ export class IssueRunService {
               ? report.observations.github.facts
               : snapshot.mergedPullRequest,
         },
-        `cleanup-${step}-completed`,
+        "cleanup-" + step + "-completed",
       );
     }
     return snapshot;

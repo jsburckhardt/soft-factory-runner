@@ -1028,10 +1028,18 @@ class LiveProcessPort implements ProcessPort {
     });
   }
 
+  public async identify(
+    pid: number,
+    paneLineage: ProcessIdentityV1["paneLineage"],
+    launchedAt: string,
+  ): Promise<ProcessIdentityV1 | null> {
+    return readProcessIdentity(pid, paneLineage, launchedAt);
+  }
+
   public async observe(
     identity: ProcessIdentityV1,
   ): Promise<ProcessIdentityV1 | null> {
-    return readProcessIdentity(
+    return this.identify(
       identity.pid,
       identity.paneLineage,
       identity.launchedAt,
@@ -1187,7 +1195,7 @@ async function readProcessIdentity(
     };
   } catch (cause: unknown) {
     const code = nodeErrorCode(cause);
-    if (code === "ENOENT" || code === "EACCES" || code === "EPERM") return null;
+    if (processObservationDisposition(code) === "absent") return null;
     throw fileFailure("observe process identity", `/proc/${pid}`, cause);
   }
 }
@@ -1238,12 +1246,17 @@ async function isDescendant(
       current = parseProcStat(stat).parentPid;
     } catch (cause: unknown) {
       const code = nodeErrorCode(cause);
-      if (code === "ENOENT" || code === "EACCES" || code === "EPERM")
-        return false;
+      if (processObservationDisposition(code) === "absent") return false;
       throw fileFailure("observe process ancestry", `/proc/${current}`, cause);
     }
   }
   return false;
+}
+
+export function processObservationDisposition(
+  code: string | null,
+): "absent" | "unknown" {
+  return code === "ENOENT" ? "absent" : "unknown";
 }
 
 function sameStringArray(

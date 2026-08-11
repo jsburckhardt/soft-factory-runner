@@ -1,4 +1,7 @@
 import type {
+  AgentResultV1,
+  CleanupStep,
+  ConcurrencyLeaseV1,
   MergedPullRequestFactsV1,
   ObservationV1,
   OwnerRecordV1,
@@ -9,6 +12,7 @@ import type {
   TmuxIdentity,
   WorktreeObservationV1,
 } from "./domain";
+import { parseAgentResult } from "./completion";
 import { isRunnerError } from "./errors";
 import { RunStore } from "./persistence";
 import type { RunnerPorts } from "./ports";
@@ -35,8 +39,9 @@ export async function collectReconciliation(input: {
   const resultExpected =
     persisted.state === "finalizing" ||
     persisted.state === "completed" ||
-    persisted.state === "failed" ||
-    persisted.state === "interrupted";
+    (persisted.schemaVersion !== 1 &&
+      persisted.finalization?.result !== null &&
+      persisted.finalization?.result !== undefined);
   const pullRequestNumber =
     persisted.schemaVersion !== 1
       ? (persisted.finalization?.result?.prNumber ?? null)
@@ -44,6 +49,7 @@ export async function collectReconciliation(input: {
 
   const [
     lock,
+    lease,
     filesystem,
     git,
     tmux,
@@ -60,6 +66,24 @@ export async function collectReconciliation(input: {
         ? match(actual, "LOCK_MATCH")
         : mismatch(actual, "LOCK_MISMATCH");
     }),
+    persisted.schemaVersion !== 3
+      ? Promise.resolve(notApplicable<ConcurrencyLeaseV1>("LEASE_NOT_RECORDED"))
+      : persisted.admission === null
+        ? Promise.resolve(
+            persisted.state === "running_rpiv"
+              ? absent<ConcurrencyLeaseV1>("LEASE_NOT_RECORDED")
+              : notApplicable<ConcurrencyLeaseV1>("LEASE_NOT_HELD"),
+          )
+        : observe(async () => {
+            const actual = await store.readLease(
+              persisted.admission?.slot ?? 0,
+            );
+            if (actual === null)
+              return absent<ConcurrencyLeaseV1>("LEASE_ABSENT");
+            return same(actual, persisted.admission)
+              ? match(actual, "LEASE_MATCH")
+              : mismatch(actual, "LEASE_MISMATCH");
+          }),
     observe(async () =>
       (await ports.files.exists(persisted.worktreePath))
         ? match({ worktreePath: persisted.worktreePath }, "WORKTREE_PATH_MATCH")
@@ -105,11 +129,21 @@ export async function collectReconciliation(input: {
       const text = await ports.files.readAgentResult(resultPath);
       if (text === null)
         return resultExpected
-          ? absent<{ readonly present: boolean }>("RESULT_ABSENT", {
-              present: false,
-            })
-          : notApplicable<{ readonly present: boolean }>("RESULT_NOT_REQUIRED");
-      return match({ present: true }, "RESULT_PRESENT");
+          ? absent<AgentResultV1>("RESULT_ABSENT")
+          : notApplicable<AgentResultV1>("RESULT_NOT_REQUIRED");
+      const parsed = parseAgentResult(text);
+      const persistedResult =
+        persisted.schemaVersion === 1
+          ? null
+          : (persisted.finalization?.result ?? null);
+      const identityMatches =
+        parsed.issueNumber === persisted.issueNumber &&
+        parsed.branch === persisted.branch;
+      if (!resultExpected) return mismatch(parsed, "RESULT_UNEXPECTED");
+      if (!identityMatches) return mismatch(parsed, "RESULT_IDENTITY_MISMATCH");
+      if (persistedResult !== null && !same(parsed, persistedResult))
+        return mismatch(parsed, "RESULT_CONTENT_MISMATCH");
+      return match(parsed, "RESULT_MATCH");
     }),
     persisted.fetchedBaseProof === null
       ? Promise.resolve(
@@ -157,6 +191,7 @@ export async function collectReconciliation(input: {
   ]);
   return buildReconciliationReport(persisted, {
     lock,
+    lease,
     filesystem,
     git,
     tmux,
@@ -182,12 +217,9 @@ export function buildReconciliationReport(
   const mismatched = entries.filter(
     ([, observation]) => observation.state === "mismatch",
   );
-  const diagnostics = entries
-    .filter(
-      ([, observation]) =>
-        observation.state === "unknown" || observation.state === "mismatch",
-    )
-    .map(([boundary, observation]) => `${boundary}:${observation.code}`);
+  const diagnostics = [...unknown, ...mismatched].map(
+    ([boundary, observation]) => boundary + ":" + observation.code,
+  );
   if (persisted.schemaVersion !== 3) {
     return report(
       persisted,
@@ -196,8 +228,11 @@ export function buildReconciliationReport(
       "LEGACY_RECONCILIATION_REQUIRED",
       [],
       ["legacy snapshot requires an explicit proved v3 migration"],
+      "Migrate only through a complete, identity-matching reconciliation transition.",
     );
   }
+  if (persisted.state === "completed")
+    return buildCompletedReport(persisted, observations, diagnostics);
   if (unknown.length > 0)
     return report(
       persisted,
@@ -206,6 +241,7 @@ export function buildReconciliationReport(
       "RECONCILIATION_UNKNOWN",
       [],
       diagnostics,
+      "Restore every unavailable observation and explicitly retry; unknown facts authorize no action.",
     );
   if (mismatched.length > 0)
     return report(
@@ -215,28 +251,39 @@ export function buildReconciliationReport(
       "RECONCILIATION_MISMATCH",
       [],
       diagnostics,
+      "Preserve contradictory resources, restore exact ownership, and explicitly retry.",
     );
 
   const tmuxMatches = observations.tmux.state === "match";
   const rpivMatches = observations.rpivProcess.state === "match";
-  if (persisted.state === "running_rpiv" && rpivMatches) {
+  const workerReconciled =
+    observations.workerProcess.state === "match" ||
+    observations.workerProcess.state === "not_applicable";
+  const exactActiveOwnership =
+    observations.lock.state === "match" &&
+    observations.lease.state === "match" &&
+    observations.filesystem.state === "match" &&
+    observations.git.state === "match" &&
+    tmuxMatches &&
+    workerReconciled;
+  if (
+    persisted.state === "running_rpiv" &&
+    rpivMatches &&
+    exactActiveOwnership
+  ) {
     return report(
       persisted,
       observations,
       "active",
       "active_preserved",
-      tmuxMatches
-        ? ["preserve_active", "attach", "stop"]
-        : ["preserve_active", "stop"],
+      ["preserve_active", "attach", "stop"],
       [],
+      null,
     );
   }
   if (persisted.state === "running_rpiv") {
     const safeOwnership =
-      observations.lock.state === "match" &&
-      observations.filesystem.state === "match" &&
-      observations.git.state === "match" &&
-      tmuxMatches;
+      exactActiveOwnership && observations.rpivProcess.state === "absent";
     return report(
       persisted,
       observations,
@@ -244,6 +291,9 @@ export function buildReconciliationReport(
       safeOwnership ? "RUN_INTERRUPTED" : "RUN_OWNERSHIP_UNPROVED",
       safeOwnership ? ["resume", "attach"] : [],
       [],
+      safeOwnership
+        ? null
+        : "Restore the exact lock, lease, worktree, tmux, worker, and RPIV process facts before recovery.",
     );
   }
   if (
@@ -251,105 +301,220 @@ export function buildReconciliationReport(
     persisted.state === "preparing_worktree" ||
     persisted.state === "starting_tmux"
   ) {
+    const preparationOwned =
+      observations.lock.state === "match" &&
+      observations.lease.state === "match";
     return report(
       persisted,
       observations,
-      "interrupted",
-      "PREPARATION_RESUME_AVAILABLE",
-      ["resume"],
+      preparationOwned ? "interrupted" : "blocked",
+      preparationOwned
+        ? "PREPARATION_RESUME_AVAILABLE"
+        : "RUN_OWNERSHIP_UNPROVED",
+      preparationOwned ? ["resume"] : [],
       [],
+      preparationOwned
+        ? null
+        : "Restore the exact issue lock and concurrency lease before resuming preparation.",
     );
   }
   if (persisted.state === "finalizing") {
+    const retryable =
+      observations.result.state === "match" &&
+      observations.rpivProcess.state === "absent";
     return report(
       persisted,
       observations,
       "interrupted",
-      observations.result.state === "match"
-        ? "FINALIZATION_RETRY_AVAILABLE"
-        : "FINALIZATION_INPUT_MISSING",
-      observations.result.state === "match" ? ["retry_finalization"] : [],
+      retryable ? "FINALIZATION_RETRY_AVAILABLE" : "FINALIZATION_INPUT_MISSING",
+      retryable ? ["retry_finalization"] : [],
       [],
+      retryable
+        ? null
+        : "Restore the exact validated result artifact and inactive RPIV facts before retrying finalization.",
     );
   }
-  if (persisted.state === "completed") {
-    const merge = observations.github.facts;
-    const canExplicitClean =
-      isClean(observations.git.facts) &&
-      observations.tmux.state === "match" &&
-      observations.rpivProcess.state === "absent" &&
-      observations.result.state === "match" &&
-      observations.lock.state === "match" &&
-      observations.filesystem.state === "match" &&
-      observations.git.state === "match";
-    if (
-      observations.github.state === "match" &&
-      merge?.state === "MERGED" &&
-      merge.mergedAt !== null &&
-      canExplicitClean
-    ) {
-      return report(
-        persisted,
-        observations,
-        "inactive",
-        "MERGED_CLEANUP_READY",
-        tmuxMatches
-          ? ["attach", "explicit_clean", "automatic_clean"]
-          : ["explicit_clean", "automatic_clean"],
-        [],
-      );
-    }
-    if (merge?.state === "CLOSED") {
-      return report(
-        persisted,
-        observations,
-        "blocked",
-        "CLEANUP_MERGE_NOT_PROVED",
-        canExplicitClean
-          ? tmuxMatches
-            ? ["attach", "explicit_clean"]
-            : ["explicit_clean"]
-          : tmuxMatches
-            ? ["attach"]
-            : [],
-        ["expected pull request is closed without complete merge proof"],
-      );
-    }
+  if (
+    persisted.state === "interrupted" &&
+    observations.result.state === "match" &&
+    observations.rpivProcess.state === "absent"
+  )
     return report(
       persisted,
       observations,
-      "inactive",
-      merge?.state === "OPEN" ? "MERGE_PENDING" : "COMPLETED_PRESERVED",
-      canExplicitClean
-        ? tmuxMatches
-          ? ["attach", "explicit_clean"]
-          : ["explicit_clean"]
-        : tmuxMatches
-          ? ["attach"]
-          : [],
+      "interrupted",
+      "FINALIZATION_RETRY_AVAILABLE",
+      ["retry_finalization"],
       [],
+      null,
     );
-  }
-  const canClean =
-    observations.rpivProcess.state === "absent" &&
-    observations.tmux.state === "match" &&
+
+  if (
+    persisted.state === "interrupted" &&
+    (observations.result.state === "absent" ||
+      observations.result.state === "not_applicable") &&
     observations.lock.state === "match" &&
     observations.filesystem.state === "match" &&
     observations.git.state === "match" &&
-    isClean(observations.git.facts);
+    observations.tmux.state === "match" &&
+    observations.rpivProcess.state === "absent" &&
+    (observations.workerProcess.state === "absent" ||
+      observations.workerProcess.state === "not_applicable")
+  )
+    return report(
+      persisted,
+      observations,
+      "interrupted",
+      "RUN_INTERRUPTED",
+      ["resume", "attach", "explicit_clean"],
+      [],
+      null,
+    );
+
+  const canClean = canExplicitCleanup(persisted, observations);
   return report(
     persisted,
     observations,
     "inactive",
-    `TERMINAL_${persisted.state.toUpperCase()}`,
+    "TERMINAL_" + persisted.state.toUpperCase(),
     canClean
-      ? tmuxMatches
+      ? observations.tmux.state === "match"
         ? ["attach", "explicit_clean"]
         : ["explicit_clean"]
-      : tmuxMatches
+      : observations.tmux.state === "match"
         ? ["attach"]
         : [],
     [],
+    canClean
+      ? null
+      : "Restore exact inactive ownership before guarded cleanup.",
+  );
+}
+
+function buildCompletedReport(
+  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  observations: ReconciliationObservationsV1,
+  diagnostics: readonly string[],
+): ReconciliationReportV1 {
+  const nonGitHubProblems = Object.entries(observations).filter(
+    ([boundary, observation]) =>
+      boundary !== "github" &&
+      (observation.state === "unknown" || observation.state === "mismatch"),
+  );
+  const explicitReady = canExplicitCleanup(persisted, observations);
+  const attach = observations.tmux.state === "match" ? ["attach" as const] : [];
+  const explicit = explicitReady ? ["explicit_clean" as const] : [];
+  if (nonGitHubProblems.length > 0)
+    return report(
+      persisted,
+      observations,
+      "blocked",
+      "CLEANUP_OWNERSHIP_UNPROVED",
+      attach,
+      diagnostics,
+      "Preserve the completed run and restore every unknown or mismatched ownership fact before cleanup.",
+    );
+
+  if (!explicitReady)
+    return report(
+      persisted,
+      observations,
+      "blocked",
+      "CLEANUP_OWNERSHIP_UNPROVED",
+      attach,
+      diagnostics,
+      "Preserve the completed run and restore every required exact or same-owner recorded cleanup fact.",
+    );
+
+  const merge = observations.github.facts;
+  const mergeProved =
+    observations.github.state === "match" &&
+    merge !== null &&
+    merge.complete &&
+    merge.state === "MERGED" &&
+    merge.mergedAt !== null;
+  if (mergeProved && explicitReady)
+    return report(
+      persisted,
+      observations,
+      "inactive",
+      "MERGED_CLEANUP_READY",
+      [...attach, ...explicit, "automatic_clean"],
+      [],
+      null,
+    );
+  if (
+    observations.github.state === "match" &&
+    merge !== null &&
+    merge.complete &&
+    merge.state === "OPEN"
+  )
+    return report(
+      persisted,
+      observations,
+      "inactive",
+      "MERGE_PENDING",
+      [...attach, ...explicit],
+      [],
+      "Wait for the expected pull request to merge or use explicit cleanup only when all ownership facts remain exact.",
+    );
+  return report(
+    persisted,
+    observations,
+    "blocked",
+    "CLEANUP_MERGE_NOT_PROVED",
+    [...attach, ...explicit],
+    diagnostics,
+    "Preserve completed state and resources; restore complete expected-PR source-head and ownership proof before automatic cleanup.",
+  );
+}
+
+function canExplicitCleanup(
+  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  observations: ReconciliationObservationsV1,
+): boolean {
+  const progress = persisted.cleanup;
+  const progressOwned =
+    progress !== null &&
+    progress.ownerId === persisted.ownerId &&
+    progress.runId === persisted.runId;
+  const completed = (step: CleanupStep): boolean =>
+    progressOwned && (progress?.completedSteps.includes(step) ?? false);
+  const tmuxReconciled =
+    observations.tmux.state === "match" ||
+    (completed("tmux") && observations.tmux.state === "absent");
+  const worktreeReconciled =
+    (observations.filesystem.state === "match" &&
+      observations.git.state === "match" &&
+      isClean(observations.git.facts)) ||
+    (completed("worktree") &&
+      observations.filesystem.state === "absent" &&
+      observations.git.state === "absent");
+  const leaseReconciled =
+    persisted.admission === null
+      ? observations.lease.state === "not_applicable" || completed("lease")
+      : observations.lease.state === "match";
+  const lockReconciled =
+    observations.lock.state === "match" ||
+    (completed("lock") && observations.lock.state === "absent");
+  const resultReconciled =
+    persisted.state === "completed"
+      ? observations.result.state === "match" ||
+        (completed("worktree") && observations.result.state === "absent")
+      : observations.result.state === "match" ||
+        observations.result.state === "absent" ||
+        observations.result.state === "not_applicable";
+  const processesInactive =
+    (observations.workerProcess.state === "absent" ||
+      observations.workerProcess.state === "not_applicable") &&
+    observations.rpivProcess.state === "absent";
+  return (
+    tmuxReconciled &&
+    worktreeReconciled &&
+    leaseReconciled &&
+    lockReconciled &&
+    resultReconciled &&
+    processesInactive
   );
 }
 
@@ -360,6 +525,7 @@ function report(
   decisionCode: string,
   safeActions: ReconciliationReportV1["safeActions"],
   diagnostics: readonly string[],
+  remediation: string | null,
 ): ReconciliationReportV1 {
   return {
     schemaVersion: 1,
@@ -370,6 +536,7 @@ function report(
     decisionCode,
     safeActions,
     diagnostics,
+    remediation,
   };
 }
 

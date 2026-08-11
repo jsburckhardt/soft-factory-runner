@@ -1,110 +1,107 @@
 # Implementation: Phase 3 recovery and explicit concurrency
 
-## Scope and commit proof
+## Scope and correction proof
 
 - **Issue:** #5
-- **Branch:** `feat/5-recover-and-run-concurrently`
-- **Work item:** `5-phase-3-recover-safely-and-run-distinct-issues-concurrently`
-- **Implementation commit:** this record is included in the Conventional Commit that contains the complete implementation; its exact immutable SHA is reported in the Implement handoff because a commit cannot embed its own SHA.
-- **Acceptance ownership:** this record supplies implementation evidence only. Final verification and acceptance remain owned by Verify.
+- **Branch:** feat/5-recover-and-run-concurrently
+- **Work item:** 5-phase-3-recover-safely-and-run-distinct-issues-concurrently
+- **Correction base:** 262e2b6bc7b3479170651b397bd31002708f43ef
+- **Correction commit:** this record is included in the new Conventional Commit; the immutable SHA is reported in the Implement handoff because a commit cannot embed its own SHA.
+- **Acceptance ownership:** this record provides implementation evidence only. Final verification and acceptance remain owned by Verify.
 
 ## Completed tasks
 
-- [x] **T-1** — Added `RunSnapshotV3`, complete `TransitionEventV2`, strict v1/v2 compatibility, contiguous event replay, strict enumeration, retained logs, and owner compare-and-delete.
-- [x] **T-2** — Expanded typed file, Git, GitHub, tmux, and process adapters for bounded observations, compound process identity, merge facts, dirtiness, capture, signals, and non-forced removal.
-- [x] **T-3** — Added one persisted-versus-observed reconciliation report and numerically sorted union inventory shared by control commands.
-- [x] **T-4** — Added strict concurrency configuration and atomic explicit-issue slot leases with exact rollback and resource isolation.
-- [x] **T-5** — Added launch-intent/identity transitions, exact active preservation, single-candidate adoption, deterministic resume, and capacity reacquisition.
-- [x] **T-6** — Added exact process-group stop with 10-second graceful and 5-second escalation bounds plus capped retained terminal evidence.
-- [x] **T-7** — Added report-authorized explicit and merged-PR cleanup, source-head proof, progress persistence, non-forced removal, and fail-safe refusals.
-- [x] **T-8** — Added strict Phase 3 CLI dispatch/rendering and complete operator/configuration/migration/deployment documentation.
-- [x] **T-9** — Added deterministic repeated interruption/concurrency fixtures, documentation smoke tests, coverage proof, and direct/harness gates.
+- [x] **T-1** — Revisioned v3 snapshots, v2 event replay, strict legacy handling, enumeration, compare-and-delete, and retained logs remain complete.
+- [x] **T-2** — Reconciliation now separately observes exact leases, persisted worker identity, strict result identity/content, and permission failures as unknown.
+- [x] **T-3** — Shared reconciliation now blocks mismatched resume, missing or ambiguous completion cleanup proof, and exposes actionable remediation.
+- [x] **T-4** — Atomic explicit-issue admission remains intact; active-after-escalation now retains exact leased capacity.
+- [x] **T-5** — Resume now requires one allowed exact reconciliation decision before preparation, finalization, or interrupted-attempt actions.
+- [x] **T-6** — Bounded stop now cancels and releases capacity only after inactivity is proved; still-active escalation remains owned and actionable.
+- [x] **T-7** — Cleanup proves lease and lock ownership before every destructive step and resumes only same-owner/run durable progress.
+- [x] **T-8** — Human and JSON control rendering now expose equivalent report meaning, and stale operator documentation is corrected.
+- [x] **T-9** — V-7 includes active-after-SIGKILL and V-8 injects snapshot failure after every cleanup step with retry and replacement refusal.
 
-The task breakdown at `plan/02-task-breakdown.md` marks T-1 through T-9 complete only after task-focused validation passed.
+The plan task breakdown remains marked complete. This correction changes no task dependency or architecture contract.
 
-## Changed behavior
+## Prior Verify findings resolved
 
-- New runs persist revisioned v3 state and replay only complete contiguous identity-matching v2 event chains.
-- `reconcile`, `resume`, `stop`, `clean`, `list`, `status`, `attach`, and `logs` consume common typed reconciliation/control facts.
-- Matching compound RPIV identity is preserved without attempt increment or duplicate launch; interrupted launch adopts exactly one matching pane descendant.
-- Explicit issue starts use atomic repository slots from strict `execution.max_concurrent_runs`; Runner never selects an issue automatically.
-- Stop preserves worktree/tmux evidence and stores redacted attempt logs capped at 2 MiB.
-- Explicit cleanup and automatic merged cleanup require exact inactive clean ownership; automatic mode verifies immutable PR source branch/SHA and retains branch, tmux, snapshot, events, and logs.
+| Verify defect | Implement correction and evidence |
+| --- | --- |
+| 1. AC-1 lease, worker, and result facts | src/domain.ts and src/reconciliation.ts add the lease boundary and full parsed AgentResultV1 facts; IssueRunService.runWorker persists worker compound identity. V-2 tests exact/replacement lease, worker history, result-content mismatch, and process unknown classification. |
+| 2. AC-3 human/JSON control parity | src/render.ts renders the shared report inside human controls with persisted state, decision/activity, every observation state/code/facts tuple, safe actions, diagnostics, and remediation. V-4 compares human text against the JSON facts. |
+| 3. AC-5/AC-7 active after bounded escalation | stop persists STOP_PROCESS_STILL_ACTIVE without clearing RPIV identity, changing running_rpiv, releasing the lease, or deleting owner/worktree/tmux facts. The exact false/false 10-second plus 5-second fixture asserts no cancelled event. |
+| 4. AC-8 cleanup authorization and retry | CleanupFactsV1 records ownerId/runId. performCleanup recollects authorization before every step, verifies absence after each operation, exact-deletes observed owner/lease records, and accepts absence only after same-owner/run completed progress. V-8 injects event-ahead snapshot failure after tmux, worktree, lease, and lock, retries each, and refuses an unrelated replacement. |
+| 5. AC-9 missing or ambiguous expected PR | Completed reconciliation returns CLEANUP_MERGE_NOT_PROVED for closed-unmerged, missing, incomplete, unavailable, and source mismatch facts, or CLEANUP_OWNERSHIP_UNPROVED for ownership ambiguity. All preserve completed state and resources with remediation. |
+| 6. Resume mismatch gate | resume requires PREPARATION_RESUME_AVAILABLE, FINALIZATION_RETRY_AVAILABLE, RUN_INTERRUPTED, active_preserved, or completed no-op as applicable. Preparation, interrupted, and finalization mismatch fixtures return RESUME_REFUSED with no restart or resource creation. |
+| 7. Process permission failures | src/live.ts treats only ENOENT as absence. EACCES, EPERM, malformed, and other incomplete observations throw typed failures that reconciliation classifies unknown. Adapter and collector fixtures prove this. |
+| 8. V-7 and V-8 gaps | src/recovery-control.test.ts adds exact active-after-SIGKILL, four cleanup step snapshot-failure/replay/retry cases, pre-destruction lease replacement refusal, and partial-cleanup unrelated replacement refusal. |
+| 9. Stale documentation | README.md, docs/phase-1-issue-run.md, and docs/phase-3-recovery-operations.md now document lease/result facts, full human/JSON meaning, delivered operator stop, active-after-escalation ownership, and same-owner cleanup retry. |
+| 10. Evidence correction | This implementation record replaces stale 129-test and incomplete V-7/V-8 claims with the 146-test correction evidence and the durable correction retro path. |
 
 ## Acceptance evidence
 
-| AC | Implementation evidence | Test/observable evidence |
+| AC | Corrected implementation evidence | Test or observable evidence |
 | --- | --- | --- |
-| **AC-1** | `src/domain.ts`, `src/persistence.ts`, `src/reconciliation.ts`, and `src/live.ts` separate persisted state from lock, filesystem, Git, tmux, worker/RPIV process, result, remote, and GitHub facts. | `V-1` in `src/recovery-persistence.test.ts` proves v3/v2 replay and refusal; `V-2` in `src/reconciliation.test.ts` asserts all nine report keys and individual mismatch/unknown classification. |
-| **AC-2** | `IssueRunService.runWorker`, `resume`, and `collectReconciliation` compare complete process identity and preserve `active_preserved` without spawn. | `V-3` in `src/recovery-control.test.ts` runs reconcile/resume/worker over an exact active process: attempt remains 1 and launch count is zero; single-candidate adoption launches zero. |
-| **AC-3** | `src/command.ts`, `src/index.ts`, `src/render.ts`, and `IssueRunService` expose strict deterministic resume/stop/clean/list/status/attach/logs/reconcile outcomes from common facts. | `V-4` CLI dispatch tests cover all controls, human/JSON status meaning, list ordering surface, stable exits, and idempotent active facts; `V-11` smokes help and safe missing-state forms through `just run`. |
-| **AC-4** | Run admission derives issue lock, branch, worktree, window/pane, run, event, and log identities from each explicit issue while sharing only the repository tmux session. | Repeated `V-5` temporary-root fixture in `src/integration.test.ts` runs three explicit issues at capacity two for 20 repetitions; the two admitted runs have disjoint locks, branches, worktrees, windows/panes, snapshots, and events. |
-| **AC-5** | `src/config.ts` parses a strict positive safe integer defaulting to 1; `src/admission.ts` uses exclusive lowest-slot creation, conservative occupied leases, safe limit-reduction blocking, and exact just-created-lock rollback. | `V-6` in `src/reconciliation.test.ts` repeats three-way limit-two races 20 times with exactly two slots and one `CONCURRENCY_LIMIT_REACHED`; `src/index.test.ts` rejects zero, negative, fractional, exponent, and unsafe values. |
-| **AC-6** | `loadMergedPullRequest`, reconciliation, and automatic cleanup compare expected PR, `MERGED`, merge time, source branch, and immutable source head; merge commit and remote branch are non-authoritative. | `V-9` in `src/recovery-control.test.ts` uses a differing merge commit and absent remote branch, then proves worktree/lock absent while branch, tmux, snapshot, events, and logs contract remain; adapter arguments/facts are tested in `src/integration.test.ts`. |
-| **AC-7** | `IssueRunService.stop` captures before/after, sends exact-group `SIGTERM`, waits 10 seconds, optionally sends `SIGKILL`, waits 5 seconds, persists cancellation, and retains evidence. | `V-7` traces are exactly `SIGTERM -> wait:10000` and `SIGTERM -> wait:10000 -> SIGKILL -> wait:5000`; PID-reuse mismatch sends zero signals; 2 MiB truncation and preserved worktree/tmux/log are asserted. |
-| **AC-8** | Cleanup derives authorization from the shared report and refuses active, staged, unstaged, untracked, unknown, mismatched, and ambiguous facts before destructive calls. | `V-8` table tests active and every dirtiness class with zero Git/tmux destruction, mismatched branch replacement preservation, and live Git non-forced dirty-worktree refusal. |
-| **AC-9** | Completed-state cleanup blockage is stored separately; CLOSED-unmerged/incomplete or contradictory merge proof never rewrites completion or removes resources. | `V-10` closed-unmerged fixture returns `CLEANUP_MERGE_NOT_PROVED`, preserves `completed`, lock, registration/path bytes, and records zero destructive calls; mismatch matrices are repeatable. |
-| **AC-10** | Persistence boundaries, process adoption, slot admission, stop, and cleanup are dependency-injected and use fixed facts/barriers without ambient credentials, tmux, or Copilot. | V-1 refusal cases repeat identically; V-5/V-6 races repeat 20 times; V-3 proves no duplicate launch; all 129 tests pass with no owner over-admission or resource collision. |
+| **AC-1** | Reconciliation separately reports lock, lease, filesystem, Git, tmux, worker process, RPIV process, strict result, remote, and GitHub facts. Result files are parsed and compared to run identity and persisted content. | V-2 asserts all ten boundaries, exact and replacement leases, worker identity persistence, RESULT_CONTENT_MISMATCH, and unknown permission facts. |
+| **AC-2** | Exact RPIV plus lease/resource identity still yields active_preserved; worker identity is durable and no duplicate RPIV starts. | V-3 preserves attempt 1, records worker-process-identity-recorded, and keeps launch count zero; adoption tests remain green. |
+| **AC-3** | Resume, stop, clean, status, list, attach, logs, and reconcile consume common reports. Human controls include the same report meaning carried by JSON. | V-4 dispatch and parity assertions cover state, outcome, observations, safe actions, facts, remediation, and stable exits. |
+| **AC-4** | Per-issue lock, branch, worktree, tmux, snapshot/event/log, owner/run, and lease isolation is unchanged. | Existing V-5 repeated distinct-issue fixtures remain green in the 146-test suite. |
+| **AC-5** | Exact leases remain capacity authority; a process still active after escalation keeps its slot and cannot free capacity prematurely. | V-6 admission races remain green; the new V-7 false/false fixture proves lease slot 1 and issue owner remain exact. |
+| **AC-6** | Automatic cleanup still requires complete MERGED expected-PR source branch/head proof and exact ownership. | V-9 matching source-head cleanup remains green, including differing informational merge commit and absent remote source branch. |
+| **AC-7** | SIGTERM 10 seconds precedes optional SIGKILL and 5 seconds. Cancellation, process clearing, and lease release occur only after observed exit. | V-7 covers graceful, escalated exit, PID reuse refusal, recorded-stop recovery, retention, and exact still-active-after-SIGKILL ownership preservation. |
+| **AC-8** | Lease and issue ownership are proved before tmux/worktree destruction; progress carries owner/run and every completed operation is post-observed before persistence. | V-8 injects snapshot replacement failure after every step, replays durable event progress, retries without duplicate removal, and refuses lease/worktree replacements with zero further destruction. |
+| **AC-9** | Completed state is preserved while missing, closed, incomplete, unavailable, mismatched, ambiguous PR or ownership evidence returns stable blocked cleanup remediation. | V-10 matrix asserts CLEANUP_MERGE_NOT_PROVED or CLEANUP_OWNERSHIP_UNPROVED, blocked activity, unchanged worktree/lock, and zero removal. |
+| **AC-10** | All corrections stay behind deterministic typed ports and event-before-snapshot persistence; no ambient GitHub, tmux, Copilot, or destructive current checkout is used. | 146 deterministic tests pass; repeated concurrency, interruption, event replay, cleanup fault, and no-duplicate fixtures remain green. |
 
-## Test and validation evidence
+## Validation evidence
 
-### Task-focused direct recipes
+### Targeted focused correction tests
 
-All task boundaries passed with `git diff --check`:
+- just verify-focused -- src/recovery-control.test.ts src/reconciliation.test.ts src/integration.test.ts — 3 suites and 66 tests passed after fixture correction.
+- just verify-focused -- src/documentation.test.ts src/recovery-control.test.ts src/reconciliation.test.ts src/integration.test.ts — 4 suites and 72 tests passed.
+- The initial targeted retries exposed and corrected a misplaced remediation parameter and a fault hook that parsed log content instead of only snapshot content.
 
-- T-1: `just verify-focused src/completion.test.ts src/recovery-persistence.test.ts` — 42 tests passed.
-- T-2: `just verify-focused src/reconciliation.test.ts src/integration.test.ts src/recovery-control.test.ts` — 45 tests passed.
-- T-3: `just verify-focused src/reconciliation.test.ts src/recovery-control.test.ts` — 25 tests passed.
-- T-4: `just verify-focused src/reconciliation.test.ts src/integration.test.ts` — 25 tests passed.
-- T-5: `just verify-focused src/recovery-control.test.ts src/orchestration.test.ts` — 47 tests passed.
-- T-6: `just verify-focused src/recovery-control.test.ts` — 20 tests passed.
-- T-7: `just verify-focused src/recovery-control.test.ts src/integration.test.ts` — 40 tests passed.
-- T-8: `just verify-focused src/index.test.ts src/documentation.test.ts` — 11 tests passed.
-- T-9: `just verify-focused` — 8 suites and 129 tests passed.
+### Required focused boundary
 
-### Final focused and full boundaries
+- harness checks --focused --json — status ok, process exit 0, scope focused, delegatedCommand just verify-focused, 8 suites and 146 tests passed.
+- Direct just verify-focused — 8 suites and 146 tests passed; git diff --check passed.
 
-- `harness checks --focused --json` — status `ok`, exit 0, scope `focused`, delegated command `just verify-focused`, 8 suites/129 tests passed.
-- Direct `just verify-focused` — 8 suites/129 tests passed and `git diff --check` passed.
-- Direct `just verify` — lint, Prettier check, strict type check, 8 suites/129 tests, build, and `git diff --check` passed.
-- Coverage: **89.23% statements, 84.76% branches, 96.33% functions, 90.57% lines**.
-- `harness checks --json` — status `ok`, exit 0, scope `full`, delegated command `just verify`, same successful full gate.
-- Pre-implementation `harness boot --json` — status `ok`; `just boot` exit 0, exact short-lived bootstrap signal observed, composed checks exit 0/status `ok`.
+### Required full boundary
 
-The first full attempts exposed and then resolved strict unused-symbol lint errors and Prettier drift; the successful direct and harness full results above are post-fix.
+- Direct just verify — exit 0 after correction: lint, Prettier, strict type-check, 8 suites and 146 tests, coverage, build, and git diff --check passed.
+- Coverage: **89.90% statements, 84.01% branches, 96.92% functions, 91.23% lines**.
+- harness checks --json — status ok, process exit 0, scope full, delegatedCommand just verify, with the same green full gate.
+- The first direct full attempt stopped at five test lint findings; those findings were corrected before the successful direct and harness full results above.
+- Required pre-work harness boot --json — status ok, application exit 0, expected short-lived bootstrap signal observed, composed full checks status ok and exit 0.
 
 ## Documentation evidence
 
-| Category | Evidence |
+| Category | Corrected evidence |
 | --- | --- |
-| README/setup/behavior | `README.md` now provides local prerequisites, root-recipe quick start, all controls, reconciliation, concurrency, stop, logs, and merged cleanup behavior. |
-| CLI/usage | `docs/phase-3-recovery-operations.md` contains the complete command/JSON/exit/idempotency table and root `just run` examples; `docs/phase-1-issue-run.md` links the delivered continuation. |
-| Configuration | README and the Phase 3 guide document strict `execution.max_concurrent_runs`, default 1, leases, unsafe reduction, capacity refusal, and explicit selection only. |
-| Recovery/operations | The Phase 3 guide contains revision replay, every observation boundary, exact process identity, resume table, bounded stop, retained logs, explicit/automatic cleanup, partial progress, and troubleshooting codes. |
-| Migration | The Phase 3 guide documents v1/v2 read compatibility, explicit proved v3 transition, legacy event-ahead refusal, default-one capacity compatibility, and no destructive migration/purge. |
-| Deployment | `docs/README.md` and the Phase 3 guide state local short-lived CLI prerequisites, no daemon, next-invocation automatic trigger, and no network service/API deployment. |
-| API reference | Not applicable: the product remains a local CLI and introduces no network API. This rationale is explicit in `docs/README.md` and the migration section. |
-| Architecture | Plan-created `ADR-260811-prototype-three-recovery-concurrency.md`, the three new core-components, and DECISION-LOG 64-76 are included unchanged as the governing explanatory architecture; implementation stayed within those contracts, so no Plan return or architecture revision was required. |
+| README/setup/behavior | README.md names lease and strict result boundaries, shared human/JSON report facts, and ownership/capacity preservation when stop cannot prove inactivity. Setup and configuration syntax are unchanged. |
+| CLI and usage | docs/phase-3-recovery-operations.md updates stop non-success, output parity, ten reconciliation facts, and retry behavior. |
+| Configuration | No option or default changed. Existing max_concurrent_runs guidance remains accurate; active-after-escalation explicitly continues consuming capacity. |
+| Recovery and operations | Phase 3 operations now state permission failures are unknown, stop cannot cancel/release while active, and cleanup accepts absence only from same-owner/run completed progress. |
+| Migration | docs/phase-1-issue-run.md removes the stale claim that only v2 transitions carry evidence and states that proved versioned v3 transitions preserve completion evidence. No new data migration is required. |
+| API reference | Not applicable: the product remains a local CLI and no network API contract changed. |
+| Architecture | No ADR or core-component text changed. The correction directly enforces ADR-260811-prototype-three-recovery-concurrency and its three adopted core-components. |
+| Deployment | No daemon, network service, or deployment procedure changed; local short-lived CLI guidance remains accurate. |
 
-`src/documentation.test.ts` names and checks every documentation subject and executes help plus safe missing-state controls through the root `justfile`.
+src/documentation.test.ts rejects the stale operator-cancellation and v2-only language and asserts the new stop, observation, parity, and cleanup retry guidance.
 
 ## Architecture compliance
 
-- Strict TypeScript command/domain/adapter separation is preserved.
-- Event-before-snapshot order and the existing completion-proof conjunction remain intact.
-- External commands use executable/argument arrays, bounded typed results, and no shell interpolation.
-- Unknown/contradictory facts never authorize launch, signaling, reuse, or cleanup.
-- Issue locks and slot leases use exclusive creation and exact-content deletion.
-- Cleanup uses immutable PR source-head proof and non-forced worktree removal.
-- No ADR or core-component deviation was required.
+- The correction is within ADR-260811-prototype-three-recovery-concurrency.
+- CORE-COMPONENT-260811-run-reconciliation-control is enforced by ten separate observations, strict process/result facts, common rendering, resume gates, and unknown permission handling.
+- CORE-COMPONENT-260811-concurrent-run-admission is enforced by retention of an active exact lease until inactivity is durably proved.
+- CORE-COMPONENT-260811-owned-resource-cleanup is enforced by pre-step authorization, owner/run progress, post-step proof, exact deletion, blocked completed cleanup, and replacement refusal.
+- Event-before-snapshot, completion conjunctions, TypeScript command/domain/adapter layering, and non-forced removal remain intact.
+- No architecture divergence or Plan return is required.
 
 ## Harness friction drain evidence
 
-Read-back verified schema 1.2, exact plan/agent identity, `disposition: kept`, and every pending observation before each nonempty buffer was cleared:
-
-- Research: `.harness/records/retro/2026-08-11/020-issue-5-rpiv-research.md` — 4 observations persisted; clear envelope status `ok`, exit 0, `cleared: 4`.
-- Plan: `.harness/records/retro/2026-08-11/020-issue-5-rpiv-planner.md` — 1 observation persisted; clear envelope status `ok`, exit 0, `cleared: 1`.
-- Implement: `.harness/records/retro/2026-08-11/021-issue-5-rpiv-implementer.md` — 5 observations persisted; clear envelope status `ok`, exit 0, `cleared: 5`.
-- Implement post-refinement: `.harness/records/retro/2026-08-11/022-issue-5-rpiv-implementer-post-refinement.md` — 1 observation persisted after the final safety refinement; read-back passed and clear envelope status `ok`, exit 0, `cleared: 1`.
-- Coordinator `rpiv` had no pending observations and required no record/clear.
-- Final JSON listings for `rpiv`, `rpiv-research`, `rpiv-planner`, and `rpiv-implementer` all returned status `ok`, exit 0, and empty observations.
+- Coordinator rpiv, rpiv-research, and rpiv-planner listings returned status ok, exit 0, and no pending observations.
+- Eight rpiv-implementer observations were persisted with schema 1.2, exact agent and plan identity, every entry, and disposition kept at .harness/records/retro/2026-08-11/023-issue-5-rpiv-implementer-correction.md.
+- Durable read-back confirmed DL-001 through DL-008 before clear.
+- harness observe --clear --agent rpiv-implementer --json returned status ok, exit 0, cleared 8; the post-clear listing returned status ok, exit 0, and no observations.
+- Verifier-owned observation buffers were not listed, drained, or cleared; Verify retains closeout ownership.

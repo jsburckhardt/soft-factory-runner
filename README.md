@@ -35,11 +35,11 @@ just run attach 5
 just run logs 5 --json
 ```
 
-Every product run names one explicit positive issue number. Runner never queries for, queues, ranks, or selects a next issue. `run` creates new state only; existing state returns `RUN_EXISTS` and must be inspected with reconciliation or control commands. Human and JSON output derive from the same state, outcome code, reconciliation observations, safe actions, facts, and remediation.
+Every product run names one explicit positive issue number. Runner never queries for, queues, ranks, or selects a next issue. `run` creates new state only; existing state returns `RUN_EXISTS` and must be inspected with reconciliation or control commands. Human and JSON output derive from the same state, outcome code, reconciliation observation states/codes/facts, safe actions, control facts, and remediation; human control output includes the same shared report carried by JSON.
 
 ## Recovery and concurrency
 
-New runs use revisioned `RunSnapshotV3` and replayable `TransitionEventV2` records. Reconciliation separately compares persisted state with issue locks, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
+New runs use revisioned `RunSnapshotV3` and replayable `TransitionEventV2` records. Reconciliation separately compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
 
 A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
 
@@ -52,7 +52,7 @@ execution:
 
 The value is a strict positive safe integer and defaults to `1`. Each active issue atomically owns one slot under `.soft-factory/concurrency/slots/`. Unknown leases consume capacity, unsafe limit reductions block admission, and a capacity loser returns `CONCURRENCY_LIMIT_REACHED` without downstream resources or a leftover just-created issue lock.
 
-`stop` captures terminal history, sends `SIGTERM`, waits at most 10 seconds, then sends `SIGKILL` only when still active and waits at most 5 additional seconds. It preserves the worktree and remain-on-exit tmux evidence. Redacted attempt logs are capped at 2 MiB and retained at `.soft-factory/logs/<issue>/<attempt>.log`.
+`stop` captures terminal history, sends `SIGTERM`, waits at most 10 seconds, then sends `SIGKILL` only when still active and waits at most 5 additional seconds. Cancellation and slot release occur only after inactivity is proved; if the exact process remains active after escalation, Runner returns `STOP_PROCESS_STILL_ACTIVE` while preserving process identity, ownership, capacity, worktree, and tmux. Redacted attempt logs are capped at 2 MiB and retained at `.soft-factory/logs/<issue>/<attempt>.log`.
 
 After completion, Runner treats the immutable pull-request source head—not the merge commit—as merged-head proof. On the next `status`, `list`, or `reconcile`, a `MERGED` PR with a nonempty merge time, expected source branch, matching verified source SHA, clean exact worktree, and complete ownership proof triggers automatic non-forced removal of only the owned worktree and exact issue lock/slot. The local branch, tmux window, snapshot, events, and logs remain. Closed-unmerged, dirty, active, unknown, mismatched, or ambiguous facts preserve resources and return an actionable blocked outcome. There is no force-clean or evidence-purge command.
 

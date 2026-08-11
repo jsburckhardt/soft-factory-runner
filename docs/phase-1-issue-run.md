@@ -89,17 +89,17 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 Legacy Phase 2 runs use atomic `RunSnapshotV2` files; new Phase 3 runs use revisioned `RunSnapshotV3` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
-Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit version 2 transition can carry required evidence.
+Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Phase 3 v3 transitions preserve the same completion conjunction.
 
 The explicit terminal states are:
 
 - `completed` — every result, Git, GitHub, acceptance, and validation comparison passed;
 - `failed` — process failure, contradictory proof, failed proof, or a valid failed result;
 - `blocked` — prerequisite/ownership conflict or a valid blocked result;
-- `cancelled` — a valid RPIV cancellation result; operator cancellation control is deferred;
+- `cancelled` — a valid RPIV cancellation result or an operator stop whose bounded signal sequence proved the exact process inactive;
 - `interrupted` — absent, malformed, unsupported, or incomplete proof, or a valid interrupted result.
 
-Human and `--json` status derive from the same snapshot facts and expose the same state and safe reconciliation summary. Worker and command success is returned only for `completed`; noncompleted terminal outcomes are nonzero.
+Human and `--json` status derive from the same snapshot and reconciliation facts and expose equivalent state, outcome, safe-action, observation state/code/facts, and remediation meaning. Worker and command success is returned only for `completed`; noncompleted terminal outcomes are nonzero.
 
 ## Troubleshooting
 

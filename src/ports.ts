@@ -125,6 +125,11 @@ export interface ProcessPort {
     readonly panePid: number;
     readonly launchedAt: string;
   }): Promise<SpawnedProcessV1>;
+  identify(
+    pid: number,
+    paneLineage: ProcessIdentityV1["paneLineage"],
+    launchedAt: string,
+  ): Promise<ProcessIdentityV1 | null>;
   observe(identity: ProcessIdentityV1): Promise<ProcessIdentityV1 | null>;
   findLaunchCandidates(
     intent: LaunchIntentV1,

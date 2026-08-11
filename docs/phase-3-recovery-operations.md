@@ -15,14 +15,14 @@ just run --help
 | `just run run --issue <positive-integer> [--json]` | Create one new explicitly requested run | yes | New run is 0; `RUN_EXISTS`, ownership, or capacity refusal is nonzero. |
 | `just run reconcile <positive-integer> [--json]` | Replay history and produce the shared report | yes | Safe report is 0; blocked contradiction/unknown is nonzero. |
 | `just run resume <positive-integer> [--json]` | Apply the resume decision table | yes | Continued/no-op is 0; refused terminal or ambiguous state is nonzero. |
-| `just run stop <positive-integer> [--json]` | Stop one exact RPIV process group | yes | Stopped/already-stopped is 0; identity ambiguity is nonzero. |
+| `just run stop <positive-integer> [--json]` | Stop one exact RPIV process group | yes | Stopped/already-stopped is 0; identity ambiguity or a process still active after escalation is nonzero. |
 | `just run clean <positive-integer> [--json]` | Explicit guarded cleanup | yes | Complete/already-cleaned is 0; dirty, active, unknown, partial, or blocked is nonzero. |
 | `just run list [--json]` | Numerically list the union of snapshots, locks, leases, and logs | yes | Inventory is 0; malformed durable state is nonzero. |
 | `just run status <positive-integer> [--json]` | Reconcile and render one issue | yes | A readable report is 0; missing/invalid state is nonzero. |
 | `just run attach <positive-integer>` | Attach only to the exact recorded tmux target | no | Exact target is 0; absent/mismatch is nonzero. |
 | `just run logs <positive-integer> [--json]` | Read retained attempts and exact live pane capture | yes | Available evidence is 0; no evidence or ambiguous target is nonzero. |
 
-Syntax errors exit 2. Operational evidence errors exit 3. Ownership, capacity, blocked reconciliation, resume, stop, and cleanup refusals exit 4. Human and JSON renderings preserve the same schema version, issue, persisted state, outcome code, activity, boundary observations, safe actions, facts, cleanup progress, remediation, and exit meaning. Unchanged inputs are idempotent.
+Syntax errors exit 2. Operational evidence errors exit 3. Ownership, capacity, blocked reconciliation, resume, stop, and cleanup refusals exit 4. Human and JSON renderings preserve the same schema version, issue, persisted state, outcome code, activity, boundary observation states/codes/facts, safe actions, control facts, cleanup progress, remediation, and exit meaning. Human control output embeds the same shared reconciliation report carried by JSON. Unchanged inputs are idempotent.
 
 ## Configuration and explicit admission
 
@@ -53,16 +53,17 @@ On load, only a complete, contiguous, issue/run-identity-matching v2 chain may a
 Every report keeps persisted facts separate from exactly one bounded observation of:
 
 1. issue lock;
-2. filesystem worktree path;
-3. Git registration, branch, HEAD, staged/unstaged/untracked dirtiness;
-4. tmux session/window/pane/cwd;
-5. worker process identity;
-6. RPIV process identity;
-7. result artifact;
-8. authoritative remote branch state; and
-9. GitHub pull-request and immutable source-head facts.
+2. concurrency slot lease;
+3. filesystem worktree path;
+4. Git registration, branch, HEAD, staged/unstaged/untracked dirtiness;
+5. tmux session/window/pane/cwd;
+6. worker process identity;
+7. RPIV process identity;
+8. strictly parsed result artifact identity and content;
+9. authoritative remote branch state; and
+10. GitHub pull-request and immutable source-head facts.
 
-Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, and unavailable commands are `unknown`, never inferred absence. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
+Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, permission-denied process metadata, and unavailable commands are `unknown`, never inferred absence. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
 
 ## Process identity and resume decisions
 
@@ -89,7 +90,8 @@ Completion still requires the full Phase 2 `AgentResultV1`, local Git, fresh rem
 4. only if still active, `SIGKILL`;
 5. wait at most 5 additional seconds;
 6. final bounded capture;
-7. persist stop facts and `cancelled`; then release only the exact inactive slot.
+7. only after inactivity is proved, persist stop facts and `cancelled`, then release the exact inactive slot;
+8. if the process remains active after both waits, return `STOP_PROCESS_STILL_ACTIVE` nonzero and retain its process identity, running state, issue lock, slot lease, worktree, tmux, and logs.
 
 Already absent or terminal is idempotent. PID reuse, pane mismatch, multiple candidates, or unknown observation sends no signal. Stop never removes the worktree or tmux target. Issue panes use remain-on-exit. Attempt transcripts live at `.soft-factory/logs/<issue>/<attempt>.log`, are redacted, capped at 2 MiB with an explicit truncation marker, and retained with snapshots/events through cleanup. `logs` returns retained attempts and includes current pane capture only for an exact live target.
 
@@ -97,7 +99,7 @@ Already absent or terminal is idempotent. PID reuse, pane mismatch, multiple can
 
 Cleanup authorization comes only from the shared report. Both modes require an inactive terminal run plus exact lock, snapshot, process, tmux, Git registration/branch/path/HEAD, result, and ownership observations. Dirtiness includes staged, unstaged, and untracked files. Active, dirty, absent-unproved, unknown, mismatched, incomplete, or ambiguous resources return a stable refusal with zero unauthorized remove/delete calls. There is no `--force` bypass.
 
-Explicit `clean` records intent and progress, captures the transcript, removes the exact terminal tmux window, removes the clean worktree with non-forced `git worktree remove`, releases an exact inactive slot, and compare-deletes the exact issue lock last. It never removes the local branch, snapshot, events, or logs. Progress is persisted before and after each step. A retry resumes only recorded matching steps; an absent or replacement resource without matching completed progress blocks. Output identifies completed steps, remaining steps, and remediation.
+Explicit `clean` records intent and progress, captures the transcript, removes the exact terminal tmux window, removes the clean worktree with non-forced `git worktree remove`, releases an exact inactive slot, and compare-deletes the exact issue lock last. It never removes the local branch, snapshot, events, or logs. Progress is persisted before and after each step. Progress records include the same owner and run. A retry accepts absence only after that same-owner/run record proves the step completed; an absent unrecorded resource or any unrelated replacement blocks. Output identifies completed steps, remaining steps, and remediation.
 
 Automatic merged cleanup runs on the next reconciliation-capable `status`, `list`, or `reconcile`; there is no daemon. Merged head means the immutable PR source head. The expected PR must be `MERGED`, have nonempty merge time, use the recorded issue branch, report source `headSha` equal to the commit already verified at completion, and close the issue. The merge-commit SHA is informational and may differ under merge or squash. A deleted remote issue branch does not block this proof.
 
@@ -122,7 +124,8 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 | `PROCESS_IDENTITY_MISMATCH`, `PROCESS_IDENTITY_AMBIGUOUS` | PID/start token/command/cwd/pane proof disagrees | Preserve processes and panes; never signal or launch by PID alone. |
 | `CONCURRENCY_LIMIT_REACHED` | All configured slots are occupied | Wait for one exact inactive run; request issues explicitly. |
 | `CONCURRENCY_STATE_UNKNOWN` | Malformed/stale or above-limit lease blocks admission | Restore prior limit or reconcile exact lease ownership. |
-| `STOP_REFUSED` | Exact signal target or bounded stop completion is unproved | Inspect status and retained logs; do not kill by name. |
+| `STOP_REFUSED` | Exact signal target is unproved | Inspect status and retained logs; do not kill by name. |
+| `STOP_PROCESS_STILL_ACTIVE` | The exact RPIV process survived SIGTERM 10 seconds and SIGKILL 5 seconds | Keep ownership/capacity intact, inspect retained logs, and retry only while exact identity remains observable. |
 | `CLEANUP_ACTIVE`, `CLEANUP_DIRTY_WORKTREE`, `CLEANUP_OWNERSHIP_UNPROVED` | Cleanup safety conjunction failed | Stop safely or reconcile/preserve the named resource. |
 | `CLEANUP_MERGE_NOT_PROVED` | PR is closed-unmerged or merge/source proof is incomplete | Preserve worktree; restore exact GitHub evidence or use explicit clean only when otherwise eligible. |
 | `LOG_NOT_FOUND` | No retained attempt or exact live capture exists | Inspect snapshot attempt/log references and tmux identity. |
@@ -138,4 +141,4 @@ just verify
 harness checks --json
 ```
 
-Repository fixtures use temporary roots, exclusive file creation, fixed clocks/IDs, fake `gh`/tmux/process adapters, and no ambient credentials, Copilot, or tmux resources. They repeat interruption and three-explicit-issue capacity races, assert no duplicate launch or owner, verify disjoint resource identities, exercise graceful/escalated stop ordering, and prove cleanup retention/refusal.
+Repository fixtures use temporary roots, exclusive file creation, fixed clocks/IDs, fake `gh`/tmux/process adapters, and no ambient credentials, Copilot, or tmux resources. They repeat interruption and three-explicit-issue capacity races, assert no duplicate launch or owner, verify disjoint resource identities, exercise graceful/escalated/still-active stop ordering, inject snapshot failure after every cleanup step, retry from durable same-owner progress, refuse unrelated replacements, and prove cleanup retention/refusal.

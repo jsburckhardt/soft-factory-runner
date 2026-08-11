@@ -28,6 +28,16 @@ const processIdentity: ProcessIdentityV1 = {
     panePid: 499,
   },
 };
+const lease: ConcurrencyLeaseV1 = {
+  schemaVersion: 1,
+  slot: 1,
+  issueNumber: 5,
+  ownerId: "owner-5",
+  runId: "run-5",
+  repository: "owner/repo",
+  configuredLimit: 2,
+  acquiredAt: "time",
+};
 const snapshot: RunSnapshotV3 = {
   schemaVersion: 3,
   revision: 7,
@@ -49,7 +59,7 @@ const snapshot: RunSnapshotV3 = {
     cwd: "/repo/.trees/5",
   },
   copilot: null,
-  admission: null,
+  admission: lease,
   launchIntent: null,
   workerProcess: null,
   rpivProcess: processIdentity,
@@ -84,6 +94,7 @@ function matchingObservations(): ReconciliationObservationsV1 {
       },
       "LOCK_MATCH",
     ),
+    lease: observation("match", lease, "LEASE_MATCH"),
     filesystem: observation(
       "match",
       { worktreePath: snapshot.worktreePath },
@@ -120,6 +131,8 @@ function replaceBoundary(
   switch (boundary) {
     case "lock":
       return { ...observations, lock: changed };
+    case "lease":
+      return { ...observations, lease: changed };
     case "filesystem":
       return { ...observations, filesystem: changed };
     case "git":
@@ -152,6 +165,7 @@ describe("V-2 full reconciliation matrix", () => {
     });
     expect(Object.keys(first.observations)).toEqual([
       "lock",
+      "lease",
       "filesystem",
       "git",
       "tmux",
@@ -167,6 +181,7 @@ describe("V-2 full reconciliation matrix", () => {
   it("blocks every individual mismatch or unknown without a destructive safe action", () => {
     const boundaries = [
       "lock",
+      "lease",
       "filesystem",
       "git",
       "tmux",

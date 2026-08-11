@@ -133,6 +133,8 @@ export type CleanupMode = "explicit" | "automatic_merged";
 export type CleanupStep = "tmux" | "worktree" | "lease" | "lock";
 export interface CleanupFactsV1 {
   readonly mode: CleanupMode;
+  readonly ownerId: string;
+  readonly runId: string;
   readonly intentAt: string;
   readonly completedSteps: readonly CleanupStep[];
   readonly remainingSteps: readonly CleanupStep[];
@@ -330,12 +332,13 @@ export interface WorktreeObservationV1 {
 
 export interface ReconciliationObservationsV1 {
   readonly lock: ObservationV1<OwnerRecordV1>;
+  readonly lease: ObservationV1<ConcurrencyLeaseV1>;
   readonly filesystem: ObservationV1<{ readonly worktreePath: string }>;
   readonly git: ObservationV1<WorktreeObservationV1>;
   readonly tmux: ObservationV1<TmuxIdentity>;
   readonly workerProcess: ObservationV1<ProcessIdentityV1>;
   readonly rpivProcess: ObservationV1<ProcessIdentityV1>;
-  readonly result: ObservationV1<{ readonly present: boolean }>;
+  readonly result: ObservationV1<AgentResultV1>;
   readonly remote: ObservationV1<{ readonly headSha: string | null }>;
   readonly github: ObservationV1<MergedPullRequestFactsV1>;
 }
@@ -358,6 +361,7 @@ export interface ReconciliationReportV1 {
   readonly decisionCode: string;
   readonly safeActions: readonly SafeAction[];
   readonly diagnostics: readonly string[];
+  readonly remediation: string | null;
 }
 
 export interface StatusFacts {
