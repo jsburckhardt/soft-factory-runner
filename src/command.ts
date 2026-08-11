@@ -52,7 +52,7 @@ export function parseCommand(args: readonly string[]): Command {
   throw new RunnerError(
     "CLI_INVALID",
     "Invalid command or arguments.",
-    "Run soft-factory --help for the supported Phase 1 command grammar.",
+    "Run soft-factory --help for the supported command grammar.",
   );
 }
 
@@ -85,7 +85,7 @@ function parseOptionalJson(args: readonly string[]): boolean {
   );
 }
 
-export const HELP_TEXT = `Soft Factory Runner Phase 1
+export const HELP_TEXT = `Soft Factory Runner Phase 2
 
 Usage:
   soft-factory run --issue <number> [--json]

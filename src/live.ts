@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  CompletionPullRequestFacts,
   IssueFacts,
   PullRequestFacts,
   RepositoryFacts,
@@ -125,6 +126,11 @@ class NodeFilePort implements FilePort {
       if (nodeErrorCode(cause) === "ENOENT") return null;
       throw fileFailure("read", filePath, cause);
     }
+  }
+  public async readAgentResult(worktreePath: string): Promise<string | null> {
+    return this.readText(
+      path.join(worktreePath, ".soft-factory", "agent-result.json"),
+    );
   }
   public async exists(filePath: string): Promise<boolean> {
     try {
@@ -328,6 +334,34 @@ class LiveGitPort implements GitPort {
     );
     return result.exitCode === 0 ? result.stdout.trim() : null;
   }
+  public async localHeadSha(worktreePath: string): Promise<string | null> {
+    return this.observedSha(["rev-parse", "--verify", "HEAD"], worktreePath);
+  }
+  public async remoteBranchSha(
+    repositoryRoot: string,
+    remote: string,
+    branch: string,
+  ): Promise<string | null> {
+    return this.observedSha(
+      ["rev-parse", "--verify", `refs/remotes/${remote}/${branch}`],
+      repositoryRoot,
+    );
+  }
+  private async observedSha(
+    args: readonly string[],
+    cwd: string,
+  ): Promise<string | null> {
+    const result = await this.commands.run("git", args, cwd, 15_000);
+    if (result.exitCode !== 0) return null;
+    const sha = result.stdout.trim();
+    if (!/^[0-9a-f]{40,64}$/.test(sha))
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Git returned a malformed completion SHA.",
+        "Repair the Git reference and retry finalization.",
+      );
+    return sha;
+  }
   public async createBranch(
     repositoryRoot: string,
     branch: string,
@@ -488,6 +522,35 @@ class LiveGitHubPort implements GitHubPort {
       openPullRequests: pullRequests.slice(0, 1000),
       complete: pullRequests.length <= 1000 && blockerFacts.complete,
     };
+  }
+  public async loadPullRequest(
+    repository: string,
+    pullRequestNumber: number,
+  ): Promise<CompletionPullRequestFacts | null> {
+    const result = await this.commands.run(
+      "gh",
+      [
+        "pr",
+        "view",
+        String(pullRequestNumber),
+        "--repo",
+        repository,
+        "--json",
+        "number,state,baseRefName,headRefName,headRefOid,closingIssuesReferences",
+      ],
+      process.cwd(),
+      15_000,
+    );
+    if (result.exitCode !== 0) {
+      if (/not found|could not resolve/i.test(result.stderr)) return null;
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Pull-request completion query failed.",
+        "Restore complete GitHub access and retry finalization.",
+        { details: { stderr: redact(result.stderr) } },
+      );
+    }
+    return parseCompletionPullRequest(result.stdout);
   }
 }
 
@@ -910,5 +973,52 @@ function parseBlockers(text: string): {
   return {
     open,
     complete: !blockedBy.pageInfo.hasNextPage,
+  };
+}
+
+function parseCompletionPullRequest(text: string): CompletionPullRequestFacts {
+  const value = parseObject(text, "Completion pull request");
+  const state = requireString(value, "state");
+  if (state !== "OPEN" && state !== "CLOSED" && state !== "MERGED")
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request state was unsupported.",
+      "Retry with compatible gh output.",
+    );
+  const closing = value.closingIssuesReferences;
+  if (!Array.isArray(closing))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request closing issues were incomplete.",
+      "Retry with complete gh output.",
+    );
+  const closesIssues = closing.map((entry, index) => {
+    if (
+      !isRecord(entry) ||
+      !Number.isSafeInteger(entry.number) ||
+      (entry.number as number) <= 0
+    )
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        `Pull-request closing issue ${index + 1} was malformed.`,
+        "Retry with complete gh output.",
+      );
+    return entry.number as number;
+  });
+  const headSha = requireString(value, "headRefOid");
+  if (!/^[0-9a-f]{40,64}$/.test(headSha))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request head SHA was malformed.",
+      "Retry with complete gh output.",
+    );
+  return {
+    number: requireNumber(value, "number"),
+    state,
+    baseBranch: requireString(value, "baseRefName"),
+    headBranch: requireString(value, "headRefName"),
+    headSha,
+    closesIssues,
+    complete: true,
   };
 }

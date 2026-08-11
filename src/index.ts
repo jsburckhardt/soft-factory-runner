@@ -64,7 +64,7 @@ export async function runCli(
     }
     const snapshot = await service.runWorker(command.issueNumber, startPath);
     return {
-      exitCode: snapshot.state === "interrupted" ? 0 : 3,
+      exitCode: snapshot.state === "completed" ? 0 : 3,
       stdout: `RPIV worker ${command.issueNumber} exited: ${snapshot.state}.\n`,
       stderr: "",
     };

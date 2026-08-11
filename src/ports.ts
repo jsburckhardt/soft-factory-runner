@@ -1,7 +1,8 @@
 import type {
+  CompletionPullRequestFacts,
   IssueFacts,
   RepositoryFacts,
-  RunSnapshotV1,
+  RunSnapshot,
   TmuxIdentity,
 } from "./domain";
 
@@ -15,6 +16,7 @@ export interface IdPort {
 
 export interface FilePort {
   readText(path: string): Promise<string | null>;
+  readAgentResult(worktreePath: string): Promise<string | null>;
   exists(path: string): Promise<boolean>;
   exclusiveCreate(path: string, content: string): Promise<boolean>;
   atomicWrite(path: string, content: string): Promise<void>;
@@ -38,6 +40,12 @@ export interface GitPort {
     remote: string,
     branch: string,
   ): Promise<string | null>;
+  localHeadSha(worktreePath: string): Promise<string | null>;
+  remoteBranchSha(
+    repositoryRoot: string,
+    remote: string,
+    branch: string,
+  ): Promise<string | null>;
   createBranch(
     repositoryRoot: string,
     branch: string,
@@ -55,6 +63,10 @@ export interface GitHubPort {
     repository: string,
     issueNumber: number,
   ): Promise<IssueFacts | null>;
+  loadPullRequest(
+    repository: string,
+    pullRequestNumber: number,
+  ): Promise<CompletionPullRequestFacts | null>;
 }
 
 export interface TmuxPort {
@@ -89,5 +101,5 @@ export interface RunnerPorts {
 }
 
 export interface SnapshotStore {
-  load(issueNumber: number): Promise<RunSnapshotV1>;
+  load(issueNumber: number): Promise<RunSnapshot>;
 }

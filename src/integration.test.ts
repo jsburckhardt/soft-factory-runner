@@ -40,6 +40,11 @@ class DiskFiles implements FilePort {
       throw cause;
     }
   }
+  public async readAgentResult(worktreePath: string): Promise<string | null> {
+    return this.readText(
+      path.join(worktreePath, ".soft-factory", "agent-result.json"),
+    );
+  }
   public async exists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
@@ -80,6 +85,9 @@ class BarrierGitHub implements GitHubPort {
   private readonly barrier = new Promise<void>((resolve) => {
     this.release = resolve;
   });
+  public async loadPullRequest(): Promise<null> {
+    return null;
+  }
   public async loadIssue(): Promise<IssueFacts> {
     this.arrivals += 1;
     if (this.arrivals === 2) this.release?.();
@@ -116,6 +124,12 @@ class CountingGit implements GitPort {
     return { branch: "main", sha: "a".repeat(40) };
   }
   public async trackingSha(): Promise<string> {
+    return "a".repeat(40);
+  }
+  public async localHeadSha(): Promise<string> {
+    return "a".repeat(40);
+  }
+  public async remoteBranchSha(): Promise<string> {
     return "a".repeat(40);
   }
   public async createBranch(): Promise<void> {
@@ -170,6 +184,7 @@ interface GitHubCliResponses {
   readonly issue: unknown;
   readonly pullRequests: unknown;
   readonly blockers: unknown;
+  readonly completionPullRequest?: unknown;
 }
 
 async function writeFakeGitHubCli(
@@ -180,13 +195,16 @@ async function writeFakeGitHubCli(
   const script = `#!/usr/bin/env node
 const responses = ${JSON.stringify(responses)};
 const command = process.argv[2];
+const action = process.argv[3];
 const response = command === "issue"
   ? responses.issue
-  : command === "pr"
-    ? responses.pullRequests
-    : command === "api"
-      ? responses.blockers
-      : undefined;
+  : command === "pr" && action === "view"
+    ? responses.completionPullRequest
+    : command === "pr"
+      ? responses.pullRequests
+      : command === "api"
+        ? responses.blockers
+        : undefined;
 if (response === undefined) process.exit(2);
 process.stdout.write(JSON.stringify(response));
 `;
@@ -317,6 +335,58 @@ describe("live GitHub proof parsing", () => {
   );
 });
 
+describe("live completion pull-request proof", () => {
+  it("parses one complete PR-by-number fact set and rejects malformed fields", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "soft-factory-completion-pr-"),
+    );
+    const bin = path.join(root, "bin");
+    await fs.mkdir(bin);
+    const base = { issue: {}, pullRequests: [], blockers: {} };
+    const complete = {
+      number: 14,
+      state: "OPEN",
+      baseRefName: "main",
+      headRefName: "feat/4-proof",
+      headRefOid: "a".repeat(40),
+      closingIssuesReferences: [{ number: 4 }],
+    };
+    await writeFakeGitHubCli(bin, { ...base, completionPullRequest: complete });
+    const originalPath = process.env.PATH;
+    process.env.PATH = bin + ":" + (originalPath ?? "");
+    try {
+      const live = createLivePorts();
+      await expect(
+        live.github.loadPullRequest("owner/repo", 14),
+      ).resolves.toEqual({
+        number: 14,
+        state: "OPEN",
+        baseBranch: "main",
+        headBranch: "feat/4-proof",
+        headSha: "a".repeat(40),
+        closesIssues: [4],
+        complete: true,
+      });
+      await writeFakeGitHubCli(bin, {
+        ...base,
+        completionPullRequest: { ...complete, headRefOid: "short" },
+      });
+      await expect(
+        live.github.loadPullRequest("owner/repo", 14),
+      ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+      await fs.rm(root, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 20,
+      });
+    }
+  });
+});
+
 describe("real filesystem and Git integration", () => {
   it("uses exclusive-create ownership so barrier-released starts create one resource set", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-lock-"));
@@ -431,6 +501,14 @@ describe("real filesystem and Git integration", () => {
         startSha,
       );
       expect(await git(worktree, ["rev-parse", "HEAD"])).toBe(startSha);
+      expect(await live.git.localHeadSha(worktree)).toBe(startSha);
+      expect(
+        await live.git.remoteBranchSha(root, "origin", "feat/3-concurrent-run"),
+      ).toBeNull();
+      await git(root, ["push", "-u", "origin", "feat/3-concurrent-run"]);
+      expect(
+        await live.git.remoteBranchSha(root, "origin", "feat/3-concurrent-run"),
+      ).toBe(startSha);
       expect(worktree.startsWith(parent)).toBe(true);
       expect(worktree).not.toContain(
         "/workspaces/soft-factory-runner/.trees/3",

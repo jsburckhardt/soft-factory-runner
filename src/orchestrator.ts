@@ -1,18 +1,21 @@
 import path from "node:path";
 import type {
+  AgentResultV1,
   CopilotLaunchFacts,
   OwnerRecordV1,
   RepositoryFacts,
-  RunSnapshotV1,
+  RunSnapshotV2,
   StatusFacts,
   TmuxIdentity,
 } from "./domain";
 import {
+  REQUIRED_VALIDATIONS,
   issueName,
   normalizeRepositoryName,
   otelResourceAttributes,
   tmuxSessionName,
 } from "./domain";
+import { parseAgentResult, reconcileCompletion } from "./completion";
 import { parseConfiguration, renderPrompt } from "./config";
 import { isRunnerError, RunnerError } from "./errors";
 import type { RunnerPorts } from "./ports";
@@ -28,7 +31,7 @@ export class IssueRunService {
   public async run(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV1> {
+  ): Promise<RunSnapshotV2> {
     const repository = await this.ports.git.discover(startPath);
     const configuration = parseConfiguration(
       await this.ports.files.readText(
@@ -72,8 +75,8 @@ export class IssueRunService {
       ".trees",
       String(issueNumber),
     );
-    let snapshot: RunSnapshotV1 = {
-      schemaVersion: 1,
+    let snapshot: RunSnapshotV2 = {
+      schemaVersion: 2,
       runId: owner.runId,
       ownerId: owner.ownerId,
       repository: owner.repository,
@@ -87,6 +90,9 @@ export class IssueRunService {
       copilot: null,
       error: null,
       updatedAt: this.ports.clock.now(),
+      requiredAcceptanceCriteria: prepared.requiredAcceptanceCriteria,
+      requiredValidations: REQUIRED_VALIDATIONS,
+      finalization: null,
     };
     if (await store.snapshotExists(issueNumber)) {
       throw new RunnerError(
@@ -165,21 +171,26 @@ export class IssueRunService {
   public async runWorker(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV1> {
+  ): Promise<RunSnapshotV2> {
     const repository = await this.ports.git.discover(startPath);
     const store = new RunStore(
       repository.root,
       this.ports.files,
       this.ports.clock,
     );
-    let snapshot = await store.load(issueNumber);
-    if (snapshot.state !== "running_rpiv" || snapshot.tmux === null) {
+    const loaded = await store.load(issueNumber);
+    if (
+      loaded.schemaVersion !== 2 ||
+      loaded.state !== "running_rpiv" ||
+      loaded.tmux === null
+    ) {
       throw new RunnerError(
         "STATE_INVALID",
-        `Issue #${issueNumber} is not ready for its RPIV worker.`,
-        "Start the issue and preserve the recorded worker state.",
+        `Issue #${issueNumber} is not ready for its RPIV worker or lacks version 2 evidence requirements.`,
+        "Start the issue with this Runner version and preserve the recorded worker state.",
       );
     }
+    let snapshot: RunSnapshotV2 = loaded;
     const configuration = parseConfiguration(
       await this.ports.files.readText(
         path.join(repository.root, ".soft-factory", "config.yml"),
@@ -213,32 +224,160 @@ export class IssueRunService {
     };
     await store.save(snapshot, "running_rpiv", "copilot-launched");
     try {
-      const result = await this.ports.processes.runCopilot({
+      const processResult = await this.ports.processes.runCopilot({
         executable: "copilot",
         args,
         cwd: snapshot.worktreePath,
         environment: { OTEL_RESOURCE_ATTRIBUTES: resourceAttributes },
       });
-      const state = result.exitCode === 0 ? "interrupted" : "failed";
+      if (processResult.exitCode !== 0) {
+        snapshot = {
+          ...snapshot,
+          state: "failed",
+          copilot: { ...launch, exitCode: processResult.exitCode },
+          error: {
+            code: "EXTERNAL_COMMAND_FAILED",
+            message: `Copilot exited with code ${processResult.exitCode}.`,
+          },
+          updatedAt: this.ports.clock.now(),
+        };
+        await store.save(snapshot, "running_rpiv", "copilot-failed");
+        return snapshot;
+      }
+
       snapshot = {
         ...snapshot,
-        state,
-        copilot: { ...launch, exitCode: result.exitCode },
-        error:
-          result.exitCode === 0
-            ? null
-            : {
-                code: "EXTERNAL_COMMAND_FAILED",
-                message: `Copilot exited with code ${result.exitCode}.`,
-              },
+        state: "finalizing",
+        copilot: { ...launch, exitCode: 0 },
+        error: null,
         updatedAt: this.ports.clock.now(),
       };
-      await store.save(
-        snapshot,
-        "running_rpiv",
-        result.exitCode === 0 ? "completion-unproved" : "copilot-failed",
-      );
-      return snapshot;
+      await store.save(snapshot, "running_rpiv", "copilot-exited-zero");
+
+      let result: AgentResultV1;
+      try {
+        result = parseAgentResult(
+          await this.ports.files.readAgentResult(snapshot.worktreePath),
+        );
+      } catch (cause: unknown) {
+        if (!isRunnerError(cause)) throw cause;
+        snapshot = {
+          ...snapshot,
+          state: "interrupted",
+          finalization: {
+            result: null,
+            git: null,
+            pullRequest: null,
+            reconciliation: null,
+          },
+          error: { code: cause.code, message: cause.message },
+          updatedAt: this.ports.clock.now(),
+        };
+        await store.save(snapshot, "finalizing", "result-proof-incomplete");
+        return snapshot;
+      }
+
+      if (snapshot.fetchedBaseProof === null) {
+        snapshot = await this.persistIncompleteFinalization(
+          store,
+          snapshot,
+          result,
+          "Fetched-base proof is missing.",
+        );
+        return snapshot;
+      }
+      if (result.outcome !== "succeeded") {
+        const decision = reconcileCompletion({
+          issueNumber,
+          branch: snapshot.branch,
+          baseBranch: snapshot.fetchedBaseProof.defaultBranch,
+          remote: snapshot.fetchedBaseProof.remote,
+          requiredAcceptanceCriteria: snapshot.requiredAcceptanceCriteria,
+          requiredValidations: snapshot.requiredValidations,
+          result,
+          git: null,
+          pullRequest: null,
+        });
+        snapshot = {
+          ...snapshot,
+          state: decision.state,
+          finalization: {
+            result,
+            git: null,
+            pullRequest: null,
+            reconciliation: decision.reconciliation,
+          },
+          error: {
+            code: decision.code,
+            message: `RPIV reported ${result.outcome}.`,
+          },
+          updatedAt: this.ports.clock.now(),
+        };
+        await store.save(snapshot, "finalizing", decision.code);
+        return snapshot;
+      }
+
+      try {
+        const [localHeadSha, remoteHeadSha, pullRequest] = await Promise.all([
+          this.ports.git.localHeadSha(snapshot.worktreePath),
+          this.ports.git.remoteBranchSha(
+            repository.root,
+            snapshot.fetchedBaseProof.remote,
+            snapshot.branch,
+          ),
+          this.ports.github.loadPullRequest(
+            snapshot.repository,
+            result.prNumber,
+          ),
+        ]);
+        const git = {
+          localHeadSha,
+          remote: snapshot.fetchedBaseProof.remote,
+          remoteBranch: snapshot.branch,
+          remoteHeadSha,
+        };
+        const decision = reconcileCompletion({
+          issueNumber,
+          branch: snapshot.branch,
+          baseBranch: snapshot.fetchedBaseProof.defaultBranch,
+          remote: snapshot.fetchedBaseProof.remote,
+          requiredAcceptanceCriteria: snapshot.requiredAcceptanceCriteria,
+          requiredValidations: snapshot.requiredValidations,
+          result,
+          git,
+          pullRequest,
+        });
+        snapshot = {
+          ...snapshot,
+          state: decision.state,
+          finalization: {
+            result,
+            git,
+            pullRequest,
+            reconciliation: decision.reconciliation,
+          },
+          error:
+            decision.state === "completed"
+              ? null
+              : {
+                  code: decision.code,
+                  message: "Completion evidence did not reconcile.",
+                },
+          updatedAt: this.ports.clock.now(),
+        };
+        await store.save(snapshot, "finalizing", decision.code);
+        return snapshot;
+      } catch (cause: unknown) {
+        if (!isRunnerError(cause)) throw cause;
+        snapshot = await this.persistIncompleteFinalization(
+          store,
+          snapshot,
+          result,
+          cause.message,
+          cause.code,
+        );
+        return snapshot;
+      }
     } catch (cause: unknown) {
       if (!isRunnerError(cause)) throw cause;
       snapshot = {
@@ -247,9 +386,36 @@ export class IssueRunService {
         error: { code: cause.code, message: cause.message },
         updatedAt: this.ports.clock.now(),
       };
-      await store.save(snapshot, "running_rpiv", "copilot-launch-failed");
+      await store.save(
+        snapshot,
+        snapshot.state === "finalizing" ? "finalizing" : "running_rpiv",
+        "copilot-launch-failed",
+      );
       throw cause;
     }
+  }
+
+  private async persistIncompleteFinalization(
+    store: RunStore,
+    snapshot: RunSnapshotV2,
+    result: AgentResultV1,
+    message: string,
+    code = "COMPLETION_PROOF_INCOMPLETE",
+  ): Promise<RunSnapshotV2> {
+    const interrupted: RunSnapshotV2 = {
+      ...snapshot,
+      state: "interrupted",
+      finalization: {
+        result,
+        git: null,
+        pullRequest: null,
+        reconciliation: null,
+      },
+      error: { code, message },
+      updatedAt: this.ports.clock.now(),
+    };
+    await store.save(interrupted, "finalizing", "completion-proof-incomplete");
+    return interrupted;
   }
 
   public async status(

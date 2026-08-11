@@ -22,7 +22,7 @@ harness checks --json
 
 The root `justfile` remains command authority for humans and RPIV boundaries. Discover recipes with `just --list`; direct `just verify-focused` and `just verify` remain required validation entry points. See [`.harness/engineering-harness.md`](.harness/engineering-harness.md) for governance and evidence contracts.
 
-Phase 1 can run one explicit ready issue in an exclusively owned visible environment. From a repository checkout, use the root recipe; `just setup`/`just build` do not globally install or link `soft-factory`:
+Phase 2 can run one explicit ready issue in an exclusively owned visible environment and prove its completion through reconciled evidence. From a repository checkout, use the root recipe; `just setup`/`just build` do not globally install or link `soft-factory`:
 
 ```text
 just build
@@ -32,7 +32,7 @@ just run status 3 --json
 just run attach 3
 ```
 
-The run fetches and proves the configured remote default HEAD before creating `feat/3-...` and `.trees/3`. Unknown resources are preserved, every Copilot launch is issue-named and telemetry-scoped, and a zero Copilot exit remains `interrupted` until a later completion protocol exists. See [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) for configuration, ownership, state, telemetry, troubleshooting, fixture evidence, and deferrals.
+The run fetches and proves the configured remote default HEAD before creating `feat/3-...` and `.trees/3`. Unknown resources are preserved and every Copilot launch is issue-named and telemetry-scoped. After a zero exit, Runner reads `<owned-worktree>/.soft-factory/agent-result.json`, observes fresh local/remote Git and one open pull request, and reports `completed` only when issue, branch, SHA, PR, acceptance, and required root-validation proof all match. Missing proof becomes `interrupted`; contradictory proof becomes `failed`. See [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) for the `AgentResultV1` schema, five terminal states, snapshot compatibility, troubleshooting, deterministic fixture matrix, and remaining Prototype 3 deferrals.
 
 Feature behavior is defined in [`PRD.md`](PRD.md) and delivered through GitHub issues and the RPIV pipeline.
 
@@ -41,5 +41,5 @@ Feature behavior is defined in [`PRD.md`](PRD.md) and delivered through GitHub i
 - [`PRD.md`](PRD.md) — product requirements, scope, requirements, and staged MVP evolution
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — pipeline workflow, how to contribute via GitHub Issues, and where artifacts belong
 - [`AGENTS.md`](AGENTS.md) — agent definitions, guardrails, and pipeline specification
-- [`docs/`](docs/) — application documentation, including the [Phase 1 issue-run guide](docs/phase-1-issue-run.md)
+- [`docs/`](docs/) — application documentation, including the [issue-run and Phase 2 completion guide](docs/phase-1-issue-run.md)
 - [`project/`](project/) — architecture decisions, core-components, and human-readable work-item artifacts

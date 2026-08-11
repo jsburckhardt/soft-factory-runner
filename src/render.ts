@@ -1,10 +1,18 @@
-import type { RunSnapshotV1, StatusFacts, TmuxIdentity } from "./domain";
+import type { RunSnapshot, StatusFacts, TmuxIdentity } from "./domain";
 import type { RunnerError } from "./errors";
 
-export function renderRun(snapshot: RunSnapshotV1, json: boolean): string {
+export function renderRun(snapshot: RunSnapshot, json: boolean): string {
   if (json)
     return `${JSON.stringify({ schemaVersion: 1, run: snapshot }, null, 2)}\n`;
-  return `Issue #${snapshot.issueNumber}: ${snapshot.state}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}\n`;
+  const reconciliation =
+    snapshot.schemaVersion === 2
+      ? (snapshot.finalization?.reconciliation ?? null)
+      : null;
+  const proof =
+    reconciliation === null
+      ? ""
+      : `\nCompletion proof: ${reconciliation.decisionCode}`;
+  return `Issue #${snapshot.issueNumber}: ${snapshot.state}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}${proof}\n`;
 }
 
 export function renderStatus(facts: StatusFacts, json: boolean): string {

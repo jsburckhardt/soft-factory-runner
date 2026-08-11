@@ -9,6 +9,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260810-typescript-node-cli | TypeScript and Node.js CLI | Accepted | 2026-08-10 |
 | ADR-260811-engineering-harness-surface | Engineering Harness Development Surface | Accepted | 2026-08-11 |
 | ADR-260811-prototype-one-run-orchestration | Prototype One Issue Run Orchestration | Accepted | 2026-08-11 |
+| ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Accepted | 2026-08-11 |
 
 ## Core-Components
 
@@ -27,6 +28,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260810-development-standards | Development Standards | Adopted | 2026-08-10 |
 | CORE-COMPONENT-260811-engineering-harness-interface | Engineering Harness Interface | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-issue-run-orchestration | Issue Run Orchestration | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260811-completion-evidence-reconciliation | Completion Evidence Reconciliation | Adopted | 2026-08-11 |
 
 ## Decisions
 
@@ -82,3 +84,17 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 46 | Persist Phase 1 snapshots and events without reporting unproved completion | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
 | 47 | Bound readiness queries and block incomplete or ambiguous external proof | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
 | 48 | Inject deterministic fixture adapters without exposing production test backdoors | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 49 | Finalize zero-exit RPIV runs through strict result, Git, and GitHub reconciliation | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
+| 50 | Derive required acceptance IDs from ordered issue criteria | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
+| 51 | Require passed `just verify-focused` and `just verify` result entries | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
+| 52 | Read legacy snapshots without accepting them as completion proof | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
+| 53 | Read only strict versioned results from the owned worktree artifact path | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 54 | Persist exact required acceptance texts before launching RPIV | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 55 | Require every acceptance result verified with nonempty evidence | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 56 | Require local, remote, and open pull-request facts to match the result | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 57 | Bound finalization observations without polling or retrying | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 58 | Prohibit completed unless every completion comparison passes | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 59 | Classify missing proof as interrupted and contradictory proof as failed | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 60 | Expose all five terminal states in typed snapshots and status output | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 61 | Append transition events before atomically replacing snapshots | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 62 | Isolate completion observations behind typed deterministic adapters | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
