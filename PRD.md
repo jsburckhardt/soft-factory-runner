@@ -1085,8 +1085,19 @@ soft-factory internal run-agent --issue 123
 The internal worker then launches:
 
 ```bash
-copilot --yolo --agent rpiv -p "Deliver issue #123"
+OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" \
+  copilot --yolo --agent rpiv -p "Deliver issue #123"
 ```
+
+Runner MUST set `OTEL_RESOURCE_ATTRIBUTES` for each Copilot process using the
+resolved repository name and issue number:
+
+```text
+project.name=<project>,issue.id=issue-<number>
+```
+
+These attributes identify telemetry from concurrent repositories and issues
+without requiring agents to infer execution context.
 
 The internal worker exists so Runner can reliably capture:
 
@@ -1484,6 +1495,7 @@ copilot:
   prompt: "Deliver issue #{issue_number}"
   permission_mode: yolo
   require_yolo_acknowledgement: true
+  otel_resource_attributes: "project.name={project},issue.id=issue-{issue_number}"
 
 execution:
   max_concurrent_runs: 3
@@ -1923,6 +1935,15 @@ Every transition records:
 * previous state;
 * next state;
 * reason.
+
+Every Copilot process receives:
+
+```text
+OTEL_RESOURCE_ATTRIBUTES=project.name=<project>,issue.id=issue-<number>
+```
+
+where `<project>` is the resolved repository name and `<number>` is the explicit
+GitHub issue number for the run.
 
 Runner must clearly distinguish:
 
