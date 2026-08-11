@@ -1,0 +1,19 @@
+PRD.md
+  s_a9bdb675ebcad7::t_7582bd2d5e8e41 1021,1024,1027-1030,1040,1044-1049,1099,1237-1243,1278,1331,1462-1468,1509-1521,1621-1624,1701-1710,1724,1730,1736,1742,1748,1754,1760,1862-1869,1916-1923,2228,2291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b8618913e036763fd685ba17753f8b8f3a4c1563",
+  "prompts": {},
+  "sessions": {
+    "s_a9bdb675ebcad7": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "877500c8-cba6-4eff-8fc4-8b9e7f315e16",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
