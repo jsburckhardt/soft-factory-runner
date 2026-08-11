@@ -91,7 +91,7 @@
 
 ## Task T-4: Prove clean-checkout adoption and record evidence
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T-1, T-2, T-3
 - **Acceptance Criteria:** AC-6
