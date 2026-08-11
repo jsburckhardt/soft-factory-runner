@@ -1018,11 +1018,15 @@ There must never be two active local owners.
 
 # 25. Worktree Model
 
-Default branch:
+Issue branches follow the same type taxonomy as Conventional Commits:
 
 ```text
-issue/<issue-number>
+<type>/<issue-number>-<short-slug>
 ```
+
+`<type>` must be one of the Conventional Commit types allowed by the repository's
+commit standard, and should match the intended implementation commit and pull
+request title type.
 
 Default worktree:
 
@@ -1033,9 +1037,15 @@ Default worktree:
 For issue `123`:
 
 ```text
-branch:   issue/123
+branch:   feat/123-add-run-command
 worktree: .trees/123
 ```
+
+Before creating a new issue branch or worktree, Runner must fetch the configured
+remote and verify that the local default branch matches the latest remote default
+branch. Runner must create the issue branch from that verified remote default
+branch, not from a stale local branch. If synchronization cannot be proven,
+Runner must stop with an actionable blocked result.
 
 Runner must verify existing worktree ownership before reuse.
 
@@ -1086,7 +1096,7 @@ The internal worker then launches:
 
 ```bash
 OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" \
-  copilot --yolo --agent rpiv -p "Deliver issue #123"
+  copilot --yolo --name "issue-123" --agent rpiv -p "Deliver issue #123"
 ```
 
 Runner MUST set `OTEL_RESOURCE_ATTRIBUTES` for each Copilot process using the
@@ -1224,7 +1234,13 @@ Runtime state became unavailable or ambiguous before successful completion.
 
 12. cleanup must not silently discard uncommitted changes.
 
-13. installed agents cannot override these invariants.
+13. a new issue worktree must be based on the latest verified remote default branch.
+
+14. branch types must conform to the repository's Conventional Commit type taxonomy.
+
+15. a merged pull request triggers cleanup only after branch, pull request, merge, and worktree ownership are reconciled.
+
+16. installed agents cannot override these invariants.
 
 ---
 
@@ -1259,7 +1275,7 @@ Example:
   "state": "running_rpiv",
   "attempt": 1,
   "baseBranch": "main",
-  "branch": "issue/123",
+  "branch": "feat/123-add-run-command",
   "worktreePath": ".trees/123",
   "tmux": {
     "sessionName": "sf-jsburckhardt-example",
@@ -1312,7 +1328,7 @@ Example:
   "schemaVersion": 1,
   "issueNumber": 123,
   "outcome": "succeeded",
-  "branch": "issue/123",
+  "branch": "feat/123-add-run-command",
   "headSha": "abc123def456",
   "prNumber": 456,
   "acceptanceCriteria": [
@@ -1443,6 +1459,13 @@ Cleanup must refuse when:
 * the worktree contains uncommitted changes;
 * recorded ownership does not match observed resources.
 
+Runner must also reconcile completed runs with GitHub. When the expected pull
+request is closed as merged and its merged head matches the recorded issue branch
+and verified commit, Runner should automatically perform the same guarded cleanup
+for the owned worktree and issue lock. A closed but unmerged pull request must not
+trigger automatic cleanup. Failure to prove merge or ownership must preserve the
+worktree and return an actionable blocked result.
+
 ---
 
 # 41. Concurrency
@@ -1483,7 +1506,19 @@ repository:
   state_root: .soft-factory
 
 branching:
-  pattern: issue/{issue_number}
+  pattern: "{type}/{issue_number}-{short_slug}"
+  allowed_types:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - perf
+    - test
+    - build
+    - ci
+    - chore
+    - revert
 
 tmux:
   session_pattern: sf-{owner}-{repository}
@@ -1583,7 +1618,10 @@ Runner MUST acquire an atomic local issue lock.
 
 ## FR-010 — Prepare worktree
 
-Runner MUST create or safely reconcile the expected branch and worktree.
+Runner MUST fetch the configured remote, verify the latest remote default branch,
+create a Conventionally typed issue branch from that verified commit, and create
+or safely reconcile the expected worktree. Runner MUST block rather than create a
+worktree from a stale or unverified base.
 
 ---
 
@@ -1660,7 +1698,16 @@ Runner MUST verify that the expected PR exists and matches the expected issue, b
 
 ---
 
-## FR-021 — Explicit terminal states
+## FR-021 — Reconcile merged pull requests
+
+Runner MUST detect when the expected pull request is closed as merged, verify the
+merged head against the recorded issue branch and commit, and safely remove the
+owned worktree and issue lock. Runner MUST preserve the worktree when the pull
+request is closed without merge or when merge or ownership evidence is ambiguous.
+
+---
+
+## FR-022 — Explicit terminal states
 
 Every run MUST reach:
 
@@ -1674,43 +1721,43 @@ interrupted
 
 ---
 
-## FR-022 — Reconcile interrupted execution
+## FR-023 — Reconcile interrupted execution
 
 Runner MUST safely reconcile persisted runs after restart.
 
 ---
 
-## FR-023 — Stop execution
+## FR-024 — Stop execution
 
 Runner SHOULD support graceful cancellation.
 
 ---
 
-## FR-024 — Clean resources
+## FR-025 — Clean resources
 
 Runner SHOULD safely clean owned terminal-run resources.
 
 ---
 
-## FR-025 — Limit concurrency
+## FR-026 — Limit concurrency
 
 Runner MUST enforce configured concurrent-run limits.
 
 ---
 
-## FR-026 — Provide Operator Agent
+## FR-027 — Provide Operator Agent
 
 The official asset catalog MUST include the Soft Factory Operator Agent.
 
 ---
 
-## FR-027 — Provide Assessor Agent
+## FR-028 — Provide Assessor Agent
 
 The official asset catalog MUST include the Soft Factory Assessor Agent.
 
 ---
 
-## FR-028 — Provide Soft Factory Skill
+## FR-029 — Provide Soft Factory Skill
 
 The official asset catalog MUST include the Soft Factory skill.
 
@@ -1812,6 +1859,14 @@ Distinct issues receive distinct branches, worktrees, locks, and tmux windows.
 
 ---
 
+## AC-011A
+
+A new issue branch uses an allowed Conventional Commit type and is created from
+the latest fetched remote default-branch commit. Runner blocks worktree creation
+when that base cannot be verified.
+
+---
+
 ## AC-012
 
 RPIV execution is visible inside the issue tmux window.
@@ -1855,6 +1910,14 @@ Runner can reconcile an existing active RPIV process after Runner restart withou
 ## AC-018
 
 Cleanup refuses to delete a worktree containing uncommitted work by default.
+
+---
+
+## AC-018A
+
+After the expected pull request is merged, Runner removes its clean, owned
+worktree and releases its issue lock. A closed-unmerged pull request or ambiguous
+merge or ownership evidence leaves the worktree intact.
 
 ---
 
@@ -2162,7 +2225,7 @@ Issue #123
 ✓ repository validated
 ✓ issue validated
 ✓ lock acquired
-✓ branch issue/123
+✓ branch feat/123-add-run-command
 ✓ worktree .trees/123
 ✓ tmux window 123
 ✓ RPIV started
@@ -2225,7 +2288,7 @@ The following are intentionally deferred:
 * automated prioritisation;
 * automated PR review;
 * review-remediation loops;
-* merge orchestration;
+* executing pull request merges;
 * deployment;
 * distributed workers;
 * hosted Runner service;
