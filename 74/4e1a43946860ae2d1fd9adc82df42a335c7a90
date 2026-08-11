@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-11/019-issue-4-rpiv-verifier.md
+  s_8151e9f89e816d::t_4fe6dd91f60e0b 1-6,9,14-16,24,70-71,73
+  s_8151e9f89e816d::t_b51ade3514cffe 7-8,10-13,17-23,25-69,72,74
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/verify/summary.md
+  s_8151e9f89e816d::t_97504680cbc0b1 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "744e1a43946860ae2d1fd9adc82df42a335c7a90",
+  "prompts": {},
+  "sessions": {
+    "s_8151e9f89e816d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_HNHBSFW8GKW4mr11sgdEd9Ju",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
