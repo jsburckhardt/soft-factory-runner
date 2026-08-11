@@ -1,4 +1,9 @@
-import type { IssueFacts, RepositoryFacts, TmuxIdentity } from "./domain";
+import type {
+  IssueFacts,
+  ProcessIdentityV1,
+  RepositoryFacts,
+  TmuxIdentity,
+} from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
 import { runCli } from "./index";
@@ -43,6 +48,16 @@ class MemoryFiles implements FilePort {
     this.trace.push(`file:exists:${filePath}`);
     return this.values.has(filePath);
   }
+  public async list(directoryPath: string): Promise<readonly string[]> {
+    const prefix = `${directoryPath}/`;
+    return [...this.values.keys()]
+      .filter((entry) => entry.startsWith(prefix))
+      .map((entry) => entry.slice(prefix.length).split("/")[0])
+      .filter(
+        (entry, index, entries) =>
+          entry !== "" && entries.indexOf(entry) === index,
+      );
+  }
   public async exclusiveCreate(
     filePath: string,
     content: string,
@@ -60,6 +75,14 @@ class MemoryFiles implements FilePort {
     this.trace.push(`event:append:${filePath}`);
     this.values.set(filePath, (this.values.get(filePath) ?? "") + content);
   }
+  public async compareAndDelete(
+    filePath: string,
+    expectedContent: string,
+  ): Promise<boolean> {
+    if (this.values.get(filePath) !== expectedContent) return false;
+    this.values.delete(filePath);
+    return true;
+  }
 }
 
 class RecordingGit implements GitPort {
@@ -71,8 +94,10 @@ class RecordingGit implements GitPort {
   public branchPresent = false;
   public registered = false;
   public facts: RepositoryFacts;
+  public worktreePath: string | null = null;
   public constructor(
     trace: string[],
+    private readonly files: MemoryFiles,
     repository = "jsburckhardt/soft-factory-runner",
   ) {
     this.trace = trace;
@@ -99,6 +124,17 @@ class RecordingGit implements GitPort {
   public async registeredWorktreeExists(): Promise<boolean> {
     this.trace.push("git:worktree-observe");
     return this.registered;
+  }
+  public async observeWorktree(_root: string, worktreePath: string) {
+    return {
+      pathExists: this.files.values.has(worktreePath),
+      registered: this.registered,
+      branch: this.registered ? "feat/3-phase-1-run-one-issue" : null,
+      headSha: this.registered ? sha : null,
+      staged: false,
+      unstaged: false,
+      untracked: false,
+    };
   }
   public async fetch(_root: string, remote: string): Promise<void> {
     this.trace.push(`git:fetch:${remote}`);
@@ -140,6 +176,14 @@ class RecordingGit implements GitPort {
     branch: string,
   ): Promise<void> {
     this.trace.push(`git:add-worktree:${worktree}:${branch}`);
+    this.registered = true;
+    this.worktreePath = worktree;
+    this.files.values.set(worktree, "directory");
+  }
+  public async removeWorktree(_root: string, worktree: string): Promise<void> {
+    this.registered = false;
+    this.files.values.delete(worktree);
+    this.trace.push(`git:remove-worktree:${worktree}`);
   }
 }
 
@@ -165,6 +209,21 @@ class RecordingGitHub implements GitHubPort {
       baseBranch: "main",
       headBranch: "feat/3-phase-1-run-one-issue",
       headSha: sha,
+      closesIssues: [3],
+      complete: true,
+    };
+  }
+  public async loadMergedPullRequest(
+    _repository: string,
+    pullRequestNumber: number,
+  ) {
+    return {
+      number: pullRequestNumber,
+      state: "OPEN" as const,
+      mergedAt: null,
+      sourceBranch: "feat/3-phase-1-run-one-issue",
+      sourceHeadSha: sha,
+      mergeCommitSha: null,
       closesIssues: [3],
       complete: true,
     };
@@ -201,6 +260,21 @@ class RecordingTmux implements TmuxPort {
     this.trace.push(`tmux:observe:${target.paneId}`);
     return this.observedOverride === undefined ? target : this.observedOverride;
   }
+  public async panePid(): Promise<number> {
+    return 300;
+  }
+  public async setRemainOnExit(): Promise<void> {
+    this.trace.push("tmux:remain");
+  }
+  public async capturePane() {
+    return { content: "pane output", truncated: false };
+  }
+  public async restartWorker(): Promise<void> {
+    this.trace.push("tmux:restart");
+  }
+  public async removeWindow(): Promise<void> {
+    this.trace.push("tmux:remove");
+  }
   public async attach(target: TmuxIdentity): Promise<void> {
     this.trace.push(
       `tmux:attach:${target.sessionName}:${target.windowName}:${target.paneId}`,
@@ -211,19 +285,61 @@ class RecordingTmux implements TmuxPort {
 class RecordingProcess implements ProcessPort {
   public readonly trace: string[];
   public exitCode = 0;
+  public launches = 0;
+  public observed: ProcessIdentityV1 | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
-  public async runCopilot(input: {
+  public async spawnCopilot(input: {
     readonly executable: "copilot";
     readonly args: readonly string[];
     readonly cwd: string;
     readonly environment: Readonly<Record<string, string>>;
-  }): Promise<{ readonly exitCode: number }> {
+    readonly pane: TmuxIdentity;
+    readonly panePid: number;
+    readonly launchedAt: string;
+  }) {
+    this.launches += 1;
     this.trace.push(
       `process:${input.executable}:${input.args.join(" ")}:${input.cwd}:${input.environment.OTEL_RESOURCE_ATTRIBUTES}`,
     );
-    return { exitCode: this.exitCode };
+    const identity: ProcessIdentityV1 = {
+      schemaVersion: 1,
+      pid: 301,
+      processGroupId: 301,
+      startToken: "100",
+      executable: "copilot",
+      args: input.args,
+      cwd: input.cwd,
+      launchedAt: input.launchedAt,
+      paneLineage: {
+        sessionName: input.pane.sessionName,
+        windowId: input.pane.windowId,
+        paneId: input.pane.paneId,
+        panePid: input.panePid,
+      },
+    };
+    this.observed = identity;
+    return {
+      identity,
+      wait: async () => {
+        this.observed = null;
+        return { exitCode: this.exitCode };
+      },
+    };
+  }
+  public async observe(identity: ProcessIdentityV1) {
+    return this.observed?.pid === identity.pid ? this.observed : null;
+  }
+  public async findLaunchCandidates() {
+    return this.observed === null ? [] : [this.observed];
+  }
+  public async signalGroup(): Promise<void> {
+    this.trace.push("process:signal");
+  }
+  public async waitForExit(): Promise<boolean> {
+    this.observed = null;
+    return true;
   }
 }
 
@@ -255,7 +371,7 @@ function fixture(
 } {
   const trace: string[] = [];
   const files = new MemoryFiles(trace);
-  const git = new RecordingGit(trace, repository);
+  const git = new RecordingGit(trace, files, repository);
   const github = new RecordingGitHub(trace, issue);
   const tmux = new RecordingTmux(trace);
   const processes = new RecordingProcess(trace);
@@ -382,7 +498,18 @@ describe("deterministic issue-to-RPIV fixture", () => {
     expect(fetchIndex).toBeLessThan(proofWriteIndex);
     expect(proofWriteIndex).toBeLessThan(branchIndex);
     expect(
-      f.trace.filter((entry) => entry.startsWith("lock:create:")).length,
+      f.trace.filter(
+        (entry) =>
+          entry.startsWith("lock:create:") &&
+          entry.includes("/.soft-factory/locks/"),
+      ).length,
+    ).toBe(1);
+    expect(
+      f.trace.filter(
+        (entry) =>
+          entry.startsWith("lock:create:") &&
+          entry.includes("/concurrency/slots/1.lock"),
+      ).length,
     ).toBe(1);
     expect(
       f.trace.filter((entry) => entry.startsWith("git:create-branch:")).length,
@@ -398,7 +525,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
     ).toBe(1);
     expect(
       f.trace.filter((entry) => entry.startsWith("git:remote-head:")).length,
-    ).toBe(1);
+    ).toBe(3);
     expect(
       f.trace.findIndex((entry) => entry.startsWith("process:copilot:")),
     ).toBeLessThan(
@@ -680,7 +807,9 @@ ${validBody}`,
         "/tmp/start",
         f.ports,
       );
-      expect(result.stderr).toContain("RESOURCE_OWNERSHIP_UNKNOWN");
+      expect(result.stderr).toContain(
+        kind === "snapshot" ? "STATE_INVALID" : "RESOURCE_OWNERSHIP_UNKNOWN",
+      );
       if (kind === "path")
         expect(f.files.values.get("/tmp/soft-factory-fixture/.trees/3")).toBe(
           before.get("/tmp/soft-factory-fixture/.trees/3"),

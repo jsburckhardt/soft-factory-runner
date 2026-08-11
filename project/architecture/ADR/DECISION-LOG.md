@@ -10,6 +10,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260811-engineering-harness-surface | Engineering Harness Development Surface | Accepted | 2026-08-11 |
 | ADR-260811-prototype-one-run-orchestration | Prototype One Issue Run Orchestration | Accepted | 2026-08-11 |
 | ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Accepted | 2026-08-11 |
+| ADR-260811-prototype-three-recovery-concurrency | Prototype Three Recovery and Explicit Concurrency | Accepted | 2026-08-11 |
 
 ## Core-Components
 
@@ -29,6 +30,9 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260811-engineering-harness-interface | Engineering Harness Interface | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-issue-run-orchestration | Issue Run Orchestration | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-completion-evidence-reconciliation | Completion Evidence Reconciliation | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260811-run-reconciliation-control | Run Reconciliation and Control | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260811-concurrent-run-admission | Concurrent Run Admission | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260811-owned-resource-cleanup | Owned Resource Cleanup | Adopted | 2026-08-11 |
 
 ## Decisions
 
@@ -99,3 +103,16 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 61 | Append transition events before atomically replacing snapshots | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
 | 62 | Isolate completion observations behind typed deterministic adapters | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
 | 63 | Query issue-branch tips with bounded `git ls-remote --refs`, never tracking refs | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 64 | Use revisioned v3 snapshots and replayable v2 events for deterministic recovery | ADR-260811-prototype-three-recovery-concurrency | 2026-08-11 |
+| 65 | Match RPIV processes by compound OS identity and tmux pane lineage | ADR-260811-prototype-three-recovery-concurrency | 2026-08-11 |
+| 66 | Enforce atomic concurrency slots while requiring explicit issue selection | ADR-260811-prototype-three-recovery-concurrency | 2026-08-11 |
+| 67 | Verify merged PR source heads before automatic worktree and lock cleanup | ADR-260811-prototype-three-recovery-concurrency | 2026-08-11 |
+| 68 | Reconcile locks, filesystem, Git, tmux, processes, results, remote, and GitHub once | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-11 |
+| 69 | Stop exact processes with 10-second graceful and 5-second escalation bounds | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-11 |
+| 70 | Replay only contiguous v2 events and retain bounded attempt logs through cleanup | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-11 |
+| 71 | Require one atomic slot lease for every active run within configured capacity | CORE-COMPONENT-260811-concurrent-run-admission | 2026-08-11 |
+| 72 | Count unknown leases as occupied and block admission during unsafe limit reductions | CORE-COMPONENT-260811-concurrent-run-admission | 2026-08-11 |
+| 73 | Keep per-issue resources distinct without selecting issues automatically | CORE-COMPONENT-260811-concurrent-run-admission | 2026-08-11 |
+| 74 | Require inactive, clean, exactly owned resources before non-forced cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |
+| 75 | Verify merged PR source branch and SHA before automatic owned-resource cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |
+| 76 | Retain branches, snapshots, events, logs, and automatic-cleanup tmux evidence | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |

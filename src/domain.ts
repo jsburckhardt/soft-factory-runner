@@ -1,5 +1,5 @@
-export const RUN_SNAPSHOT_SCHEMA_VERSION = 2 as const;
-export const EVENT_SCHEMA_VERSION = 1 as const;
+export const RUN_SNAPSHOT_SCHEMA_VERSION = 3 as const;
+export const EVENT_SCHEMA_VERSION = 2 as const;
 export const AGENT_RESULT_SCHEMA_VERSION = 1 as const;
 
 export type PreparationState =
@@ -60,12 +60,54 @@ export interface OwnerRecordV1 {
   readonly acquiredAt: string;
 }
 
+export interface ConcurrencyLeaseV1 {
+  readonly schemaVersion: 1;
+  readonly slot: number;
+  readonly issueNumber: number;
+  readonly ownerId: string;
+  readonly runId: string;
+  readonly repository: string;
+  readonly configuredLimit: number;
+  readonly acquiredAt: string;
+}
+
 export interface TmuxIdentity {
   readonly sessionName: string;
   readonly windowName: string;
   readonly windowId: string;
   readonly paneId: string;
   readonly cwd: string;
+}
+
+export interface PaneLineageV1 {
+  readonly sessionName: string;
+  readonly windowId: string;
+  readonly paneId: string;
+  readonly panePid: number;
+}
+
+export interface ProcessIdentityV1 {
+  readonly schemaVersion: 1;
+  readonly pid: number;
+  readonly processGroupId: number;
+  readonly startToken: string;
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly launchedAt: string;
+  readonly paneLineage: PaneLineageV1;
+}
+
+export interface LaunchIntentV1 {
+  readonly schemaVersion: 1;
+  readonly attempt: number;
+  readonly executable: "copilot";
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly resourceAttributes: string;
+  readonly pane: TmuxIdentity;
+  readonly panePid: number;
+  readonly recordedAt: string;
 }
 
 export interface CopilotLaunchFacts {
@@ -76,7 +118,49 @@ export interface CopilotLaunchFacts {
   readonly exitCode: number | null;
 }
 
-interface RunSnapshotBase {
+export interface StopFactsV1 {
+  readonly requestedAt: string;
+  readonly termSentAt: string | null;
+  readonly killSentAt: string | null;
+  readonly completedAt: string | null;
+  readonly escalated: boolean;
+  readonly processIdentity: ProcessIdentityV1 | null;
+  readonly beforeLog: string | null;
+  readonly afterLog: string | null;
+}
+
+export type CleanupMode = "explicit" | "automatic_merged";
+export type CleanupStep = "tmux" | "worktree" | "lease" | "lock";
+export interface CleanupFactsV1 {
+  readonly mode: CleanupMode;
+  readonly intentAt: string;
+  readonly completedSteps: readonly CleanupStep[];
+  readonly remainingSteps: readonly CleanupStep[];
+  readonly blockedCode: string | null;
+  readonly updatedAt: string;
+}
+
+export interface RetainedLogV1 {
+  readonly attempt: number;
+  readonly path: string;
+  readonly bytes: number;
+  readonly truncated: boolean;
+  readonly source: "tmux" | "process" | "combined";
+  readonly capturedAt: string;
+}
+
+export interface MergedPullRequestFactsV1 {
+  readonly number: number;
+  readonly state: "OPEN" | "CLOSED" | "MERGED";
+  readonly mergedAt: string | null;
+  readonly sourceBranch: string;
+  readonly sourceHeadSha: string;
+  readonly mergeCommitSha: string | null;
+  readonly closesIssues: readonly number[];
+  readonly complete: boolean;
+}
+
+export interface RunSnapshotBase {
   readonly runId: string;
   readonly ownerId: string;
   readonly repository: string;
@@ -182,7 +266,25 @@ export interface RunSnapshotV2 extends RunSnapshotBase {
   readonly finalization: FinalizationFactsV1 | null;
 }
 
-export type RunSnapshot = RunSnapshotV1 | RunSnapshotV2;
+export interface RunSnapshotV3 extends RunSnapshotBase {
+  readonly schemaVersion: 3;
+  readonly state: RunState;
+  readonly revision: number;
+  readonly attempt: number;
+  readonly admission: ConcurrencyLeaseV1 | null;
+  readonly launchIntent: LaunchIntentV1 | null;
+  readonly workerProcess: ProcessIdentityV1 | null;
+  readonly rpivProcess: ProcessIdentityV1 | null;
+  readonly stop: StopFactsV1 | null;
+  readonly cleanup: CleanupFactsV1 | null;
+  readonly logs: readonly RetainedLogV1[];
+  readonly mergedPullRequest: MergedPullRequestFactsV1 | null;
+  readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
+  readonly requiredValidations: readonly RequiredValidationV1[];
+  readonly finalization: FinalizationFactsV1 | null;
+}
+
+export type RunSnapshot = RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3;
 
 export interface TransitionEventV1 {
   readonly schemaVersion: 1;
@@ -194,11 +296,76 @@ export interface TransitionEventV1 {
   readonly reason: string;
 }
 
-export interface StatusFacts {
+export interface TransitionEventV2 {
+  readonly schemaVersion: 2;
+  readonly at: string;
+  readonly runId: string;
+  readonly issueNumber: number;
+  readonly priorRevision: number;
+  readonly resultingRevision: number;
+  readonly reason: string;
+  readonly resultingSnapshot: RunSnapshotV3;
+}
+
+export type TransitionEvent = TransitionEventV1 | TransitionEventV2;
+
+export type ObservationState =
+  "match" | "absent" | "mismatch" | "unknown" | "not_applicable";
+
+export interface ObservationV1<T = unknown> {
+  readonly state: ObservationState;
+  readonly facts: T | null;
+  readonly code: string;
+}
+
+export interface WorktreeObservationV1 {
+  readonly pathExists: boolean;
+  readonly registered: boolean;
+  readonly branch: string | null;
+  readonly headSha: string | null;
+  readonly staged: boolean;
+  readonly unstaged: boolean;
+  readonly untracked: boolean;
+}
+
+export interface ReconciliationObservationsV1 {
+  readonly lock: ObservationV1<OwnerRecordV1>;
+  readonly filesystem: ObservationV1<{ readonly worktreePath: string }>;
+  readonly git: ObservationV1<WorktreeObservationV1>;
+  readonly tmux: ObservationV1<TmuxIdentity>;
+  readonly workerProcess: ObservationV1<ProcessIdentityV1>;
+  readonly rpivProcess: ObservationV1<ProcessIdentityV1>;
+  readonly result: ObservationV1<{ readonly present: boolean }>;
+  readonly remote: ObservationV1<{ readonly headSha: string | null }>;
+  readonly github: ObservationV1<MergedPullRequestFactsV1>;
+}
+
+export type SafeAction =
+  | "preserve_active"
+  | "resume"
+  | "retry_finalization"
+  | "attach"
+  | "stop"
+  | "explicit_clean"
+  | "automatic_clean";
+
+export interface ReconciliationReportV1 {
   readonly schemaVersion: 1;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
+  readonly observations: ReconciliationObservationsV1;
+  readonly activity: "active" | "inactive" | "interrupted" | "blocked";
+  readonly decisionCode: string;
+  readonly safeActions: readonly SafeAction[];
+  readonly diagnostics: readonly string[];
+}
+
+export interface StatusFacts {
+  readonly schemaVersion: 2;
+  readonly issueNumber: number;
+  readonly persisted: RunSnapshot;
   readonly observed: TmuxIdentity | null;
+  readonly reconciliation: ReconciliationReportV1;
 }
 
 export interface RunConfiguration {
@@ -206,6 +373,7 @@ export interface RunConfiguration {
   readonly baseBranch: string | null;
   readonly labelTypes: Readonly<Record<string, string>>;
   readonly promptTemplate: string;
+  readonly maxConcurrentRuns: number;
 }
 
 export interface PreparedIssue {
@@ -213,6 +381,17 @@ export interface PreparedIssue {
   readonly branchType: string;
   readonly branchName: string;
   readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
+}
+
+export interface ControlOutcomeV1<T = unknown> {
+  readonly schemaVersion: 1;
+  readonly issueNumber: number | null;
+  readonly state: RunState | "missing" | "inventory";
+  readonly code: string;
+  readonly exitCode: number;
+  readonly report: ReconciliationReportV1 | null;
+  readonly facts: T;
+  readonly remediation: string | null;
 }
 
 export function normalizeRepositoryName(nameWithOwner: string): string {

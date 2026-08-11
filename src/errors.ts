@@ -27,7 +27,22 @@ export type ErrorCode =
   | "RESULT_MISSING"
   | "RESULT_INVALID"
   | "RESULT_VERSION_UNSUPPORTED"
-  | "COMPLETION_PROOF_INCOMPLETE";
+  | "COMPLETION_PROOF_INCOMPLETE"
+  | "STATE_HISTORY_INVALID"
+  | "CONCURRENCY_LIMIT_REACHED"
+  | "CONCURRENCY_STATE_UNKNOWN"
+  | "RUN_EXISTS"
+  | "RECONCILIATION_UNKNOWN"
+  | "RECONCILIATION_MISMATCH"
+  | "PROCESS_IDENTITY_MISMATCH"
+  | "PROCESS_IDENTITY_AMBIGUOUS"
+  | "RESUME_REFUSED"
+  | "STOP_REFUSED"
+  | "CLEANUP_ACTIVE"
+  | "CLEANUP_DIRTY_WORKTREE"
+  | "CLEANUP_OWNERSHIP_UNPROVED"
+  | "CLEANUP_MERGE_NOT_PROVED"
+  | "LOG_NOT_FOUND";
 
 export class RunnerError extends Error {
   public readonly code: ErrorCode;
@@ -61,7 +76,11 @@ export function errorExitCode(error: RunnerError): number {
   if (error.code === "CLI_INVALID") return 2;
   if (
     error.code === "ISSUE_ALREADY_OWNED" ||
-    error.code === "RESOURCE_OWNERSHIP_UNKNOWN"
+    error.code === "RESOURCE_OWNERSHIP_UNKNOWN" ||
+    error.code === "CONCURRENCY_LIMIT_REACHED" ||
+    error.code.startsWith("CLEANUP_") ||
+    error.code === "RESUME_REFUSED" ||
+    error.code === "STOP_REFUSED"
   )
     return 4;
   return 3;

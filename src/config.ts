@@ -6,6 +6,7 @@ export const DEFAULT_CONFIGURATION: RunConfiguration = {
   baseBranch: null,
   labelTypes: { feature: "feat" },
   promptTemplate: "Deliver issue #{issue}",
+  maxConcurrentRuns: 1,
 };
 
 const allowedTypes = new Set([
@@ -59,6 +60,9 @@ export function parseConfiguration(text: string | null): RunConfiguration {
   const baseBranch = optional(values, "repository.base_branch");
   const promptTemplate =
     optional(values, "rpiv.prompt") ?? DEFAULT_CONFIGURATION.promptTemplate;
+  const concurrencyValue = optional(values, "execution.max_concurrent_runs");
+  const maxConcurrentRuns =
+    concurrencyValue === null ? 1 : parseConcurrencyLimit(concurrencyValue);
   const labelTypes: Record<string, string> = {
     ...DEFAULT_CONFIGURATION.labelTypes,
   };
@@ -74,7 +78,13 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     }
     labelTypes[label] = value;
   }
-  return { remote, baseBranch, labelTypes, promptTemplate };
+  return {
+    remote,
+    baseBranch,
+    labelTypes,
+    promptTemplate,
+    maxConcurrentRuns,
+  };
 }
 
 function stripComment(line: string): string {
@@ -107,4 +117,23 @@ function unquote(value: string): string {
 
 export function renderPrompt(template: string, issueNumber: number): string {
   return template.replaceAll("{issue}", String(issueNumber));
+}
+
+function parseConcurrencyLimit(value: string): number {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new RunnerError(
+      "CONFIG_INVALID",
+      `execution.max_concurrent_runs must be a strict positive integer: ${value}`,
+      "Set execution.max_concurrent_runs to a positive safe integer.",
+    );
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new RunnerError(
+      "CONFIG_INVALID",
+      "execution.max_concurrent_runs exceeds the safe integer range.",
+      "Set execution.max_concurrent_runs to a smaller positive integer.",
+    );
+  }
+  return parsed;
 }

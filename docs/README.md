@@ -1,19 +1,23 @@
 # Documentation
 
-Soft Factory Runner is a TypeScript and Node.js CLI for deterministic orchestration of visible, isolated, and recoverable RPIV issue delivery.
-
-The product contract currently lives in [`PRD.md`](../PRD.md). Application documentation added during RPIV delivery belongs here, including:
-
-- CLI usage and command references
-- configuration and schema references
-- architecture explanations
-- recovery and operational runbooks
-- installation, migration, and deployment guidance
-
-Autonomous development starts with `harness instructions` and the canonical governance contract at [`.harness/engineering-harness.md`](../.harness/engineering-harness.md). Use `harness boot --json` before product work, focused/full `harness checks` while working, and direct root `justfile` validation at RPIV boundaries. The ambient harness v0.13.0 is an external prerequisite, not an npm dependency.
+Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolated, recoverable RPIV issue delivery.
 
 ## Guides
 
-- [Phase 1 issue run](phase-1-issue-run.md) — commands, configuration, fetched-base proof, ownership, state, visible tmux/RPIV, exact telemetry, status/attach, troubleshooting, deterministic fixture evidence, and later-phase deferrals
+- [Issue run and completion proof](phase-1-issue-run.md) — readiness, configuration, fetched-base proof, ownership, visible RPIV launch, `AgentResultV1`, authoritative remote proof, and terminal-state semantics.
+- [Phase 3 recovery and concurrency operations](phase-3-recovery-operations.md) — complete CLI reference, JSON/exit behavior, concurrency configuration, reconciliation, resume, bounded stop, retained logs, guarded cleanup, schema migration, troubleshooting, and local deployment limitations.
 
-For architecture decisions, shared behavioral contracts, and work-item artifacts, see [`project/`](../project/).
+Use only root `justfile` recipes for local operation and project validation:
+
+```text
+just --list
+just run --help
+just verify-focused
+just verify
+```
+
+Autonomous development begins with `harness instructions` and [`.harness/engineering-harness.md`](../.harness/engineering-harness.md). The ambient harness v0.13.0 delegates to root recipes and is not a product dependency.
+
+Runner exposes no network API, service endpoint, daemon, or container deployment. API reference documentation is therefore not applicable. Automatic merged cleanup occurs only on a later reconciliation-capable CLI invocation.
+
+For architecture and work-item evidence, see [`project/`](../project/).

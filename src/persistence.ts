@@ -1,8 +1,19 @@
 import path from "node:path";
 import { parseAgentResult } from "./completion";
-import type { RunSnapshot, RunState, TransitionEventV1 } from "./domain";
+import type {
+  ConcurrencyLeaseV1,
+  OwnerRecordV1,
+  RunSnapshot,
+  RunState,
+  TransitionEvent,
+  TransitionEventV2,
+} from "./domain";
 import { RunnerError } from "./errors";
 import type { ClockPort, FilePort } from "./ports";
+
+const ISSUE_FILE = /^([1-9]\d*)\.(?:json|lock|jsonl)$/;
+const SLOT_FILE = /^([1-9]\d*)\.lock$/;
+const ISSUE_DIRECTORY = /^[1-9]\d*$/;
 
 export class RunStore {
   public constructor(
@@ -30,13 +41,40 @@ export class RunStore {
       `${issueNumber}.jsonl`,
     );
   }
+  public leasePath(slot: number): string {
+    return path.join(
+      this.root,
+      ".soft-factory",
+      "concurrency",
+      "slots",
+      `${slot}.lock`,
+    );
+  }
+  public logPath(issueNumber: number, attempt: number): string {
+    return path.join(
+      this.root,
+      ".soft-factory",
+      "logs",
+      String(issueNumber),
+      `${attempt}.log`,
+    );
+  }
   public async snapshotExists(issueNumber: number): Promise<boolean> {
     return this.files.exists(this.snapshotPath(issueNumber));
   }
-  public async acquire(issueNumber: number, record: object): Promise<boolean> {
+  public async acquire(
+    issueNumber: number,
+    record: OwnerRecordV1,
+  ): Promise<boolean> {
     return this.files.exclusiveCreate(
       this.lockPath(issueNumber),
-      `${JSON.stringify(record, null, 2)}\n`,
+      serialize(record, true),
+    );
+  }
+  public async acquireLease(record: ConcurrencyLeaseV1): Promise<boolean> {
+    return this.files.exclusiveCreate(
+      this.leasePath(record.slot),
+      serialize(record, true),
     );
   }
 
@@ -45,22 +83,61 @@ export class RunStore {
     from: RunState | null,
     reason: string,
   ): Promise<void> {
-    const event: TransitionEventV1 = {
-      schemaVersion: 1,
-      at: this.clock.now(),
-      runId: snapshot.runId,
-      issueNumber: snapshot.issueNumber,
-      from,
-      to: snapshot.state,
-      reason,
-    };
+    const event: TransitionEvent =
+      snapshot.schemaVersion === 3
+        ? {
+            schemaVersion: 2,
+            at: this.clock.now(),
+            runId: snapshot.runId,
+            issueNumber: snapshot.issueNumber,
+            priorRevision: snapshot.revision - 1,
+            resultingRevision: snapshot.revision,
+            reason,
+            resultingSnapshot: snapshot,
+          }
+        : {
+            schemaVersion: 1,
+            at: this.clock.now(),
+            runId: snapshot.runId,
+            issueNumber: snapshot.issueNumber,
+            from,
+            to: snapshot.state,
+            reason,
+          };
+    if (snapshot.schemaVersion === 3) {
+      if (snapshot.revision < 1)
+        throw stateHistoryError(
+          "Version 3 snapshots require a positive revision.",
+        );
+      const existingText = await this.files.readText(
+        this.snapshotPath(snapshot.issueNumber),
+      );
+      if (existingText === null) {
+        if (snapshot.revision !== 1)
+          throw stateHistoryError(
+            "A new version 3 snapshot must begin at revision 1.",
+          );
+      } else {
+        const existing = await this.load(snapshot.issueNumber);
+        const expectedRevision =
+          existing.schemaVersion === 3 ? existing.revision + 1 : 1;
+        if (
+          existing.runId !== snapshot.runId ||
+          existing.ownerId !== snapshot.ownerId ||
+          snapshot.revision !== expectedRevision
+        )
+          throw stateHistoryError(
+            "Snapshot replacement is not the next identity-matching revision.",
+          );
+      }
+    }
     await this.files.append(
       this.eventsPath(snapshot.issueNumber),
       `${JSON.stringify(event)}\n`,
     );
     await this.files.atomicWrite(
       this.snapshotPath(snapshot.issueNumber),
-      `${JSON.stringify(snapshot, null, 2)}\n`,
+      serialize(snapshot, true),
     );
   }
 
@@ -72,35 +149,289 @@ export class RunStore {
         `No run snapshot exists for issue #${issueNumber}.`,
         "Start the issue with soft-factory run first.",
       );
+    const snapshot = parseSnapshot(text, issueNumber);
+    const history = await this.loadHistory(issueNumber);
+    const replayed = replayHistory(snapshot, history);
+    if (replayed !== snapshot) {
+      await this.files.atomicWrite(
+        this.snapshotPath(issueNumber),
+        serialize(replayed, true),
+      );
+    }
+    return replayed;
+  }
+
+  public async loadHistory(
+    issueNumber: number,
+  ): Promise<readonly TransitionEvent[]> {
+    const text = await this.files.readText(this.eventsPath(issueNumber));
+    if (text === null || text === "") return [];
+    const lines = text.split(/\r?\n/);
+    if (lines.at(-1) === "") lines.pop();
+    const events: TransitionEvent[] = [];
+    for (const [index, line] of lines.entries()) {
+      if (line.trim() === "")
+        throw stateHistoryError(`Event line ${index + 1} is empty.`);
+      let value: unknown;
+      try {
+        value = JSON.parse(line);
+      } catch (cause: unknown) {
+        throw stateHistoryError(`Event line ${index + 1} is malformed.`, cause);
+      }
+      if (!isTransitionEvent(value)) {
+        throw stateHistoryError(
+          `Event line ${index + 1} has an unsupported schema.`,
+        );
+      }
+      events.push(value);
+    }
+    return events;
+  }
+
+  public async readOwner(issueNumber: number): Promise<OwnerRecordV1 | null> {
+    return parseRecordAt(
+      await this.files.readText(this.lockPath(issueNumber)),
+      isOwnerRecord,
+      "issue lock",
+    );
+  }
+
+  public async readLease(slot: number): Promise<ConcurrencyLeaseV1 | null> {
+    return parseRecordAt(
+      await this.files.readText(this.leasePath(slot)),
+      isLeaseRecord,
+      "concurrency lease",
+    );
+  }
+
+  public async releaseOwner(
+    issueNumber: number,
+    expected: OwnerRecordV1,
+  ): Promise<boolean> {
+    return this.compareAndDeleteRecord(
+      this.lockPath(issueNumber),
+      expected,
+      isOwnerRecord,
+    );
+  }
+
+  public async releaseLease(expected: ConcurrencyLeaseV1): Promise<boolean> {
+    return this.compareAndDeleteRecord(
+      this.leasePath(expected.slot),
+      expected,
+      isLeaseRecord,
+    );
+  }
+
+  private async compareAndDeleteRecord<T>(
+    filePath: string,
+    expected: T,
+    guard: (value: unknown) => value is T,
+  ): Promise<boolean> {
+    const text = await this.files.readText(filePath);
+    if (text === null) return false;
     let value: unknown;
     try {
       value = JSON.parse(text);
-    } catch (cause: unknown) {
-      throw new RunnerError(
-        "STATE_INVALID",
-        `Run snapshot for issue #${issueNumber} is not valid JSON.`,
-        "Preserve the file and inspect it before retrying.",
-        { cause },
-      );
+    } catch {
+      return false;
     }
-    if (!isSnapshot(value) || value.issueNumber !== issueNumber)
-      throw new RunnerError(
-        "STATE_INVALID",
-        `Run snapshot for issue #${issueNumber} has an unsupported or mismatched schema.`,
-        "Preserve the file and migrate it with a supported Runner version.",
+    if (!guard(value) || !same(value, expected)) return false;
+    return this.files.compareAndDelete(filePath, text);
+  }
+
+  public async writeLog(
+    issueNumber: number,
+    attempt: number,
+    content: string,
+  ): Promise<string> {
+    const logPath = this.logPath(issueNumber, attempt);
+    await this.files.atomicWrite(logPath, content);
+    return logPath;
+  }
+
+  public async readLog(
+    issueNumber: number,
+    attempt: number,
+  ): Promise<string | null> {
+    return this.files.readText(this.logPath(issueNumber, attempt));
+  }
+
+  public async enumerateLeases(): Promise<readonly ConcurrencyLeaseV1[]> {
+    const names = await this.files.list(
+      path.join(this.root, ".soft-factory", "concurrency", "slots"),
+    );
+    const leases: ConcurrencyLeaseV1[] = [];
+    for (const name of [...names].sort()) {
+      const match = SLOT_FILE.exec(name);
+      if (match === null) continue;
+      const lease = await this.readLease(Number(match[1]));
+      if (lease !== null) leases.push(lease);
+    }
+    return leases;
+  }
+
+  public async enumerateIssueNumbers(): Promise<readonly number[]> {
+    const issueNumbers = new Set<number>();
+    for (const directory of ["runs", "locks", "events"] as const) {
+      const names = await this.files.list(
+        path.join(this.root, ".soft-factory", directory),
       );
-    return value;
+      for (const name of names) {
+        const match = ISSUE_FILE.exec(name);
+        if (match !== null) issueNumbers.add(Number(match[1]));
+      }
+    }
+    const leaseNames = await this.files.list(
+      path.join(this.root, ".soft-factory", "concurrency", "slots"),
+    );
+    for (const name of leaseNames) {
+      const match = SLOT_FILE.exec(name);
+      if (match === null) continue;
+      const lease = await this.readLease(Number(match[1]));
+      if (lease !== null) issueNumbers.add(lease.issueNumber);
+    }
+    const logNames = await this.files.list(
+      path.join(this.root, ".soft-factory", "logs"),
+    );
+    for (const name of logNames)
+      if (ISSUE_DIRECTORY.test(name)) issueNumbers.add(Number(name));
+    return [...issueNumbers].sort((left, right) => left - right);
   }
 }
 
-function isSnapshot(value: unknown): value is RunSnapshot {
+export function replayHistory(
+  snapshot: RunSnapshot,
+  events: readonly TransitionEvent[],
+): RunSnapshot {
+  const versionTwo = events.filter(
+    (event): event is TransitionEventV2 => event.schemaVersion === 2,
+  );
+  if (snapshot.schemaVersion !== 3) {
+    if (versionTwo.length > 0)
+      throw stateHistoryError(
+        "Legacy snapshot has version 2 history that cannot be inferred safely.",
+      );
+    return snapshot;
+  }
+  const matching = versionTwo.filter(
+    (event) =>
+      event.issueNumber === snapshot.issueNumber &&
+      event.runId === snapshot.runId,
+  );
+  if (matching.length !== versionTwo.length) {
+    throw stateHistoryError(
+      "Event history contains a conflicting run identity.",
+    );
+  }
+  const byPrior = new Map<number, TransitionEventV2>();
+  for (const event of matching) {
+    const existing = byPrior.get(event.priorRevision);
+    if (existing !== undefined && !same(existing, event)) {
+      throw stateHistoryError("Event history contains conflicting revisions.");
+    }
+    byPrior.set(event.priorRevision, event);
+  }
+  let current = snapshot;
+  const visited = new Set<number>();
+  while (byPrior.has(current.revision)) {
+    const event = byPrior.get(current.revision);
+    if (event === undefined) break;
+    if (visited.has(event.priorRevision))
+      throw stateHistoryError("Event history contains a revision cycle.");
+    visited.add(event.priorRevision);
+    if (
+      event.resultingRevision !== event.priorRevision + 1 ||
+      event.resultingSnapshot.revision !== event.resultingRevision ||
+      event.resultingSnapshot.issueNumber !== current.issueNumber ||
+      event.resultingSnapshot.runId !== current.runId
+    ) {
+      throw stateHistoryError(
+        "Event history is noncontiguous or identity mismatched.",
+      );
+    }
+    current = event.resultingSnapshot;
+  }
+  const ahead = matching.some(
+    (event) => event.resultingRevision > current.revision,
+  );
+  if (ahead)
+    throw stateHistoryError(
+      "Event history is noncontiguous ahead of the snapshot.",
+    );
+  return current;
+}
+
+export function parseSnapshot(text: string, issueNumber: number): RunSnapshot {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (cause: unknown) {
+    throw new RunnerError(
+      "STATE_INVALID",
+      `Run snapshot for issue #${issueNumber} is not valid JSON.`,
+      "Preserve the file and inspect it before retrying.",
+      { cause },
+    );
+  }
+  if (!isSnapshot(value) || value.issueNumber !== issueNumber)
+    throw new RunnerError(
+      "STATE_INVALID",
+      `Run snapshot for issue #${issueNumber} has an unsupported or mismatched schema.`,
+      "Preserve the file and migrate it with a supported Runner version.",
+    );
+  return value;
+}
+
+export function isSnapshot(value: unknown): value is RunSnapshot {
   if (!isRecord(value) || !isCommonSnapshot(value)) return false;
   if (value.schemaVersion === 1) return isLegacyState(value.state);
-  if (value.schemaVersion !== 2 || !isRunState(value.state)) return false;
+  if (value.schemaVersion !== 2 && value.schemaVersion !== 3) return false;
+  if (
+    !isRunState(value.state) ||
+    !isRequiredAcceptance(value.requiredAcceptanceCriteria) ||
+    !isRequiredValidations(value.requiredValidations) ||
+    !isFinalization(value.finalization)
+  )
+    return false;
+  if (value.schemaVersion === 2) return true;
   return (
-    isRequiredAcceptance(value.requiredAcceptanceCriteria) &&
-    isRequiredValidations(value.requiredValidations) &&
-    isFinalization(value.finalization)
+    isNonnegativeInteger(value.revision) &&
+    isPositiveInteger(value.attempt) &&
+    (value.admission === null || isLeaseRecord(value.admission)) &&
+    (value.launchIntent === null || isLaunchIntent(value.launchIntent)) &&
+    (value.workerProcess === null || isProcessIdentity(value.workerProcess)) &&
+    (value.rpivProcess === null || isProcessIdentity(value.rpivProcess)) &&
+    (value.stop === null || isStopFacts(value.stop)) &&
+    (value.cleanup === null || isCleanupFacts(value.cleanup)) &&
+    Array.isArray(value.logs) &&
+    value.logs.every(isLogFacts) &&
+    (value.mergedPullRequest === null || isMergedFacts(value.mergedPullRequest))
+  );
+}
+
+function isTransitionEvent(value: unknown): value is TransitionEvent {
+  if (!isRecord(value)) return false;
+  if (value.schemaVersion === 1) {
+    return (
+      typeof value.at === "string" &&
+      typeof value.runId === "string" &&
+      isPositiveInteger(value.issueNumber) &&
+      (value.from === null || isRunState(value.from)) &&
+      isRunState(value.to) &&
+      typeof value.reason === "string"
+    );
+  }
+  return (
+    value.schemaVersion === 2 &&
+    typeof value.at === "string" &&
+    typeof value.runId === "string" &&
+    isPositiveInteger(value.issueNumber) &&
+    isNonnegativeInteger(value.priorRevision) &&
+    isPositiveInteger(value.resultingRevision) &&
+    typeof value.reason === "string" &&
+    isSnapshot(value.resultingSnapshot) &&
+    value.resultingSnapshot.schemaVersion === 3
   );
 }
 
@@ -109,7 +440,7 @@ function isCommonSnapshot(value: Readonly<Record<string, unknown>>): boolean {
     typeof value.runId === "string" &&
     typeof value.ownerId === "string" &&
     typeof value.repository === "string" &&
-    typeof value.issueNumber === "number" &&
+    isPositiveInteger(value.issueNumber) &&
     typeof value.branchType === "string" &&
     typeof value.branch === "string" &&
     typeof value.worktreePath === "string" &&
@@ -215,13 +546,13 @@ function isPullRequestFacts(value: unknown): boolean {
   return (
     value === null ||
     (isRecord(value) &&
-      typeof value.number === "number" &&
+      isPositiveInteger(value.number) &&
       typeof value.state === "string" &&
       typeof value.baseBranch === "string" &&
       typeof value.headBranch === "string" &&
       typeof value.headSha === "string" &&
       Array.isArray(value.closesIssues) &&
-      value.closesIssues.every((entry: unknown) => typeof entry === "number") &&
+      value.closesIssues.every(isPositiveInteger) &&
       typeof value.complete === "boolean")
   );
 }
@@ -242,9 +573,6 @@ function isReconciliation(value: unknown): boolean {
       typeof value.passed === "boolean" &&
       typeof value.decisionCode === "string")
   );
-}
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isFetchedBaseProof(value: unknown): boolean {
   return (
@@ -275,8 +603,7 @@ function isCopilot(value: unknown): boolean {
     value === null ||
     (isRecord(value) &&
       value.executable === "copilot" &&
-      Array.isArray(value.args) &&
-      value.args.every((argument: unknown) => typeof argument === "string") &&
+      isStringArray(value.args) &&
       typeof value.cwd === "string" &&
       typeof value.resourceAttributes === "string" &&
       (value.exitCode === null || typeof value.exitCode === "number"))
@@ -288,5 +615,167 @@ function isErrorFact(value: unknown): boolean {
     (isRecord(value) &&
       typeof value.code === "string" &&
       typeof value.message === "string")
+  );
+}
+function isOwnerRecord(value: unknown): value is OwnerRecordV1 {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    isPositiveInteger(value.issueNumber) &&
+    typeof value.ownerId === "string" &&
+    typeof value.runId === "string" &&
+    typeof value.repository === "string" &&
+    typeof value.acquiredAt === "string"
+  );
+}
+function isLeaseRecord(value: unknown): value is ConcurrencyLeaseV1 {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    isPositiveInteger(value.slot) &&
+    isPositiveInteger(value.issueNumber) &&
+    typeof value.ownerId === "string" &&
+    typeof value.runId === "string" &&
+    typeof value.repository === "string" &&
+    isPositiveInteger(value.configuredLimit) &&
+    typeof value.acquiredAt === "string"
+  );
+}
+function isLaunchIntent(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    isPositiveInteger(value.attempt) &&
+    value.executable === "copilot" &&
+    isStringArray(value.args) &&
+    typeof value.cwd === "string" &&
+    typeof value.resourceAttributes === "string" &&
+    isTmux(value.pane) &&
+    value.pane !== null &&
+    isPositiveInteger(value.panePid) &&
+    typeof value.recordedAt === "string"
+  );
+}
+function isProcessIdentity(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    isPositiveInteger(value.pid) &&
+    isPositiveInteger(value.processGroupId) &&
+    typeof value.startToken === "string" &&
+    typeof value.executable === "string" &&
+    isStringArray(value.args) &&
+    typeof value.cwd === "string" &&
+    typeof value.launchedAt === "string" &&
+    isRecord(value.paneLineage) &&
+    typeof value.paneLineage.sessionName === "string" &&
+    typeof value.paneLineage.windowId === "string" &&
+    typeof value.paneLineage.paneId === "string" &&
+    isPositiveInteger(value.paneLineage.panePid)
+  );
+}
+function isStopFacts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.requestedAt === "string" &&
+    (value.termSentAt === null || typeof value.termSentAt === "string") &&
+    (value.killSentAt === null || typeof value.killSentAt === "string") &&
+    (value.completedAt === null || typeof value.completedAt === "string") &&
+    typeof value.escalated === "boolean" &&
+    (value.processIdentity === null ||
+      isProcessIdentity(value.processIdentity)) &&
+    (value.beforeLog === null || typeof value.beforeLog === "string") &&
+    (value.afterLog === null || typeof value.afterLog === "string")
+  );
+}
+function isCleanupFacts(value: unknown): boolean {
+  const steps = ["tmux", "worktree", "lease", "lock"];
+  return (
+    isRecord(value) &&
+    (value.mode === "explicit" || value.mode === "automatic_merged") &&
+    typeof value.intentAt === "string" &&
+    Array.isArray(value.completedSteps) &&
+    value.completedSteps.every(
+      (entry: unknown) => typeof entry === "string" && steps.includes(entry),
+    ) &&
+    Array.isArray(value.remainingSteps) &&
+    value.remainingSteps.every(
+      (entry: unknown) => typeof entry === "string" && steps.includes(entry),
+    ) &&
+    (value.blockedCode === null || typeof value.blockedCode === "string") &&
+    typeof value.updatedAt === "string"
+  );
+}
+function isLogFacts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isPositiveInteger(value.attempt) &&
+    typeof value.path === "string" &&
+    isNonnegativeInteger(value.bytes) &&
+    typeof value.truncated === "boolean" &&
+    ["tmux", "process", "combined"].includes(String(value.source)) &&
+    typeof value.capturedAt === "string"
+  );
+}
+function isMergedFacts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isPositiveInteger(value.number) &&
+    ["OPEN", "CLOSED", "MERGED"].includes(String(value.state)) &&
+    (value.mergedAt === null || typeof value.mergedAt === "string") &&
+    typeof value.sourceBranch === "string" &&
+    typeof value.sourceHeadSha === "string" &&
+    (value.mergeCommitSha === null ||
+      typeof value.mergeCommitSha === "string") &&
+    Array.isArray(value.closesIssues) &&
+    value.closesIssues.every(isPositiveInteger) &&
+    typeof value.complete === "boolean"
+  );
+}
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry: unknown) => typeof entry === "string")
+  );
+}
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) > 0;
+}
+function isNonnegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+function same(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+function serialize(value: unknown, pretty = false): string {
+  return `${JSON.stringify(value, null, pretty ? 2 : undefined)}\n`;
+}
+function stateHistoryError(message: string, cause?: unknown): RunnerError {
+  return new RunnerError(
+    "STATE_HISTORY_INVALID",
+    message,
+    "Preserve snapshot and event history; repair only with an identity-matching contiguous event chain.",
+    { cause },
+  );
+}
+function parseRecordAt<T>(
+  text: string | null,
+  guard: (value: unknown) => value is T,
+  label: string,
+): T | null {
+  if (text === null) return null;
+  try {
+    const value: unknown = JSON.parse(text);
+    if (guard(value)) return value;
+  } catch {
+    // Converted to a stable typed state error below.
+  }
+  throw new RunnerError(
+    "STATE_INVALID",
+    `The ${label} record is malformed.`,
+    `Preserve the ${label}; malformed ownership never authorizes mutation.`,
   );
 }

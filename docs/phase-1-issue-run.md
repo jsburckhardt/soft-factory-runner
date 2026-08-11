@@ -1,6 +1,6 @@
 # Issue run and Phase 2 completion proof
 
-Runner validates and exclusively owns one explicit GitHub issue, creates its branch and worktree from a proven fetched base, launches RPIV visibly through tmux, and independently reconciles completion evidence. Runner controls operational facts; RPIV controls software-engineering decisions.
+Runner validates and exclusively owns an explicit GitHub issue, creates its branch and worktree from a proven fetched base, launches RPIV visibly through tmux, and independently reconciles completion evidence. Phase 3 recovery, explicit concurrency, stop, logs, and cleanup extend this contract without weakening it; see [the recovery operations guide](phase-3-recovery-operations.md). Runner controls operational facts; RPIV controls software-engineering decisions.
 
 ## Prerequisites and commands
 
@@ -87,7 +87,7 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 ## Persistence and status
 
-New runs use atomic `RunSnapshotV2` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
+Legacy Phase 2 runs use atomic `RunSnapshotV2` files; new Phase 3 runs use revisioned `RunSnapshotV3` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
 Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit version 2 transition can carry required evidence.
 
@@ -127,6 +127,8 @@ harness checks --focused --json
 harness checks --json
 ```
 
-## Remaining Prototype 3 deferrals
+## Phase 3 continuation
 
-Restart recovery, resume, stop mechanics, cleanup, automatic stale-resource recovery, merged-PR cleanup, and multiple-issue scheduling remain deferred. `cancelled` is representable, but Runner-originated cancellation control is not implemented. Tmux presence, Copilot exit status, and RPIV prose are never completion evidence.
+Restart reconciliation, deterministic resume, bounded stop, guarded cleanup, retained logs, merged-source-head automatic cleanup, and atomic explicit-issue concurrency are now delivered through the shared v3 recovery contract. They preserve the fetched-base and completion conjunction described above. Tmux presence, Copilot exit status, and RPIV prose remain insufficient completion evidence.
+
+Use [`phase-3-recovery-operations.md`](phase-3-recovery-operations.md) for the full command grammar, `execution.max_concurrent_runs`, process identity, schema-v1/v2 migration, stop bounds, cleanup refusal categories, automatic trigger, and retained-resource behavior.
