@@ -1,0 +1,224 @@
+.harness/records/retro/2026-08-11/009-issue-3-rpiv-implementer-correction-commit-retry.md
+  s_6769a96a3a1ebb::t_f2c413a514a6fc 6-8,10-13,17-23,25-42,45,47
+  s_6769a96a3a1ebb::t_f12a9409c534dd 1-5,9,14-16,24,43-44,46
+src/integration.test.ts
+  s_6769a96a3a1ebb::t_6837d46503aa65 169-319
+src/documentation.test.ts
+  s_6769a96a3a1ebb::t_83b859a3093898 83
+  s_6769a96a3a1ebb::t_3c8bfb9a35d92f 10,27-30,76-82
+  s_6769a96a3a1ebb::t_ed4d441595d298 1,15-17,52-75
+.harness/records/retro/2026-08-11/008-issue-3-rpiv-implementer-correction.md
+  s_6769a96a3a1ebb::t_ead6a083b0d371 7-8,10-13,17-23,25-56,59,61
+  s_6769a96a3a1ebb::t_eac922a964ada7 1-6,9,14-16,24,57-58,60
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/implementation/00-implementation.md
+  s_6769a96a3a1ebb::t_c1793db1024167 7-8,10,69-70,92-94,99-100,106,108,114,141
+  s_a459772efc96cc::t_7b2cff2020864e 9
+  s_6769a96a3a1ebb::t_05232571125f4d 142,144
+README.md
+  s_6769a96a3a1ebb::t_c8df2d1a18af1e 25,29-32
+docs/phase-1-issue-run.md
+  s_6769a96a3a1ebb::t_c8df2d1a18af1e 17,20-22,25,78,102-120
+  s_6769a96a3a1ebb::t_3c8bfb9a35d92f 98
+src/live.ts
+  s_6769a96a3a1ebb::t_7d4f0033502d31 789-807,827,829-834,836-853,855-860,870-873,881-909,912
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f4b0376b761ac1ae5c75e07658525d8fd853906f",
+  "prompts": {},
+  "sessions": {
+    "s_6769a96a3a1ebb": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_yNGZuObeQtiHjF754mZ4NyoE",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_a459772efc96cc": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "8016b88d-c947-47b5-bd2d-b71817087393",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
+
+src/live.ts
+  s_6769a96a3a1ebb::t_7d4f0033502d31 789-807,827,829-834,836-853,855-860,870-873,881-909,912
+  s_35a905e887acee::t_59b983f4a7b60a 90-117
+  s_35a905e887acee::t_c7fc094123cd63 1-5,12-13,22-30,37,44-48,55-56,66-68,70,79-80,87-89,118-121,125-129,134-137,142,151-159,166-167,176-181,187-192,205,216-218,225-228,234-238,243-244,246-247,258-261,275-276,308-309,316-317,329-330,342,354,360-361,368-370,380,387,395-400,419-420,427-429,453-454,480-495,509,527,564,578-579,592-593,600,608-609,624,630-634,641,658-665,671-676
+  s_35a905e887acee::t_06e0e656a5fdc5 625,683-685
+  s_35a905e887acee::t_5910314b6be230 6-11,14-21,31-36,38-43,50-52,54,58-65,71-78,81-86,122-124,130-133,138-141,143-150,160-165,168-175,182-186,193-204,206-215,219-224,229-233,239-242,248-257,262-274,277-307,310-315,318-328,331-341,343-353,355-359,362-367,371-379,381-386,388-394,401-418,421-426,430-452,455-479,496-508,510-526,528-563,565-577,580-591,594-599,601-607,610-623,626-629,635-640,642-657,666-670,677-682,686-788,808-826,828,835,854,861-869,874-880,910-911,913-914
+  s_35a905e887acee::t_57fd8027aa9131 245
+  s_35a905e887acee::t_c159eea16d223b 49,53,57,69
+.harness/records/retro/2026-08-11/008-issue-3-rpiv-implementer-correction.md
+  s_6769a96a3a1ebb::t_eac922a964ada7 1-6,9,14-16,24,57-58,60
+  s_6769a96a3a1ebb::t_ead6a083b0d371 7-8,10-13,17-23,25-56,59,61
+src/documentation.test.ts
+  s_6769a96a3a1ebb::t_ed4d441595d298 1,15-17,52-75
+  s_6769a96a3a1ebb::t_3c8bfb9a35d92f 10,27-30,76-82
+  s_6769a96a3a1ebb::t_83b859a3093898 83
+  s_35a905e887acee::t_e872f81c998827 2-5,11-14,18-26,31-33,37,49-51,84
+  s_35a905e887acee::t_cbe92848eac4e1 6-9,34-36,38-48
+src/integration.test.ts
+  s_6769a96a3a1ebb::t_6837d46503aa65 169-319
+  s_35a905e887acee::t_5910314b6be230 10-17,21-32,35-74,80-88,95-110,112-126,131-147,151-153,155-162,329-347,350-353,357-367,369-374,379-381,395-401,404-421,423-427,430-432,435-437,439-444
+  s_35a905e887acee::t_007af101b9a09f 1-9,18-20,33-34,75-79,89-94,111,127-130,148-150,154,163-168,320-328,348-349,354-356,368,375-378,382-394,402-403,422,428-429,433-434,438,445-447
+.harness/records/retro/2026-08-11/009-issue-3-rpiv-implementer-correction-commit-retry.md
+  s_6769a96a3a1ebb::t_f12a9409c534dd 1-5,9,14-16,24,43-44,46
+  s_6769a96a3a1ebb::t_f2c413a514a6fc 6-8,10-13,17-23,25-42,45,47
+docs/phase-1-issue-run.md
+  s_6769a96a3a1ebb::t_c8df2d1a18af1e 17,20-22,25,78,102-120
+  s_6769a96a3a1ebb::t_3c8bfb9a35d92f 98
+  s_35a905e887acee::t_b1ba05b6857af7 1-16,18-19,23-24,26-40,42-77,79-97,99-101,121-137
+  s_35a905e887acee::t_8f472cb241ed30 41
+README.md
+  s_6769a96a3a1ebb::t_c8df2d1a18af1e 25,29-32
+  s_35a905e887acee::t_b1ba05b6857af7 26-28,33-37,44
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/implementation/00-implementation.md
+  s_6769a96a3a1ebb::t_05232571125f4d 142,144
+  s_6769a96a3a1ebb::t_c1793db1024167 7-10,69-70,92-94,99-100,106,108,114,141
+  s_35a905e887acee::t_04163bb47223f3 138-139
+  s_35a905e887acee::t_6299c5898fd9be 1-6,11-68,71-91,95-98,101-105,107,109-113,115-137,143,145-150
+  s_35a905e887acee::t_c5a6a2f70fff27 140
+project/architecture/ADR/ADR-260811-prototype-one-run-orchestration.md
+  s_08414b964a86c4::t_76a7b9c169ce08 1,5,9,13,15-19,21,23-26,29-33,38-41,44-46,49-50,54,58-60
+  s_08414b964a86c4::t_0c46d90e9382fa 2-4,6-8,10-12,14,20,22,27-28,34-37,42-43,47-48,51-53,55-57
+.harness/records/retro/2026-08-11/003-issue-3-rpiv-research.md
+  s_35a905e887acee::t_219a1c4dd27f00 1-38
+  s_35a905e887acee::t_61eb06feff606f 39-103
+src/persistence.ts
+  s_35a905e887acee::t_5910314b6be230 13-31,38-41,44-52,62-65,71-75,81-86,89-93,104-113,118-119,132-133,138-147,152-159,164-172,176-181
+  s_35a905e887acee::t_7bcfcad6f66552 1-12,32-37,42-43,53-61,66-70,76-80,87-88,94-103,114-117,120-127,182
+  s_35a905e887acee::t_19e4268367a2a7 128-131,134-137,148-151,160-163,173-175
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/plan/02-task-breakdown.md
+  s_08414b964a86c4::t_4d23b2c8e79e97 1-6,8-33,35-62,64-93,95-122,124-149,151-175,177-198
+  s_35a905e887acee::t_f5572f3b131178 7,34,63,94,123,150,176
+project/architecture/core-components/CORE-COMPONENT-260811-issue-run-orchestration.md
+  s_08414b964a86c4::t_1217f57aa5a362 19,22,32
+  s_08414b964a86c4::t_76a7b9c169ce08 1,5,9,13,18,20-21,23-31,33-34,37-41,44-47,51,56-58,63-67,71,75-77,81-82
+  s_08414b964a86c4::t_0c46d90e9382fa 2-4,6-8,10-12,14-17,35-36,42-43,48-50,52-55,59-62,68-70,72-74,78-80
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/plan/01-action-plan.md
+  s_08414b964a86c4::t_1217f57aa5a362 14,45
+  s_08414b964a86c4::t_d06f40b299a4ee 1-13,15-44,46-47,49-60
+  s_08414b964a86c4::t_fbf9555febcae9 48
+.harness/engineering-harness.md
+  s_35a905e887acee::t_b1ba05b6857af7 15,19,67,74
+.harness/records/retro/2026-08-11/004-issue-3-rpiv-planner.md
+  s_35a905e887acee::t_219a1c4dd27f00 1-38
+  s_35a905e887acee::t_9487f932a2a086 39-59
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/plan/03-test-plan.md
+  s_08414b964a86c4::t_b55f91758fb38a 1-268
+src/index.test.ts
+  s_35a905e887acee::t_5910314b6be230 17-19,21-22,27-44,46-53,59-64,69-74,86-91,94-102,104-105,109-111,113-118,120-121
+  s_35a905e887acee::t_b43548a2b91e27 1-10,12,14-15,26,45,54-58,65-68,75,77-85,92-93,103,106,108,112,119
+  s_35a905e887acee::t_7bcfcad6f66552 20
+  s_35a905e887acee::t_98fe432d38cfb7 11,23
+project/architecture/ADR/DECISION-LOG.md
+  s_08414b964a86c4::t_e3f477e6967348 11,29,76-84
+.harness/records/retro/2026-08-11/007-issue-3-rpiv-implementer-signing-recovery.md
+  s_35a905e887acee::t_9e3be6f0df4671 1-6,9,14,24,43-44,46
+  s_35a905e887acee::t_e5938b8243c11e 7-8,10-13,15-23,25-42,45,47
+project/work-items/3-phase-1-run-one-issue-in-an-isolated-visible-environment/research/00-research.md
+  s_fb246701fe4097::t_f9f668b8bdafa0 1-16,19-21,24,26-33,36-38,50-52,63-66,70-74,78-80
+  s_70f937cab70a26::t_da7b1c6ecf502a 17-18,22-23,25,34-35,39-49,53-62,67-69,75-77,81-87
+src/config.ts
+  s_35a905e887acee::t_5910314b6be230 12-22,34-38,42-46,60-64,69-73,83-89,94-97,103-104
+  s_35a905e887acee::t_90ee28ce2d2a6c 30,78-82,90-91
+  s_35a905e887acee::t_c2c32a05add735 1-11,23-29,31-33,39-41,47-59,65-68,74-77,92-93,98-102,105-110
+src/errors.ts
+  s_35a905e887acee::t_c2c32a05add735 1-37,42-57,63-64
+  s_35a905e887acee::t_5910314b6be230 38-41,58-62
+.harness/records/retro/2026-08-11/004-issue-3-rpiv-implementer.md
+  s_35a905e887acee::t_219a1c4dd27f00 1-38
+  s_35a905e887acee::t_feb2f294b17310 39-117
+src/orchestrator.ts
+  s_35a905e887acee::t_5910314b6be230 23-26,28-31,33-41,43-47,50-54,64-68,70-74,92-96,100-104,113-118,120-134,143-148,165-168,170-174,177-181,183-187,195-200,209-213,227-233,236-240,255-258,260-268,272-275,278-282,285-289,295-303,305-308,310-315,321-322,326-327
+  s_35a905e887acee::t_e9f5649348f183 1-22,27,32,42,48-49,55-63,69,75-91,97-99,105-112,119,135-142,149-152,154-159,161-164,169,175-176,182,188-194,201-208,214-226,234-235,241-254,259,269-271,276-277,283-284,290-294,304,309,316-320,323-325,328
+  s_35a905e887acee::t_57fd8027aa9131 153,160
+src/index.ts
+  s_35a905e887acee::t_5910314b6be230 13-16,31-34,37-44,47-54,57-63,66-70,73-77,82-92,101-102
+  s_35a905e887acee::t_80c42b6b182dfb 3-9,11-12,17-30,35-36,45-46,55-56,64-65,71-72,78-79,81,93-95,98,100,103-105
+docs/README.md
+  s_35a905e887acee::t_b1ba05b6857af7 15-18
+src/render.ts
+  s_35a905e887acee::t_5910314b6be230 5-6,12-15
+  s_35a905e887acee::t_e9f5649348f183 1-4,7-11,16-28
+.harness/records/retro/2026-08-11/002-issue-3-rpiv.md
+  s_35a905e887acee::t_219a1c4dd27f00 1-33
+src/command.ts
+  s_35a905e887acee::t_5910314b6be230 1-94
+src/domain.ts
+  s_35a905e887acee::t_5910314b6be230 127-130,134-137,149-152
+  s_35a905e887acee::t_c2c32a05add735 1-126,131-133,138-148,153-154
+.harness/records/retro/2026-08-11/006-issue-3-rpiv-implementer-commit-recovery.md
+  s_35a905e887acee::t_3c132ef57e5a14 7-8,10-13,15-23,25-42,45,47
+  s_35a905e887acee::t_a44fe91b4f48ef 1-6,9,14,24,43-44,46
+src/orchestration.test.ts
+  s_35a905e887acee::t_5910314b6be230 1,29-56,66-69,74-80,82-103,105-122,128-138,145-164,166-169,171-175,181-192,198-208,211-214,232-239,246-248,251-252,259-263,266-290,294-300,303-316,319-325,328-342,346-349,352-357,364-372,379-446,449-452,454-455,459-461,468-470,475-479,485-513,521-527,529-534,542-543,545-549,551-555,557-569,579-585,588-595,603-604,615-631
+  s_35a905e887acee::t_01e2bcf297bf5f 245,250,253,605
+  s_35a905e887acee::t_ed48804e49344b 2-28,57-65,70-73,81,104,123-127,139-144,165,170,176-180,193-197,209-210,215-231,240-244,249,254-258,264-265,291-293,301-302,317-318,326-327,343-345,350-351,358-363,373-378,447-448,453,456-458,462-467,471-474,480-484,514-520,528,535-541,544,550,556,570-578,586-587,596-602,606-614,632-633
+.harness/records/retro/2026-08-11/005-issue-3-rpiv-implementer-commit-retry.md
+  s_35a905e887acee::t_67c7993855ff43 1-6,9,14,24,29-30,32
+  s_35a905e887acee::t_7b835dfc5d0074 7-8,10-13,15-23,25-28,31,33
+src/readiness.ts
+  s_35a905e887acee::t_5910314b6be230 1-7,21-28,30-34,37-42,46-48,51-55,62-66,69-73,75-83,94-98,101-103,105-109,118-121,124-128,138,146-150,152-156,182-200,202-206,209-214
+  s_35a905e887acee::t_57fd8027aa9131 8-20,29,35-36,43-45,49-50,56-61,67-68,74,84-93,99-100,104,110-117,122-123,129-131,144-145,151,172-181,201,207-208,215-225
+  s_35a905e887acee::t_8dbc61c3b62ec6 132,157-171
+  s_35a905e887acee::t_cbe92848eac4e1 133-137,139-143
+src/ports.ts
+  s_35a905e887acee::t_5910314b6be230 8-14,27-30,32-50,54-57
+  s_35a905e887acee::t_c2c32a05add735 1-7,15-26,31,51-53,58-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0dd0156107ab47ddd6d1337e0ed20c6cfa215178",
+  "prompts": {},
+  "sessions": {
+    "s_08414b964a86c4": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_G7oLsiATEczdIUuJxkmKm66y",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_35a905e887acee": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_bBsQyKCHqFoYuh2IIh2kcU6L",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_6769a96a3a1ebb": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_yNGZuObeQtiHjF754mZ4NyoE",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_70f937cab70a26": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_Sv7Mt4IN8to7m3s17thStgrj",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_fb246701fe4097": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_EV80AcqdbHfmBpzCpYreLn0k",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
