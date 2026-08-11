@@ -166,6 +166,157 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
   return result.stdout.trim();
 }
 
+interface GitHubCliResponses {
+  readonly issue: unknown;
+  readonly pullRequests: unknown;
+  readonly blockers: unknown;
+}
+
+async function writeFakeGitHubCli(
+  directory: string,
+  responses: GitHubCliResponses,
+): Promise<void> {
+  const executable = path.join(directory, "gh");
+  const script = `#!/usr/bin/env node
+const responses = ${JSON.stringify(responses)};
+const command = process.argv[2];
+const response = command === "issue"
+  ? responses.issue
+  : command === "pr"
+    ? responses.pullRequests
+    : command === "api"
+      ? responses.blockers
+      : undefined;
+if (response === undefined) process.exit(2);
+process.stdout.write(JSON.stringify(response));
+`;
+  await fs.writeFile(executable, script, { mode: 0o755 });
+}
+
+describe("live GitHub proof parsing", () => {
+  const validIssueResponse = {
+    number: 3,
+    title: "Live parser boundary",
+    body: validBody,
+    state: "OPEN",
+    labels: [{ name: "feature" }],
+  };
+  const completeBlockersResponse = {
+    data: {
+      repository: {
+        issue: {
+          blockedBy: {
+            nodes: [],
+            pageInfo: { hasNextPage: false },
+          },
+        },
+      },
+    },
+  };
+
+  it.each([
+    [
+      "malformed top-level pull request",
+      { pullRequests: [null] },
+      "Pull-request entry 1",
+    ],
+    [
+      "malformed nested closing issue",
+      {
+        pullRequests: [
+          {
+            number: 8,
+            headRefName: "feat/other",
+            closingIssuesReferences: [{ number: "3" }],
+          },
+        ],
+      },
+      "closing-issue entry 1",
+    ],
+    [
+      "malformed label",
+      { issue: { ...validIssueResponse, labels: [{ name: 7 }] } },
+      "GitHub labels entry 1",
+    ],
+    [
+      "malformed blocker",
+      {
+        blockers: {
+          data: {
+            repository: {
+              issue: {
+                blockedBy: {
+                  nodes: [{ number: 2, state: "UNKNOWN" }],
+                  pageInfo: { hasNextPage: false },
+                },
+              },
+            },
+          },
+        },
+      },
+      "Blocked-by entry 1",
+    ],
+  ])(
+    "blocks %s as incomplete proof before owned side effects",
+    async (_name, overrides, message) => {
+      const root = await fs.mkdtemp(
+        path.join(os.tmpdir(), "soft-factory-live-github-"),
+      );
+      const bin = path.join(root, "bin");
+      await fs.mkdir(bin);
+      await writeFakeGitHubCli(bin, {
+        issue: validIssueResponse,
+        pullRequests: [],
+        blockers: completeBlockersResponse,
+        ...overrides,
+      });
+      const originalPath = process.env.PATH;
+      process.env.PATH = `${bin}:${originalPath ?? ""}`;
+      try {
+        const live = createLivePorts();
+        const files = new DiskFiles();
+        const repository = new CountingGit(root);
+        const tmux = new CountingTmux();
+        const ports: RunnerPorts = {
+          files,
+          github: live.github,
+          git: repository,
+          tmux,
+          processes: unusedProcess,
+          clock: { now: () => "2026-08-11T00:00:00.000Z" },
+          ids: {
+            nextOwnerId: () => "owner-live-parser",
+            nextRunId: () => "run-live-parser",
+          },
+        };
+        await expect(
+          new IssueRunService(ports).run(3, root),
+        ).rejects.toMatchObject({
+          code: "GITHUB_PROOF_INCOMPLETE",
+          message: expect.stringContaining(message),
+        });
+        expect(repository.branches).toBe(0);
+        expect(repository.worktrees).toBe(0);
+        expect(tmux.windows).toBe(0);
+        expect(
+          await files.exists(
+            path.join(root, ".soft-factory", "locks", "3.lock"),
+          ),
+        ).toBe(false);
+      } finally {
+        if (originalPath === undefined) delete process.env.PATH;
+        else process.env.PATH = originalPath;
+        await fs.rm(root, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 20,
+        });
+      }
+    },
+  );
+});
+
 describe("real filesystem and Git integration", () => {
   it("uses exclusive-create ownership so barrier-released starts create one resource set", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-lock-"));

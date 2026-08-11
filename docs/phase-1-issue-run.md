@@ -14,15 +14,15 @@ just build
 just run --help
 ```
 
-The no-argument command retains the harness bootstrap signal. Product syntax is strict:
+`just setup` installs repository dependencies and `just build` compiles the project; neither recipe globally installs or links the `soft-factory` binary. From a repository checkout, keep operations on the root command surface. The no-argument command retains the harness bootstrap signal, and product syntax is strict:
 
 ```text
-soft-factory run --issue <positive-integer> [--json]
-soft-factory status <positive-integer> [--json]
-soft-factory attach <positive-integer>
+just run run --issue <positive-integer> [--json]
+just run status <positive-integer> [--json]
+just run attach <positive-integer>
 ```
 
-`internal run-agent` is private and is started by the owned tmux window.
+`internal run-agent` is private and is started by Runner in the owned tmux window; operators do not invoke it directly.
 
 ## Configuration
 
@@ -75,11 +75,7 @@ This rule includes an outer RPIV checkout such as `/workspaces/soft-factory-runn
 
 ## Visible RPIV and telemetry
 
-Runner creates the repository tmux session and one issue-number window rooted at `.trees/<issue>`. The pane visibly starts:
-
-```text
-soft-factory internal run-agent --issue <issue>
-```
+Runner creates the repository tmux session and one issue-number window rooted at `.trees/<issue>`. The pane visibly starts Runner's private internal worker for the issue from the isolated worktree. The worker command is owned by Runner rather than being an operator command.
 
 The worker starts Copilot with validated argument arrays, not shell interpolation:
 
@@ -99,29 +95,29 @@ For Issue 3 this is `project.name=jsburckhardt-soft-factory-runner,issue.id=issu
 
 Phase 1 persists preparation states, `running_rpiv`, and safe `blocked`, `failed`, or `interrupted` outcomes. A nonzero Copilot exit is `failed`. A zero Copilot exit is **`interrupted`**, never `completed`, because Phase 1 has no result-artifact completion proof.
 
-`status <issue>` loads the atomic snapshot and reports persisted state separately from a bounded tmux observation. `--json` renders the same structured facts used by human output. `attach <issue>` loads the snapshot, observes and exactly verifies session/window/pane/cwd, then attaches. The caller supplies no tmux identifiers. Missing, malformed, timed-out, mismatched, or ambiguous observations block without launch, recovery, cleanup, or mutation.
+`just run status <issue>` loads the atomic snapshot and reports persisted state separately from a bounded tmux observation. `--json` renders the same structured facts used by human output. `just run attach <issue>` loads the snapshot, observes and exactly verifies session/window/pane/cwd, then attaches. The caller supplies no tmux identifiers. Missing, malformed, timed-out, mismatched, or ambiguous observations block without launch, recovery, cleanup, or mutation.
 
 ## Troubleshooting
 
-| Code | Meaning | Operator action |
-|---|---|---|
-| `CLI_INVALID` | Unsupported syntax or issue value | Use `soft-factory --help` and a positive integer. |
-| `REPOSITORY_INVALID` | Git/common-directory/GitHub identity proof failed | Repair repository remotes and Git state. |
-| `CONFIG_INVALID` | Unsupported YAML shape or branch type | Use only documented fields and allowed commit types. |
-| `ISSUE_NOT_FOUND`, `ISSUE_CLOSED` | Issue cannot run | Select an existing open issue. |
-| `ISSUE_BLOCKED` | Label or open dependency blocks work | Resolve blockers and remove the label. |
-| `ACCEPTANCE_CRITERIA_INVALID` | Marker block is missing, duplicate, malformed, or empty | Restore one nonempty checkbox block. |
-| `ISSUE_TYPE_UNMAPPED`, `ISSUE_TYPE_AMBIGUOUS` | Intent mapping is absent or conflicting | Leave exactly one mapped label. |
-| `ISSUE_CONFLICT` | An open PR closes the issue or owns the branch | Reconcile the PR before retrying. |
-| `GITHUB_PROOF_INCOMPLETE` | Query timed out, truncated, paginated incompletely, or malformed | Restore complete GitHub evidence and retry. |
-| `REMOTE_MISSING`, `REMOTE_AMBIGUOUS` | Remote selection is not deterministic | Set `repository.remote`. |
-| `REMOTE_FETCH_FAILED`, `REMOTE_HEAD_MISSING` | Fetch/default HEAD proof failed | Repair access and remote default configuration. |
-| `BASE_BRANCH_CONFLICT`, `BASE_TRACKING_MISSING`, `BASE_SHA_MISMATCH` | Latest fetched base is unproved | Correct base/refspecs or retry after propagation. |
-| `ISSUE_ALREADY_OWNED` | Another start won the exclusive lock | Inspect status and preserve the owner. |
-| `RESOURCE_OWNERSHIP_UNKNOWN` | Existing resource ownership does not agree | Preserve and reconcile manually. |
-| `STATE_NOT_FOUND`, `STATE_INVALID` | Snapshot is absent or unsupported | Preserve state; start once or migrate with a supported version. |
-| `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH` | Attach proof failed | Inspect status and reconcile without cleanup. |
-| `EXTERNAL_COMMAND_FAILED` | Git, tmux, filesystem, or Copilot failed | Use redacted diagnostics and repair the named tool. |
+| Code                                                                 | Meaning                                                          | Operator action                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| `CLI_INVALID`                                                        | Unsupported syntax or issue value                                | Use `just run --help` and a positive integer.                   |
+| `REPOSITORY_INVALID`                                                 | Git/common-directory/GitHub identity proof failed                | Repair repository remotes and Git state.                        |
+| `CONFIG_INVALID`                                                     | Unsupported YAML shape or branch type                            | Use only documented fields and allowed commit types.            |
+| `ISSUE_NOT_FOUND`, `ISSUE_CLOSED`                                    | Issue cannot run                                                 | Select an existing open issue.                                  |
+| `ISSUE_BLOCKED`                                                      | Label or open dependency blocks work                             | Resolve blockers and remove the label.                          |
+| `ACCEPTANCE_CRITERIA_INVALID`                                        | Marker block is missing, duplicate, malformed, or empty          | Restore one nonempty checkbox block.                            |
+| `ISSUE_TYPE_UNMAPPED`, `ISSUE_TYPE_AMBIGUOUS`                        | Intent mapping is absent or conflicting                          | Leave exactly one mapped label.                                 |
+| `ISSUE_CONFLICT`                                                     | An open PR closes the issue or owns the branch                   | Reconcile the PR before retrying.                               |
+| `GITHUB_PROOF_INCOMPLETE`                                            | Query timed out, truncated, paginated incompletely, or malformed | Restore complete GitHub evidence and retry.                     |
+| `REMOTE_MISSING`, `REMOTE_AMBIGUOUS`                                 | Remote selection is not deterministic                            | Set `repository.remote`.                                        |
+| `REMOTE_FETCH_FAILED`, `REMOTE_HEAD_MISSING`                         | Fetch/default HEAD proof failed                                  | Repair access and remote default configuration.                 |
+| `BASE_BRANCH_CONFLICT`, `BASE_TRACKING_MISSING`, `BASE_SHA_MISMATCH` | Latest fetched base is unproved                                  | Correct base/refspecs or retry after propagation.               |
+| `ISSUE_ALREADY_OWNED`                                                | Another start won the exclusive lock                             | Inspect status and preserve the owner.                          |
+| `RESOURCE_OWNERSHIP_UNKNOWN`                                         | Existing resource ownership does not agree                       | Preserve and reconcile manually.                                |
+| `STATE_NOT_FOUND`, `STATE_INVALID`                                   | Snapshot is absent or unsupported                                | Preserve state; start once or migrate with a supported version. |
+| `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH`                        | Attach proof failed                                              | Inspect status and reconcile without cleanup.                   |
+| `EXTERNAL_COMMAND_FAILED`                                            | Git, tmux, filesystem, or Copilot failed                         | Use redacted diagnostics and repair the named tool.             |
 
 Errors are nonzero, stable, actionable, and available as structured JSON where the command supports `--json`.
 

@@ -786,15 +786,25 @@ function requireNumber(
   return value;
 }
 function readNameArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) =>
-    typeof entry === "object" &&
-    entry !== null &&
-    "name" in entry &&
-    typeof entry.name === "string"
-      ? [entry.name]
-      : [],
-  );
+  if (!Array.isArray(value))
+    throw new RunnerError(
+      "GITHUB_PROOF_INCOMPLETE",
+      "GitHub labels response was not a list.",
+      "Retry with a compatible gh response.",
+    );
+  return value.map((entry, index) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.name !== "string" ||
+      entry.name.trim() === ""
+    )
+      throw new RunnerError(
+        "GITHUB_PROOF_INCOMPLETE",
+        `GitHub labels entry ${index + 1} was malformed.`,
+        "Retry with a compatible gh response that includes every label name.",
+      );
+    return entry.name;
+  });
 }
 function parsePullRequests(text: string): PullRequestFacts[] {
   let value: unknown;
@@ -814,35 +824,40 @@ function parsePullRequests(text: string): PullRequestFacts[] {
       "Pull-request response was not a list.",
       "Retry with compatible gh output.",
     );
-  return value.flatMap((entry) => {
+  return value.map((entry, index) => {
     if (
-      typeof entry !== "object" ||
-      entry === null ||
-      !("number" in entry) ||
-      typeof entry.number !== "number" ||
-      !("headRefName" in entry) ||
-      typeof entry.headRefName !== "string"
+      !isRecord(entry) ||
+      !Number.isSafeInteger(entry.number) ||
+      (entry.number as number) <= 0 ||
+      typeof entry.headRefName !== "string" ||
+      entry.headRefName.trim() === "" ||
+      !Array.isArray(entry.closingIssuesReferences)
     )
-      return [];
-    const closes =
-      "closingIssuesReferences" in entry &&
-      Array.isArray(entry.closingIssuesReferences)
-        ? entry.closingIssuesReferences.flatMap((issue: unknown) =>
-            typeof issue === "object" &&
-            issue !== null &&
-            "number" in issue &&
-            typeof issue.number === "number"
-              ? [issue.number]
-              : [],
-          )
-        : [];
-    return [
-      {
-        number: entry.number,
-        headBranch: entry.headRefName,
-        closesIssues: closes,
+      throw new RunnerError(
+        "GITHUB_PROOF_INCOMPLETE",
+        `Pull-request entry ${index + 1} was malformed.`,
+        "Retry with compatible gh output containing complete pull-request and closing-issue fields.",
+      );
+    const closesIssues = entry.closingIssuesReferences.map(
+      (issue: unknown, issueIndex: number) => {
+        if (
+          !isRecord(issue) ||
+          !Number.isSafeInteger(issue.number) ||
+          (issue.number as number) <= 0
+        )
+          throw new RunnerError(
+            "GITHUB_PROOF_INCOMPLETE",
+            `Pull-request entry ${index + 1} closing-issue entry ${issueIndex + 1} was malformed.`,
+            "Retry with compatible gh output containing every closing issue number.",
+          );
+        return issue.number as number;
       },
-    ];
+    );
+    return {
+      number: entry.number as number,
+      headBranch: entry.headRefName,
+      closesIssues,
+    };
   });
 }
 function parseBlockers(text: string): {
@@ -852,17 +867,10 @@ function parseBlockers(text: string): {
   const root = parseObject(text, "Blocked-by");
   const data = root.data;
   if (
-    typeof data !== "object" ||
-    data === null ||
-    !("repository" in data) ||
-    typeof data.repository !== "object" ||
-    data.repository === null ||
-    !("issue" in data.repository) ||
-    typeof data.repository.issue !== "object" ||
-    data.repository.issue === null ||
-    !("blockedBy" in data.repository.issue) ||
-    typeof data.repository.issue.blockedBy !== "object" ||
-    data.repository.issue.blockedBy === null
+    !isRecord(data) ||
+    !isRecord(data.repository) ||
+    !isRecord(data.repository.issue) ||
+    !isRecord(data.repository.issue.blockedBy)
   )
     throw new RunnerError(
       "GITHUB_PROOF_INCOMPLETE",
@@ -870,31 +878,37 @@ function parseBlockers(text: string): {
       "Retry with compatible GitHub dependency support.",
     );
   const blockedBy = data.repository.issue.blockedBy;
-  const nodes =
-    "nodes" in blockedBy && Array.isArray(blockedBy.nodes)
-      ? blockedBy.nodes
-      : [];
-  const open = nodes.flatMap((node) =>
-    typeof node === "object" &&
-    node !== null &&
-    "number" in node &&
-    typeof node.number === "number" &&
-    "state" in node &&
-    node.state === "OPEN"
-      ? [node.number]
-      : [],
-  );
-  const pageInfo =
-    "pageInfo" in blockedBy &&
-    typeof blockedBy.pageInfo === "object" &&
-    blockedBy.pageInfo !== null
-      ? blockedBy.pageInfo
-      : null;
+  if (!Array.isArray(blockedBy.nodes))
+    throw new RunnerError(
+      "GITHUB_PROOF_INCOMPLETE",
+      "Blocked-by nodes response was not a list.",
+      "Retry with compatible GitHub dependency support.",
+    );
+  const open = blockedBy.nodes.flatMap((node, index) => {
+    if (
+      !isRecord(node) ||
+      !Number.isSafeInteger(node.number) ||
+      (node.number as number) <= 0 ||
+      (node.state !== "OPEN" && node.state !== "CLOSED")
+    )
+      throw new RunnerError(
+        "GITHUB_PROOF_INCOMPLETE",
+        `Blocked-by entry ${index + 1} was malformed.`,
+        "Retry with compatible GitHub dependency output containing every blocker number and state.",
+      );
+    return node.state === "OPEN" ? [node.number as number] : [];
+  });
+  if (
+    !isRecord(blockedBy.pageInfo) ||
+    typeof blockedBy.pageInfo.hasNextPage !== "boolean"
+  )
+    throw new RunnerError(
+      "GITHUB_PROOF_INCOMPLETE",
+      "Blocked-by pagination response was incomplete.",
+      "Retry with compatible GitHub dependency support.",
+    );
   return {
     open,
-    complete:
-      pageInfo !== null &&
-      "hasNextPage" in pageInfo &&
-      pageInfo.hasNextPage === false,
+    complete: !blockedBy.pageInfo.hasNextPage,
   };
 }

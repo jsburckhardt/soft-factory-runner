@@ -22,13 +22,14 @@ harness checks --json
 
 The root `justfile` remains command authority for humans and RPIV boundaries. Discover recipes with `just --list`; direct `just verify-focused` and `just verify` remain required validation entry points. See [`.harness/engineering-harness.md`](.harness/engineering-harness.md) for governance and evidence contracts.
 
-Phase 1 can run one explicit ready issue in an exclusively owned visible environment:
+Phase 1 can run one explicit ready issue in an exclusively owned visible environment. From a repository checkout, use the root recipe; `just setup`/`just build` do not globally install or link `soft-factory`:
 
 ```text
 just build
-soft-factory run --issue 3
-soft-factory status 3 --json
-soft-factory attach 3
+just run --help
+just run run --issue 3
+just run status 3 --json
+just run attach 3
 ```
 
 The run fetches and proves the configured remote default HEAD before creating `feat/3-...` and `.trees/3`. Unknown resources are preserved, every Copilot launch is issue-named and telemetry-scoped, and a zero Copilot exit remains `interrupted` until a later completion protocol exists. See [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) for configuration, ownership, state, telemetry, troubleshooting, fixture evidence, and deferrals.

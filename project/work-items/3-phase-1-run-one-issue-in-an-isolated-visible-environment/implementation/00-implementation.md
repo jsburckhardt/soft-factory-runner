@@ -4,6 +4,10 @@
 
 Implemented GitHub Issue #3 on `feat/3-run-isolated-visible` within the preserved work item `3-phase-1-run-one-issue-in-an-isolated-visible-environment`. T-1 through T-7 are marked complete in `plan/02-task-breakdown.md`. This record provides implementation evidence for Verify; it does not make a final acceptance claim.
 
+## Single correction cycle
+
+Re-entered Implement from base commit `71327bb64d33f3dcd81d91b6689e10fb88728ddd` for the one allowed Verify correction. The correction makes malformed required GitHub collection entries block as `GITHUB_PROOF_INCOMPLETE`, adds direct live-adapter composition tests with zero owned side effects, and changes checkout documentation to executable root `just run` commands without adding an install/link step. No task, plan, ADR, or core-component contract changed.
+
 ## Completed tasks
 
 - **T-1 — CLI, domain, configuration, adapters:** added strict `run --issue`, `status`, `attach`, and private worker parsing; stable typed errors; owner-qualified identity normalization; minimal YAML configuration; common human/JSON rendering; and typed filesystem, Git, GitHub, tmux, subprocess, clock, and ID ports.
@@ -62,6 +66,8 @@ Implemented GitHub Issue #3 on `feat/3-run-isolated-visible` within the preserve
 - Table-driven tests cover nonexistent, closed, blocked label, open blocker, closing-PR conflict, planned-branch conflict, missing/duplicate/reversed/empty AC blocks, incomplete evidence, unmapped/ambiguous type, remote missing/ambiguous, configured-base conflict, missing tracking ref, and SHA mismatch.
 - Stable codes and remediation are rendered for human/JSON callers. The guide documents all Phase 1 codes, including timeout/truncation/malformed evidence under `GITHUB_PROOF_INCOMPLETE` and external execution failures.
 - Invalid readiness has zero owned operations; unproved fetched base has zero branch/worktree operations.
+- Correction evidence: `src/live.ts` now validates the required labels array and every label entry, every top-level open-PR entry, the required `closingIssuesReferences` array and every nested closing-issue entry, every blocked-by node, and blocker pagination shape. Malformed entries are never filtered or defaulted away; each throws actionable `GITHUB_PROOF_INCOMPLETE`.
+- `src/integration.test.ts` drives malformed top-level PR, nested closing-issue, label, and blocker records through `createLivePorts().github` composed into `IssueRunService`. All four return `GITHUB_PROOF_INCOMPLETE` and prove zero lock, branch, worktree, or tmux creation.
 
 ### AC-9 — Exactly one simultaneous local owner
 
@@ -83,28 +89,29 @@ Implemented GitHub Issue #3 on `feat/3-run-isolated-visible` within the preserve
 
 ### Focused validation
 
-- Final `harness checks --focused --json`: envelope `status=ok`, `scope=focused`, delegated `just verify-focused`, exit 0; 4 suites, 31 tests passed; `git diff --check` passed.
-- Final direct `just verify-focused`: exit 0; 4 suites, 31 tests passed; `git diff --check` passed.
+- Correction `harness checks --focused --json`: envelope `status=ok`, `scope=focused`, delegated `just verify-focused`, exit 0; 4 suites, 36 tests passed; `git diff --check` passed.
+- Correction direct `just verify-focused`: exit 0; 4 suites, 36 tests passed; `git diff --check` passed.
+- Targeted `just verify-focused src/integration.test.ts`: 6 tests passed, including four live GitHub malformed-proof cases; targeted `just verify-focused src/documentation.test.ts`: 3 tests passed, including repository-local help/run/status/attach execution.
 - Focused checks were also run after each implementation group. Failures and retries are retained in the Implement retro rather than hidden.
 
 ### Full validation
 
-- Final `harness checks --json`: envelope `status=ok`, `scope=full`, delegated `just verify`, exit 0.
-- Final direct `just verify`: exit 0 for ESLint, Prettier check, strict TypeScript, Jest coverage, build, and diff hygiene; 4 suites and 31 tests passed.
+- Correction `harness checks --json`: envelope `status=ok`, `scope=full`, delegated `just verify`, exit 0.
+- Correction direct `just verify`: exit 0 for ESLint, Prettier check, strict TypeScript, Jest coverage, build, and diff hygiene; 4 suites and 36 tests passed.
 - Global coverage: **92.97% statements, 85.04% branches, 98.30% functions, 94.94% lines**, above the 80% thresholds.
 - Separate final `git diff --check`: exit 0.
 
 ## Documentation evidence
 
-- **README/setup/usage:** `README.md` now introduces `run`, `status`, and `attach`, fetched-base behavior, unknown-resource preservation, exact telemetry/session behavior, zero-exit interruption, and links the guide.
+- **README/setup/usage:** `README.md` now states that setup/build do not globally install or link the binary and uses executable checkout commands: `just run --help`, `just run run --issue 3`, `just run status 3 --json`, and `just run attach 3`. It also retains fetched-base behavior, unknown-resource preservation, exact telemetry/session behavior, zero-exit interruption, and the guide link.
 - **Application docs index:** `docs/README.md` indexes the Phase 1 guide.
-- **Command/API contract:** `docs/phase-1-issue-run.md` documents strict CLI syntax, output modes, private worker ownership, stable errors, and issue-only attach. No HTTP/API specification exists or changed; the CLI contract is the affected API surface.
+- **Command/API contract:** `docs/phase-1-issue-run.md` documents strict CLI syntax through `just run`, explains that setup/build do not install or link a global binary, keeps the internal worker private, and documents stable errors and issue-only attach. No HTTP/API specification exists or changed; the CLI contract is the affected API surface.
 - **Configuration:** the guide documents `.soft-factory/config.yml`, exact `repository.remote` and `repository.base_branch` keys, precedence/defaults, `feature: feat`, and prompt substitution.
 - **Operational/runbook:** the guide documents prerequisites, bounded calls, fetched proof, lock/state paths, tmux visibility, telemetry, status/attach, troubleshooting, ambient outer-worktree blocking, and credential-free fixture commands.
 - **Architecture explanation:** the accepted Issue #3 ADR, core-component, and Decision Log entries 40-48 define the implemented boundaries. `.harness/engineering-harness.md` now distinguishes bootstrap coverage from Phase 1 product fixture evidence.
 - **Migration:** no migration note is required because this is additive Phase 1 behavior, the package/bin contract is unchanged, and the no-argument bootstrap signal remains compatible.
 - **Deployment:** no additional deployment guide is required because no service, endpoint, daemon, schema deployment, or runtime hosting procedure was introduced; local prerequisites and operation are in the Phase 1 guide.
-- `src/documentation.test.ts` asserts exact commands, configuration identifiers, telemetry, outer-worktree protection, and all named deferrals.
+- `src/documentation.test.ts` asserts exact root-recipe commands, configuration identifiers, telemetry, outer-worktree protection, and all named deferrals. It executes `just run --help`, a safely invalid `just run run` invocation, missing-state `just run status`, and missing-state `just run attach`; expected help or typed nonzero results prove the command forms without launching Issue #3.
 
 ### Task-to-document impact
 
@@ -131,8 +138,10 @@ Read-back validated schema 1.2, exact plan identity, correct agent identity, `di
 - `.harness/records/retro/2026-08-11/005-issue-3-rpiv-implementer-commit-retry.md` — 1 Implement entry recording the first failed harness commit socket attempt.
 - `.harness/records/retro/2026-08-11/006-issue-3-rpiv-implementer-commit-recovery.md` — 2 Implement entries recording the identical second failure and the non-destructive buffered-mode recovery selection.
 - `.harness/records/retro/2026-08-11/007-issue-3-rpiv-implementer-signing-recovery.md` — 2 Implement entries recording the failed Trace2-mode attempt and the SSH signing-agent root cause.
+- `.harness/records/retro/2026-08-11/008-issue-3-rpiv-implementer-correction.md` — 3 correction-cycle Implement entries recording unavailable `rg`, the `python`/`python3` retry, and the caught scripted-edit boundary error.
+- `.harness/records/retro/2026-08-11/009-issue-3-rpiv-implementer-correction-commit-retry.md` — 2 entries recording the failed first correction commit and the verified missing SSH signing-agent socket root cause.
 
-Only after read-back, clear envelopes returned `status=ok`, exit 0, and exact initial cleared counts 1/6/3/7. Follow-up list envelopes returned empty observations for all four agents. Commit-attempt observations were separately read back and cleared with `status=ok` counts 1, 2, and 2 before each next retry. The final `harness retro insights --plan 3-phase-1-run-one-issue-in-an-isolated-visible-environment --json` returned `status=ok`, 7 records, 22 entries, all 4 agents, and no malformed or unsupported records.
+Only after read-back, clear envelopes returned `status=ok`, exit 0, and exact initial cleared counts 1/6/3/7. During correction, coordinator/Research/Plan lists were already empty; the new Implement record was read back with schema 1.2, exact plan/agent identity, all three observations, and `disposition: kept` before a successful clear envelope reported `cleared=3`. Follow-up lists for all four non-Verify agents were empty. Verifier observations were not listed or cleared. The first correction commit failure generated two additional Implement observations; retro 009 was read back completely before a successful clear envelope reported `cleared=2`. Follow-up list envelopes returned empty observations for all four agents. Commit-attempt observations were separately read back and cleared with `status=ok` counts 1, 2, and 2 before each next retry. The correction-cycle `harness retro insights --plan 3-phase-1-run-one-issue-in-an-isolated-visible-environment --json` returned `status=ok`, 9 records, 27 entries, all 4 non-Verify agents, no pending buffer entries, and no malformed or unsupported records.
 
 ## Residual risks and deliberate limits
 
