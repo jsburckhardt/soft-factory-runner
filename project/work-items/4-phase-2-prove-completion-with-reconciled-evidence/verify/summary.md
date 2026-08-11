@@ -7,7 +7,7 @@
 - **Corrected implementation commit:** `941a432818e8b762844617a59ed84e2a0bd08060`
 - **Parent implementation commit:** `002b0f8f5bb6604038cf5aa6160cd36727c70a4e`
 - **Pull request:** https://github.com/jsburckhardt/soft-factory-runner/pull/13
-- **Verification commit:** created from this summary and the verifier retro record after summary generation; its exact SHA is reported in the pull-request branch history and Verify closeout.
+- **Verification commit:** `744e1a43946860ae2d1fd9adc82df42a335c7a90` (generated summary and verifier retro record).
 
 The exact handoff branch and implementation SHA matched, and the implementation working tree was clean before verification. Both implementation commit messages are Conventional Commits and carry the required Copilot co-author trailer.
 
