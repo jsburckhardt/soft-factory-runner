@@ -1,0 +1,122 @@
+project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md
+  s_a5ba16d8a5de04::t_65691c6efb3d73 1-86
+project/architecture/ADR/DECISION-LOG.md
+  s_a5ba16d8a5de04::t_3f25be753c633a 12,31,87-100
+src/orchestration.test.ts
+  s_c5851cbfe1d3ad::t_1adb7fcc5c75ba 429-436,439-443,448-449,453-455
+  s_c5851cbfe1d3ad::t_cf3b504486df1f 36-37,41,157-158
+  s_c5851cbfe1d3ad::t_c970e54175f913 324,334,352
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 38-40,115-126,159-168,272-292,353-355,437-438,444-447,450-452
+src/integration.test.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 43-47,88-90,129-134,340-342,346-353,359-368,370-376,378-385,505-507,509-511
+  s_c5851cbfe1d3ad::t_61dd908472323e 187,198,201-207,504,508
+  s_c5851cbfe1d3ad::t_6b7bae2dcec1a0 338-339,343-345,354-358,369,377,386-389
+.harness/records/retro/2026-08-11/015-issue-4-rpiv-implementer.md
+  s_c5851cbfe1d3ad::t_8f934930556b99 7-8,10-13,17-147,149-153,157,159
+  s_c5851cbfe1d3ad::t_788fa0a2d4e7c8 148,154
+  s_c5851cbfe1d3ad::t_e1fec9213e2820 1-6,9,14-16,155-156,158
+src/readiness.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 59-64
+  s_c5851cbfe1d3ad::t_706b6f16178804 6,21,95-97,120-127
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/plan/03-test-plan.md
+  s_a5ba16d8a5de04::t_042fa7fd3047e4 1-151
+src/completion.test.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 21-29,38-64,69-76,78-92,97-99,101-106,108-122,134-180,182-188,191-195,206-208,212-454,456-460,464-472,478-488,492-494,498-505,507-517,521-530,533-539
+  s_c5851cbfe1d3ad::t_959556b1430451 1-20,30-37,65-68,77,93-96,100,107,123-133,181,189-190,196-205,209-211,455,461-463,473-477,489-491,495-497,506,518-520,531-532,540-541
+README.md
+  s_c5851cbfe1d3ad::t_3c95a37078659f 25,35,44
+src/domain.ts
+  s_c5851cbfe1d3ad::t_05b6e8446a1acf 1,3,5,7,9,79,94-113,115-186,200,215
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 6,8,10-11,114
+.harness/records/retro/2026-08-11/014-issue-4-rpiv-planner.md
+  s_c5851cbfe1d3ad::t_e1fec9213e2820 1-6,9,14-16,24,29-30,32
+  s_c5851cbfe1d3ad::t_735e376668d5a3 7-8,10-13,17-23,25-28,31,33
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/implementation/00-implementation.md
+  s_c5851cbfe1d3ad::t_60fea35d797afb 1-86
+src/errors.ts
+  s_c5851cbfe1d3ad::t_d7f4173d2d08bc 26-30
+src/render.ts
+  s_c5851cbfe1d3ad::t_140eec04661c43 1,4,15
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 7-14
+src/documentation.test.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 22-34,45-64,67-69
+  s_c5851cbfe1d3ad::t_55a2066d8daab8 12-13,38,43-44,66,72
+  s_c5851cbfe1d3ad::t_27285f8ca77957 81
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/research/00-research.md
+  s_a5c21c3ac5b8d3::t_f8449866a170f9 18,24,28,31
+  s_a5c21c3ac5b8d3::t_4c65a5e3f3a4e2 1-17,19-23,25-27,29-30,32-87
+src/live.ts
+  s_c5851cbfe1d3ad::t_daa1e116618be9 7,130,134,337-349,354-357,363-364,526-531,541-545,552-554,978-982,988-989,995,1006-1009,1015-1022
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 131-133,350-353,358-362,532-540,546-551,983-987,990-994,996-1005,1010-1014
+  s_c5851cbfe1d3ad::t_39bdcaaee264d6 1023-1024
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/plan/02-task-breakdown.md
+  s_c5851cbfe1d3ad::t_cdea07faaecc6a 54
+  s_c5851cbfe1d3ad::t_f4f09ce7ebcae4 81
+  s_c5851cbfe1d3ad::t_2484e20fc2c2d0 30
+  s_c5851cbfe1d3ad::t_3c4cd35d970661 108
+  s_a5ba16d8a5de04::t_042fa7fd3047e4 1-4,6-29,31-53,55-80,82-107,109-129
+  s_c5851cbfe1d3ad::t_912cb2f953fc25 5
+src/orchestrator.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 182-186,238-241,259-261,267-272,281-286,291-292,297-299,304-313,323-331,340-341,346-348,353-365,372-378,389-393,408-413
+  s_c5851cbfe1d3ad::t_4b64755ae2b94d 174,181,189-190,193,227,233-237,242-247,250-252,255-256,258,262-266,273-280,287-290,293-296,300-303,314-322,332-339,342-345,349-352,366-371,379-380,398-400,402-407,414-418
+  s_c5851cbfe1d3ad::t_140eec04661c43 3,12,257,401
+  s_c5851cbfe1d3ad::t_488789200aa512 7,18,34,78-79,93-95
+  s_c5851cbfe1d3ad::t_1f92de27aa9591 419-420
+project/work-items/4-phase-2-prove-completion-with-reconciled-evidence/plan/01-action-plan.md
+  s_a5ba16d8a5de04::t_042fa7fd3047e4 1-25,27-30,32-39
+  s_a5ba16d8a5de04::t_41ea0d56d0c87a 26,31,40
+docs/phase-1-issue-run.md
+  s_c5851cbfe1d3ad::t_d2f1da83a120fa 1,3,5,7,9,20,22,24,36,38,40,42,44,46-48,50-69,71,73,75,77-80,82,84,86,88,90,92,94-98,100,102,104-113,115,117,119,124-125,128,130
+src/persistence.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 3,44,61-64,101,103,124-138,141-152,156-167,171-179,183-190,192-196,199-202,205-212,215-226,229-244,250-259,264-270,275-282
+  s_c5851cbfe1d3ad::t_140eec04661c43 107
+  s_c5851cbfe1d3ad::t_936f41cff25ab7 2,67,69,86,96-99,102,139-140,153-155,168-170,180-181,191,197,203-204,213-214,227-228,245-249
+  s_c5851cbfe1d3ad::t_f6f3afcba9f243 123
+.harness/records/retro/2026-08-11/013-issue-4-rpiv-research.md
+  s_c5851cbfe1d3ad::t_735e376668d5a3 7-8,10-13,17-23,25-70,73,75
+  s_c5851cbfe1d3ad::t_e1fec9213e2820 1-6,9,14-16,24,71-72,74
+src/ports.ts
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 44-48,66-69,104
+  s_c5851cbfe1d3ad::t_5efae32d9c6866 2,5,19,43
+src/completion.ts
+  s_c5851cbfe1d3ad::t_4267a90c1ebda8 1-16,19-64,80-83,86-91,96-97,106-118,122-126,134-135,141,147,163,169,180-181,196-197,208-231,237-243,257-260,271-279,286-289,294-303
+  s_c5851cbfe1d3ad::t_c0fac28ff44490 17-18,65-79,84-85,92-95,98-105,119-121,127-133,136-140,142-146,148-162,164-168,170-179,182-195,198-207,232-236,244-256,261-270,280-285,290-293
+project/architecture/ADR/ADR-260811-prototype-two-completion-proof.md
+  s_a5ba16d8a5de04::t_65691c6efb3d73 1-55
+src/command.ts
+  s_c5851cbfe1d3ad::t_582661451360f0 55,88
+src/index.ts
+  s_c5851cbfe1d3ad::t_dfbc1f2db65e70 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "002b0f8f5bb6604038cf5aa6160cd36727c70a4e",
+  "prompts": {},
+  "sessions": {
+    "s_a5ba16d8a5de04": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_g30GTOjjhkweQViPqO3Atxtk",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_a5c21c3ac5b8d3": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_G1nV5Xy8DHxUk2oLkxuDbpDv",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_c5851cbfe1d3ad": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_0S2xiJhFHk9DW9hGW5BtqnQV",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
