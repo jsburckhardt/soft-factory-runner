@@ -1,0 +1,21 @@
+project/work-items/2-phase-0-adopt-the-engineering-harness/implementation/00-implementation.md
+  s_a9bdb675ebcad7::t_b39af596d9d6e4 1-88
+project/work-items/2-phase-0-adopt-the-engineering-harness/plan/02-task-breakdown.md
+  s_a9bdb675ebcad7::t_3d2b5fbf39173e 94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "97d307edf97d151865d5238c57dc64c6caacc066",
+  "prompts": {},
+  "sessions": {
+    "s_a9bdb675ebcad7": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "877500c8-cba6-4eff-8fc4-8b9e7f315e16",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
