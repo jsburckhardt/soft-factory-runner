@@ -8,6 +8,7 @@ This file is the single registry of all architectural decisions and core-compone
 |----|-------|--------|------|
 | ADR-260810-typescript-node-cli | TypeScript and Node.js CLI | Accepted | 2026-08-10 |
 | ADR-260811-engineering-harness-surface | Engineering Harness Development Surface | Accepted | 2026-08-11 |
+| ADR-260811-prototype-one-run-orchestration | Prototype One Issue Run Orchestration | Accepted | 2026-08-11 |
 
 ## Core-Components
 
@@ -25,6 +26,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260810-issue-worktree-locking | Issue and Worktree Locking | Adopted | 2026-08-10 |
 | CORE-COMPONENT-260810-development-standards | Development Standards | Adopted | 2026-08-10 |
 | CORE-COMPONENT-260811-engineering-harness-interface | Engineering Harness Interface | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260811-issue-run-orchestration | Issue Run Orchestration | Adopted | 2026-08-11 |
 
 ## Decisions
 
@@ -71,3 +73,12 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 37 | Commit harness governance, extension briefings, and cold-agent injection cues | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
 | 38 | Capture stage-identified RPIV friction in shared buffers and clear only after durable retro read-back | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
 | 39 | Require Verify to validate the plan-scoped RPIV friction harvest before publishing closeout evidence | CORE-COMPONENT-260811-engineering-harness-interface | 2026-08-11 |
+| 40 | Separate deterministic run orchestration from typed external-system adapters | ADR-260811-prototype-one-run-orchestration | 2026-08-11 |
+| 41 | Defer completion reconciliation and recovery beyond Prototype 1 | ADR-260811-prototype-one-run-orchestration | 2026-08-11 |
+| 42 | Require fetched remote HEAD and tracking SHA equality before branch creation | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 43 | Create issue branches from the proven SHA and mapped Conventional Commit type | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 44 | Block resource reuse unless lock, snapshot, and observed ownership agree | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 45 | Normalize owner-qualified repository names consistently for telemetry and tmux | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 46 | Persist Phase 1 snapshots and events without reporting unproved completion | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 47 | Bound readiness queries and block incomplete or ambiguous external proof | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
+| 48 | Inject deterministic fixture adapters without exposing production test backdoors | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
