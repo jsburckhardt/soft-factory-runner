@@ -1,0 +1,19 @@
+project/work-items/2-phase-0-adopt-the-engineering-harness/verify/summary.md
+  s_a9bdb675ebcad7::t_3e8ec30b3bc3c1 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8d6bdc519bedd33e8999dbead38db2982574da39",
+  "prompts": {},
+  "sessions": {
+    "s_a9bdb675ebcad7": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "877500c8-cba6-4eff-8fc4-8b9e7f315e16",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
