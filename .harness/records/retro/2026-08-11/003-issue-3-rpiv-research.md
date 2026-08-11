@@ -1,0 +1,103 @@
+---
+record_kind: "retro"
+harness_version: "0.13.0"
+branch: "feat/3-run-isolated-visible"
+repo: "https://github.com/jsburckhardt/soft-factory-runner.git"
+created_at: "2026-08-11T08:05:37.958Z"
+agent: "rpiv-research"
+plan_id: "3-phase-1-run-one-issue-in-an-isolated-visible-environment"
+schema_version: "1.2"
+retro_id: "2026-08-11T08:05:37Z-rpiv-research-b1796e7e9d5a"
+started_at: "2026-08-11T07:16:34.544Z"
+ended_at: "2026-08-11T08:05:37.958Z"
+summary: "Research handled large-file limits, missing local commands, ambiguous telemetry normalization, and an Issue #3 criteria update."
+entries:
+  - id: "DL-001"
+    kind: "difficulty"
+    description: "PRD.md exceeded the file viewer limit, requiring targeted section discovery and ranged reads."
+    target: "tooling"
+    severity: "annoying"
+    workaround: "Located PRD headings and read only relevant ranges."
+    suggested_encoding: "Provide a harness command that indexes large Markdown sections."
+    fp: "b1796e7e9d5a"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:16:34.544Z"
+  - id: "CONF-001"
+    kind: "confusion"
+    description: "PRD telemetry examples flatten owner/repository as jsburckhardt-example while acceptance text says resolved repository name, leaving the exact project.name normalization unspecified."
+    target: "plan"
+    severity: "degrading"
+    workaround: "Raised the ambiguity for Plan, which specified lowercase hyphenated owner-qualified identity."
+    suggested_encoding: "Keep telemetry normalization normative in the orchestration contract."
+    fp: "d49117161c37"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:18:01.117Z"
+  - id: "DL-002"
+    kind: "difficulty"
+    description: "The first artifact-write attempt failed because the environment has no python executable; retrying with the available Node.js runtime."
+    target: "tooling"
+    severity: "annoying"
+    workaround: "Used the available Node.js runtime."
+    suggested_encoding: "Advertise exact available interpreter names in environment orientation."
+    fp: "51461d2be6ee"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:19:53.698Z"
+  - id: "COORD-001"
+    kind: "coordination"
+    description: "Issue #3 changed after the first Research handoff, leaving eight stale criteria and stale active-branch facts that require in-place correction."
+    target: "plan"
+    severity: "degrading"
+    workaround: "Reloaded Issue #3 and corrected the stable Research artifact in place."
+    suggested_encoding: "Record and compare issue update timestamps at each RPIV handoff."
+    fp: "c2cef2bb2fb9"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:24:36.238Z"
+  - id: "DL-003"
+    kind: "difficulty"
+    description: "Repository search command failed because ripgrep is unavailable, requiring fallback searches with grep."
+    target: "tooling"
+    severity: "annoying"
+    workaround: "Used grep for repository search."
+    suggested_encoding: "Expose a repository-owned search recipe or ensure ripgrep availability."
+    fp: "db3bc2e8add7"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:24:57.030Z"
+  - id: "DL-004"
+    kind: "difficulty"
+    description: "The first in-place brief update failed because the environment has no python executable, requiring a retry with Node.js."
+    target: "tooling"
+    severity: "annoying"
+    workaround: "Retried the update with Node.js."
+    suggested_encoding: "Keep environment interpreter inventory accurate."
+    fp: "55f19211a25a"
+    disposition: "kept"
+    system:
+      compound:
+        status: "open"
+        source: "agent-self"
+        first_seen_at: "2026-08-11T07:30:47.123Z"
+---
+
+# Retro — Issue 3 Research
+
+Durable Research observations captured before implementation commit.

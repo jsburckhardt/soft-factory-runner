@@ -12,11 +12,11 @@
 
 ## Health check
 
-For this short-lived CLI, health is exit code 0 plus the exact bootstrap signal `Soft Factory Runner is bootstrapped. Product commands will be delivered through RPIV.` There is no persistent service or endpoint.
+For the CLI no-argument smoke path, health is exit code 0 plus the exact bootstrap signal `Soft Factory Runner is bootstrapped. Product commands will be delivered through RPIV.` There is no persistent service or endpoint.
 
 ## Interact method
 
-Run the CLI through the root `just run` recipe. The bootstrap currently accepts no product input and exits after one line.
+Run the CLI through the root `just run` recipe. The no-argument bootstrap exits after one line; Phase 1 product commands are documented in `docs/phase-1-issue-run.md` and may create owned Git, filesystem, tmux, and Copilot resources.
 
 ## Observe method
 
@@ -64,11 +64,11 @@ record has been read back and checked for every pending observation.
 
 ## Back-pressure gaps
 
-- The product is only a bootstrap CLI: interaction has no feature input and observation has no persistent runtime, endpoint, trace, or screenshot.
+- Harness boot exercises only the no-argument bootstrap. It does not create or inspect Phase 1 issue-run resources, tmux panes, or Copilot processes; deterministic product evidence remains in repository tests.
 - No harness sensors, dependency/security audit, schema validation, or long-running recovery smoke path exists yet.
 - Harness output is bounded; full diagnostics may require the named direct root recipe.
 - Machine attribution/capture health can be degraded independently of repository readiness and must be reported, not hidden.
 
 ## Current maturity snapshot
 
-**L1 — a tracked, repeatable boot/check nucleus is operational.** Boot, smoke output, focused/full checks, governance, and cold-agent cues are deterministic; richer product interaction, observation, and sensors remain future improvements.
+**L1 — a tracked, repeatable boot/check nucleus is operational.** Boot, smoke output, focused/full checks, governance, and cold-agent cues are deterministic. Phase 1 product behavior is testable through injected fixtures, while live product interaction sensors remain future improvements.
