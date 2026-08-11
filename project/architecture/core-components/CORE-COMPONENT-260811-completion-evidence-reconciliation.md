@@ -23,8 +23,10 @@ This component applies after RPIV process exit to result-artifact parsing, run s
 - Require `just verify-focused` and `just verify` exactly once with status `passed`; permit additional uniquely named validations but never use them to replace either required root recipe.
 - After Copilot exits zero, persist `finalizing` before reading completion evidence. A nonzero exit transitions directly to `failed` regardless of any artifact.
 - Require result issue and branch to equal the owned run; result SHA to equal worktree HEAD; the selected remote branch to exist at that same SHA; and result pull-request number to identify one complete, open PR that closes the issue and has the expected base, head branch, and head SHA.
-- Derive expected base from the persisted fetched-base proof and selected remote from that proof. Observe worktree HEAD and remote branch after RPIV exits; observe the PR by reported number with all required fields in one bounded query.
-- Bound each finalization Git/GitHub command to 15 seconds. Do not poll or retry inside one finalization attempt; timeout, malformed output, missing branch/PR, truncation, or incomplete fields are incomplete proof.
+- Derive expected base from the persisted fetched-base proof and selected remote from that proof. Observe worktree HEAD after RPIV exits. Define fresh remote issue-branch evidence as the result of one post-exit `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` invocation from the repository root; never use a local `refs/remotes/...` tracking ref or a pre-finalization fetch as remote completion evidence. Observe the PR by reported number with all required fields in one bounded query.
+- Invoke the remote query as the exact executable/argument array `git`, `ls-remote`, `--refs`, selected remote, and exact `refs/heads/<issue-branch>`, with no shell and a 15-second timeout. Accept only one output record containing a full SHA and that exact ref. Do not poll or retry inside one finalization attempt.
+- Classify a successful remote query with no record as missing incomplete proof. Classify command failure, timeout, malformed or truncated output, duplicate records, or a different returned ref as malformed incomplete proof. Persist these cases as `interrupted` with `COMPLETION_PROOF_INCOMPLETE`; classify one valid freshly advertised SHA that differs from result/local/PR SHA as contradictory proof and `failed` with `RESULT_REMOTE_SHA_MISMATCH`.
+- Bound every other finalization Git/GitHub command to 15 seconds. Do not poll or retry inside one finalization attempt; timeout, malformed output, missing PR, truncation, or incomplete fields are incomplete proof.
 - Transition to `completed` only when the valid succeeded result and every equality, acceptance, and validation check pass. Persist the validated result and normalized reconciliation facts used by the decision.
 - Classify missing/malformed/unsupported result data or incomplete external proof as `interrupted`; classify valid unsuccessful outcomes by their outcome; classify contradictory identity, SHA, PR, acceptance, or validation facts as `failed`; retain pre-execution prerequisite and ownership conflicts as `blocked`.
 - Expose `completed`, `failed`, `blocked`, `cancelled`, and `interrupted` as terminal states in typed snapshots plus human and JSON status. Reserve Runner-originated `cancelled` transitions for future explicit cancellation input.
@@ -35,14 +37,15 @@ This component applies after RPIV process exit to result-artifact parsing, run s
 ### Interfaces
 - `AgentResultV1` contains `schemaVersion: 1`, positive `issueNumber` and `prNumber`, `outcome`, `branch`, full `headSha`, `acceptanceCriteria[]` entries (`id`, `status`, nonempty `evidence[]`), `validations[]` entries (`command`, `status`), and ISO-8601 `completedAt`.
 - `RequiredAcceptanceCriterionV1` contains the stable `id` and exact issue criterion `text`; `RequiredValidationV1` identifies each required root recipe.
-- `CompletionGitFacts` contains fresh `localHeadSha`, `remote`, `remoteBranch`, and `remoteHeadSha`; absence remains explicit rather than synthesized.
+- `CompletionGitFacts` contains `localHeadSha`, selected `remote`, selected `remoteBranch`, and `remoteHeadSha`; `remoteHeadSha` is populated only from the post-exit authoritative `ls-remote --refs` query, and absence remains explicit rather than synthesized.
 - `CompletionPullRequestFacts` contains `number`, `state`, `baseBranch`, `headBranch`, `headSha`, `closesIssues`, and `complete`.
 - `CompletionReconciliationV1` records each expected/observed comparison and its pass/fail result without credentials or raw command output.
 - `RunSnapshotV2` stores required sets, finalization/result/reconciliation facts, all existing ownership and launch facts, terminal state, error, and update time.
 
 ### Expectations
 - The same pure reconciliation input always yields the same terminal decision and mismatch code.
-- No absent, stale, malformed, contradictory, or producer-controlled evidence can satisfy completion.
+- No absent, stale, malformed, contradictory, or producer-controlled evidence can satisfy completion. A matching cached remote-tracking ref is irrelevant when the freshly advertised branch differs.
+- Deterministic fixtures create cache/remote divergence by retaining an old local remote-tracking SHA while advancing the bare remote branch, then prove the live adapter observes the advanced SHA and reconciliation rejects the stale result with `RESULT_REMOTE_SHA_MISMATCH`.
 - Deterministic fixtures cover one completed path and separate rejections for missing/invalid artifacts, issue, branch, local/remote SHA, PR number/state/base/head/SHA/issue linkage, AC proof, validation proof, and incomplete observations.
 - Human and JSON status report the same terminal state and safe reconciliation summary.
 
@@ -53,7 +56,7 @@ Completion is a security-like proof boundary: the producer's claim must be check
 ## Usage Examples
 
 ```
-Copilot exit 0 + valid succeeded result + local HEAD == remote branch SHA == PR head SHA
+Copilot exit 0 + valid succeeded result + local HEAD == post-exit `git ls-remote --refs` branch SHA == PR head SHA
 + open PR closes issue and matches base/head + every required AC verified
 + just verify-focused passed + just verify passed -> completed
 
@@ -64,7 +67,8 @@ valid result + mismatched branch, SHA, PR, AC, or validation -> failed
 ## Integration Guidelines
 
 - Capture required AC text during issue readiness and carry it into version 2 snapshots before RPIV launch.
-- Add dedicated result-file, completion-Git, and completion-PR port methods rather than parsing terminal prose in orchestration.
+- Add dedicated result-file, completion-Git, and completion-PR port methods rather than parsing terminal prose in orchestration. Keep readiness `trackingSha` separate from completion `remoteBranchSha`; implement the latter only with the authoritative remote query.
+- Test the remote adapter through normal composition with an argument-recording fake Git executable for bounds/parsing and temporary repositories for stale-cache divergence; do not add a production test switch.
 - Use stable mismatch/error codes and include only redacted expected/observed facts in snapshots, events, and output.
 - Update README and the issue-run operator guide to document the artifact schema, finalization flow, terminal meanings, troubleshooting, schema compatibility, and remaining Prototype 3 deferrals.
 - Validate implementation through both direct `just verify-focused`/`just verify` and delegating `harness checks --focused --json`/`harness checks --json` boundaries.

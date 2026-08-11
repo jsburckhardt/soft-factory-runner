@@ -72,6 +72,28 @@ describe("Phase 2 operator documentation", () => {
     expect(readme).not.toContain("until a later completion protocol exists");
   });
 
+  it("names authoritative remote proof, incomplete classifications, and stale-cache divergence", () => {
+    const command =
+      "git ls-remote --refs <selected-remote> refs/heads/<issue-branch>";
+    expect(readme).toContain(command);
+    expect(guide).toContain(command);
+    for (const phrase of [
+      "15-second timeout",
+      "no shell",
+      "never reads `refs/remotes/...`",
+      "Zero records are missing proof",
+      "duplicate records",
+      "wrong ref",
+      "COMPLETION_PROOF_INCOMPLETE",
+      "RESULT_REMOTE_SHA_MISMATCH",
+      "stale-cache divergence fixture",
+      "SHA A",
+      "SHA B",
+    ])
+      expect(guide).toContain(phrase);
+    expect(readme).toContain("RESULT_REMOTE_SHA_MISMATCH");
+    expect(guide).not.toContain("tracking ref is fresh completion proof");
+  });
   it("executes documented commands through the root justfile without a global binary", () => {
     const help = spawnSync("just", ["run", "--help"], {
       cwd: root,

@@ -66,6 +66,8 @@ class RecordingGit implements GitPort {
   public readonly trace: string[];
   public tracking: string | null = sha;
   public advertised = sha;
+  public remote = sha;
+  public remoteFailure: RunnerError | null = null;
   public branchPresent = false;
   public registered = false;
   public facts: RepositoryFacts;
@@ -122,7 +124,8 @@ class RecordingGit implements GitPort {
     branch: string,
   ): Promise<string | null> {
     this.trace.push(`git:remote-head:${remote}:${branch}`);
-    return sha;
+    if (this.remoteFailure !== null) throw this.remoteFailure;
+    return this.remote;
   }
   public async createBranch(
     _root: string,
@@ -393,6 +396,14 @@ describe("deterministic issue-to-RPIV fixture", () => {
     expect(
       f.trace.filter((entry) => entry.startsWith("process:copilot:")).length,
     ).toBe(1);
+    expect(
+      f.trace.filter((entry) => entry.startsWith("git:remote-head:")).length,
+    ).toBe(1);
+    expect(
+      f.trace.findIndex((entry) => entry.startsWith("process:copilot:")),
+    ).toBeLessThan(
+      f.trace.findIndex((entry) => entry.startsWith("git:remote-head:")),
+    );
   });
 
   it("applies exact names and telemetry for every repository and issue launch", async () => {
@@ -450,6 +461,42 @@ describe("zero-exit false-completion rejection", () => {
     expect(f.trace.some((entry) => entry.startsWith("git:local-head:"))).toBe(
       false,
     );
+  });
+  it("persists authoritative remote divergence as a failed SHA mismatch", async () => {
+    const f = fixture();
+    f.git.remote = "b".repeat(40);
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const final = await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(final).toMatchObject({
+      state: "failed",
+      error: { code: "RESULT_REMOTE_SHA_MISMATCH" },
+      finalization: {
+        git: { remoteHeadSha: "b".repeat(40) },
+        reconciliation: { decisionCode: "RESULT_REMOTE_SHA_MISMATCH" },
+      },
+    });
+    const events =
+      f.files.values.get(
+        "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl",
+      ) ?? "";
+    expect(events).toContain("RESULT_REMOTE_SHA_MISMATCH");
+    expect(events).not.toContain("COMPLETION_PROVED");
+  });
+
+  it("persists an interrupted incomplete proof when the remote query fails", async () => {
+    const f = fixture();
+    f.git.remoteFailure = new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Authoritative remote query timed out.",
+      "Retry finalization.",
+    );
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const final = await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(final).toMatchObject({
+      state: "interrupted",
+      error: { code: "COMPLETION_PROOF_INCOMPLETE" },
+    });
+    expect(final.state).not.toBe("completed");
   });
 });
 

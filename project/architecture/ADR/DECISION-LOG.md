@@ -98,3 +98,4 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 60 | Expose all five terminal states in typed snapshots and status output | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
 | 61 | Append transition events before atomically replacing snapshots | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
 | 62 | Isolate completion observations behind typed deterministic adapters | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
+| 63 | Query issue-branch tips with bounded `git ls-remote --refs`, never tracking refs | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |

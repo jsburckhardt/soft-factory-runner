@@ -3,9 +3,16 @@ import * as fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { IssueFacts, RepositoryFacts, TmuxIdentity } from "./domain";
+import type {
+  IssueFacts,
+  RepositoryFacts,
+  RunSnapshotV2,
+  TmuxIdentity,
+} from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { createLivePorts } from "./live";
+import type { CommandResult, CommandRunner } from "./live";
+import { RunnerError } from "./errors";
 import { IssueRunService } from "./orchestrator";
 import type {
   FilePort,
@@ -387,6 +394,123 @@ describe("live completion pull-request proof", () => {
   });
 });
 
+class RecordingCommandRunner implements CommandRunner {
+  public readonly calls: Array<{
+    readonly executable: string;
+    readonly args: readonly string[];
+    readonly cwd: string;
+    readonly timeoutMs: number;
+    readonly shell: false | undefined;
+  }> = [];
+  public constructor(
+    private readonly result: CommandResult,
+    private readonly failure: RunnerError | null = null,
+  ) {}
+  public async run(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+    timeoutMs: number,
+    shell?: false,
+  ): Promise<CommandResult> {
+    this.calls.push({ executable, args, cwd, timeoutMs, shell });
+    if (this.failure !== null) throw this.failure;
+    return this.result;
+  }
+  public async runInherited(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+  ): Promise<CommandResult> {
+    return this.run(executable, args, cwd, 0, false);
+  }
+}
+
+describe("authoritative completion remote adapter", () => {
+  const branch = "feat/4-proof";
+  const ref = `refs/heads/${branch}`;
+  const authoritativeSha = "b".repeat(40);
+  const success = (stdout: string, exitCode = 0): CommandResult => ({
+    exitCode,
+    signal: null,
+    stdout,
+    stderr: exitCode === 0 ? "" : "query failed",
+  });
+
+  it("executes one exact bounded no-shell ls-remote query from the repository root", async () => {
+    const commands = new RecordingCommandRunner(
+      success(`${authoritativeSha}\t${ref}\n`),
+    );
+    await expect(
+      createLivePorts(commands).git.remoteBranchSha(
+        "/tmp/repository-root",
+        "origin",
+        branch,
+      ),
+    ).resolves.toBe(authoritativeSha);
+    expect(commands.calls).toEqual([
+      {
+        executable: "git",
+        args: ["ls-remote", "--refs", "origin", ref],
+        cwd: "/tmp/repository-root",
+        timeoutMs: 15_000,
+        shell: false,
+      },
+    ]);
+  });
+
+  it("treats a zero-record response as missing proof", async () => {
+    const commands = new RecordingCommandRunner(success(""));
+    await expect(
+      createLivePorts(commands).git.remoteBranchSha(
+        "/tmp/repository-root",
+        "origin",
+        branch,
+      ),
+    ).resolves.toBeNull();
+    expect(commands.calls).toHaveLength(1);
+  });
+
+  it.each([
+    ["command failure", success("", 2), null],
+    [
+      "timeout",
+      success(""),
+      new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        "git timed out after 15000ms.",
+        "Retry.",
+      ),
+    ],
+    ["malformed record", success(`not-a-sha\t${ref}\n`), null],
+    [
+      "truncated SHA",
+      success(`${authoritativeSha.slice(0, 39)}\t${ref}\n`),
+      null,
+    ],
+    ["non-full SHA length", success(`${"c".repeat(41)}\t${ref}\n`), null],
+    [
+      "duplicate records",
+      success(`${authoritativeSha}\t${ref}\n${authoritativeSha}\t${ref}\n`),
+      null,
+    ],
+    [
+      "wrong ref",
+      success(`${authoritativeSha}\trefs/heads/feat/wrong\n`),
+      null,
+    ],
+  ])("classifies %s as incomplete proof", async (_name, result, failure) => {
+    const commands = new RecordingCommandRunner(result, failure);
+    await expect(
+      createLivePorts(commands).git.remoteBranchSha(
+        "/tmp/repository-root",
+        "origin",
+        branch,
+      ),
+    ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
+    expect(commands.calls).toHaveLength(1);
+  });
+});
 describe("real filesystem and Git integration", () => {
   it("uses exclusive-create ownership so barrier-released starts create one resource set", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-lock-"));
@@ -512,6 +636,233 @@ describe("real filesystem and Git integration", () => {
       expect(worktree.startsWith(parent)).toBe(true);
       expect(worktree).not.toContain(
         "/workspaces/soft-factory-runner/.trees/3",
+      );
+    } finally {
+      await fs.rm(parent, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 20,
+      });
+    }
+  });
+  it("rejects stale tracking cache A after the actual remote advances to B and permits an authoritative control", async () => {
+    const parent = await fs.mkdtemp(
+      path.join(os.tmpdir(), "soft-factory-stale-remote-"),
+    );
+    const root = path.join(parent, "subject");
+    const remotePath = path.join(parent, "remote.git");
+    const writer = path.join(parent, "writer");
+    const branch = "feat/4-proof";
+    try {
+      await fs.mkdir(root);
+      await git(root, ["init", "-b", "main"]);
+      await git(root, ["config", "user.email", "fixture@example.invalid"]);
+      await git(root, ["config", "user.name", "Fixture"]);
+      await fs.writeFile(path.join(root, "README.md"), "SHA A\n");
+      await git(root, ["add", "README.md"]);
+      await git(root, ["commit", "-m", "chore: seed SHA A"]);
+      const shaA = await git(root, ["rev-parse", "HEAD"]);
+      await git(parent, ["init", "--bare", remotePath]);
+      await git(root, ["remote", "add", "origin", remotePath]);
+      await git(root, ["push", "-u", "origin", "main"]);
+      await git(parent, [
+        "--git-dir",
+        remotePath,
+        "symbolic-ref",
+        "HEAD",
+        "refs/heads/main",
+      ]);
+      await git(root, ["switch", "-c", branch]);
+      await git(root, ["push", "-u", "origin", branch]);
+      expect(
+        await git(root, ["rev-parse", `refs/remotes/origin/${branch}`]),
+      ).toBe(shaA);
+
+      await git(parent, ["clone", remotePath, writer]);
+      await git(writer, ["config", "user.email", "writer@example.invalid"]);
+      await git(writer, ["config", "user.name", "Writer"]);
+      await git(writer, ["switch", branch]);
+      await fs.writeFile(path.join(writer, "README.md"), "SHA B\n");
+      await git(writer, ["add", "README.md"]);
+      await git(writer, ["commit", "-m", "chore: advance to SHA B"]);
+      const shaB = await git(writer, ["rev-parse", "HEAD"]);
+      await git(writer, ["push", "origin", branch]);
+
+      const cachedSha = await git(root, [
+        "rev-parse",
+        `refs/remotes/origin/${branch}`,
+      ]);
+      expect(cachedSha).toBe(shaA);
+      expect(shaB).not.toBe(shaA);
+      const live = createLivePorts();
+      await expect(
+        live.git.remoteBranchSha(root, "origin", branch),
+      ).resolves.toBe(shaB);
+
+      const requiredAcceptanceCriteria = [
+        { id: "AC-1", text: "authoritative remote proof" },
+      ];
+      const snapshotFor = (updatedAt: string): RunSnapshotV2 => ({
+        schemaVersion: 2,
+        runId: "run-stale-remote",
+        ownerId: "owner-stale-remote",
+        repository: "owner/repo",
+        issueNumber: 4,
+        state: "running_rpiv",
+        branchType: "feat",
+        branch,
+        worktreePath: root,
+        fetchedBaseProof: {
+          schemaVersion: 1,
+          remote: "origin",
+          defaultBranch: "main",
+          advertisedHeadSha: shaA,
+          trackingRefSha: shaA,
+          fetchedAt: "2026-08-11T12:00:00.000Z",
+          matches: true,
+        },
+        tmux: {
+          sessionName: "sf-owner-repo",
+          windowName: "4",
+          windowId: "@4",
+          paneId: "%4",
+          cwd: root,
+        },
+        copilot: null,
+        error: null,
+        updatedAt,
+        requiredAcceptanceCriteria,
+        requiredValidations: [
+          { command: "just verify-focused" },
+          { command: "just verify" },
+        ],
+        finalization: null,
+      });
+      const resultFor = (headSha: string) => ({
+        schemaVersion: 1,
+        issueNumber: 4,
+        outcome: "succeeded",
+        branch,
+        headSha,
+        prNumber: 14,
+        acceptanceCriteria: [
+          { id: "AC-1", status: "verified", evidence: ["fixture:remote"] },
+        ],
+        validations: [
+          { command: "just verify-focused", status: "passed" },
+          { command: "just verify", status: "passed" },
+        ],
+        completedAt: "2026-08-11T12:01:00.000Z",
+      });
+      const stateDirectory = path.join(root, ".soft-factory");
+      const runPath = path.join(stateDirectory, "runs", "4.json");
+      const eventPath = path.join(stateDirectory, "events", "4.jsonl");
+      const resultDirectory = path.join(stateDirectory);
+      await fs.mkdir(path.dirname(runPath), { recursive: true });
+      await fs.mkdir(resultDirectory, { recursive: true });
+      await fs.writeFile(
+        path.join(resultDirectory, "agent-result.json"),
+        JSON.stringify(resultFor(shaA)),
+      );
+      await fs.writeFile(
+        runPath,
+        JSON.stringify(snapshotFor("2026-08-11T12:00:00.000Z")),
+      );
+
+      let expectedPrSha = shaA;
+      const repository: RepositoryFacts = {
+        root,
+        commonDirectory: path.join(root, ".git"),
+        identity: { nameWithOwner: "owner/repo", normalizedName: "owner-repo" },
+        remotes: ["origin"],
+        pushDefault: null,
+        currentBranchRemote: null,
+      };
+      const completionGit: GitPort = {
+        discover: async () => repository,
+        branchExists: (...args) => live.git.branchExists(...args),
+        registeredWorktreeExists: (...args) =>
+          live.git.registeredWorktreeExists(...args),
+        fetch: (...args) => live.git.fetch(...args),
+        advertisedHead: (...args) => live.git.advertisedHead(...args),
+        trackingSha: (...args) => live.git.trackingSha(...args),
+        localHeadSha: (...args) => live.git.localHeadSha(...args),
+        remoteBranchSha: (...args) => live.git.remoteBranchSha(...args),
+        createBranch: (...args) => live.git.createBranch(...args),
+        addWorktree: (...args) => live.git.addWorktree(...args),
+      };
+      const completionGithub: GitHubPort = {
+        loadIssue: async () => null,
+        loadPullRequest: async () => ({
+          number: 14,
+          state: "OPEN",
+          baseBranch: "main",
+          headBranch: branch,
+          headSha: expectedPrSha,
+          closesIssues: [4],
+          complete: true,
+        }),
+      };
+      let tick = 0;
+      const ports: RunnerPorts = {
+        files: new DiskFiles(),
+        git: completionGit,
+        github: completionGithub,
+        tmux: new CountingTmux(),
+        processes: unusedProcess,
+        clock: {
+          now: () => `2026-08-11T12:02:${String(tick++).padStart(2, "0")}.000Z`,
+        },
+        ids: {
+          nextOwnerId: () => "unused-owner",
+          nextRunId: () => "unused-run",
+        },
+      };
+
+      const divergent = await new IssueRunService(ports).runWorker(4, root);
+      expect(divergent).toMatchObject({
+        state: "failed",
+        finalization: {
+          git: { localHeadSha: shaA, remoteHeadSha: shaB },
+          reconciliation: { decisionCode: "RESULT_REMOTE_SHA_MISMATCH" },
+        },
+        error: { code: "RESULT_REMOTE_SHA_MISMATCH" },
+      });
+      const divergentEvents = await fs.readFile(eventPath, "utf8");
+      expect(divergentEvents).toContain("RESULT_REMOTE_SHA_MISMATCH");
+      expect(divergentEvents).not.toContain("COMPLETION_PROVED");
+      expect(
+        await git(root, ["rev-parse", `refs/remotes/origin/${branch}`]),
+      ).toBe(shaA);
+
+      await git(root, ["fetch", "origin", shaB]);
+      await git(root, ["reset", "--hard", shaB]);
+      expect(
+        await git(root, ["rev-parse", `refs/remotes/origin/${branch}`]),
+      ).toBe(shaA);
+      expectedPrSha = shaB;
+      await fs.writeFile(
+        path.join(resultDirectory, "agent-result.json"),
+        JSON.stringify(resultFor(shaB)),
+      );
+      await fs.writeFile(
+        runPath,
+        JSON.stringify(snapshotFor("2026-08-11T12:03:00.000Z")),
+      );
+      await fs.rm(eventPath, { force: true });
+
+      const control = await new IssueRunService(ports).runWorker(4, root);
+      expect(control).toMatchObject({
+        state: "completed",
+        finalization: {
+          git: { localHeadSha: shaB, remoteHeadSha: shaB },
+          reconciliation: { decisionCode: "COMPLETION_PROVED" },
+        },
+        error: null,
+      });
+      expect(await fs.readFile(eventPath, "utf8")).toContain(
+        "COMPLETION_PROVED",
       );
     } finally {
       await fs.rm(parent, {

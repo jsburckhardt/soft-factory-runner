@@ -74,12 +74,14 @@ All fields are required. Issue and PR numbers are positive; the SHA is full hexa
 
 A nonzero Copilot exit becomes `failed` and cannot be overridden by an artifact. A zero exit first persists `finalizing`; it is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
 
-- worktree `HEAD` and the selected remote issue-branch SHA;
+- worktree `HEAD` and the selected remote issue-branch SHA from one authoritative `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` query;
 - the reported pull request by number, including open state, expected base, head branch, head SHA, and closing-issue links;
 - every Runner-owned required acceptance ID as `verified` with evidence;
 - exactly one passed `just verify-focused` and `just verify` result.
 
 `completed` requires the complete conjunction: result issue and branch match the owned run; result SHA equals local HEAD, remote branch SHA, and PR head SHA; the open PR number/base/head match and closes the issue; all required acceptance and validation proof passes. Additional producer claims cannot replace a required fact.
+
+Remote completion proof runs once after RPIV exits, from the repository root, with executable `git`, argument array `ls-remote`, `--refs`, the selected remote, and exact issue-branch ref, no shell, and a 15-second timeout. It does not fetch, poll, or retry and never reads `refs/remotes/...`; readiness `FetchedBaseProofV1.trackingRefSha` remains separate cache-based ancestry proof. Exactly one full-SHA/exact-ref record is authoritative. Zero records are missing proof. Query failure, timeout, malformed or truncated output, duplicate records, and a wrong ref are incomplete proof and persist `interrupted` with `COMPLETION_PROOF_INCOMPLETE`. One valid advertised SHA that differs from result/local/PR evidence persists `failed` with `RESULT_REMOTE_SHA_MISMATCH`.
 
 A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub observation becomes `interrupted`. A valid unsuccessful result maps to its named terminal. A contradictory issue, branch, SHA, PR, acceptance result, or validation becomes `failed` with a stable comparison code. No rejection path persists or renders `completed`.
 
@@ -114,7 +116,7 @@ Human and `--json` status derive from the same snapshot facts and expose the sam
 
 ## Deterministic evidence fixtures
 
-`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/integration.test.ts` uses temporary Git roots and fake credential-free `gh` executables to prove local/remote SHA and complete PR parsing through normal application composition. Coverage remains at least 80% for statements, branches, functions, and lines.
+`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
 
 Run:
 
