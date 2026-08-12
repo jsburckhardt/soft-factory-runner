@@ -64,3 +64,65 @@ Passed all applicable categories against the committed behavior:
 ## Result
 
 All AC-1 through AC-13 passed. Issue #17 was updated and PR #18 was created. Only this verification summary and the generated verifier retro record are included in the verifier-only commit.
+
+
+---
+
+# Follow-up Verification — PRD Launch Form
+
+## Identity
+
+- Work item: `project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes`
+- Branch: `copilot-fix`
+- Verified implementation commit: `0a92b4b31606783b9603bf187773bb5d1191658f`
+- Merge base: `fe62db6fd66b3f73bb046b82f922b0fbdfe842fa`
+- Pull request: https://github.com/jsburckhardt/soft-factory-runner/pull/20
+- Pull request head at creation: `0a92b4b31606783b9603bf187773bb5d1191658f`
+- Issue #17 remained closed and was referenced without a closing keyword.
+
+## Handoff, Scope, Architecture, and Commit Review
+
+The exact `copilot-fix` branch and implementation SHA matched with a clean handoff tree. Only upstream `origin` was configured, and the fork branch independently advertised the exact SHA. The complete eight-file branch diff was reviewed: the PRD clarification, narrow documentation and Darwin fixture tests, follow-up plan/test/implementation evidence, and implementer retro are within approved follow-up scope. No production behavior, API, persistence, deployment, ADR, or core-component contract changed. The diff conforms to `ADR-260812-copilot-child-environment`, `CORE-COMPONENT-260812-copilot-child-environment-contract`, and `CORE-COMPONENT-260811-issue-run-orchestration`. The implementation commit is Conventional and contains the required Copilot co-author trailer.
+
+## Acceptance Decisions
+
+| ID | Status | Follow-up evidence |
+| --- | --- | --- |
+| AC-1 | Passed | Existing strict parser and V-1 prove the sole mapping, valid names, string values, and explicit empty values. |
+| AC-2 | Passed | Follow-up PRD complete runtime form and V-11 preserve the exact Copilot argument sequence. |
+| AC-3 | Passed | Both PRD forms retain Runner-owned resource attributes; V-3/V-4 prove precedence. |
+| AC-4 | Passed | V-1/V-3 prove absent and empty mapping baseline equivalence. |
+| AC-5 | Passed | PRD prefix/runtime context is exact; README and configuration/usage/operations guides remain accurate and V-9/V-11/V-12 pass. |
+| AC-6 | Passed | V-2 rejects all required invalid classes before launch with value-free diagnostics. |
+| AC-7 | Passed | V-4 and shell-free argument-array spawn prove literal transport. |
+| AC-8 | Passed | V-5 proves Copilot-only environment isolation. |
+| AC-9 | Passed | V-6 proves fresh corrected reads and zero rejected spawn. |
+| AC-10 | Passed | V-7 proves disjoint immutable concurrent launch maps. |
+| AC-11 | Passed | V-1 through V-8 provide the required deterministic scenario matrix. |
+| AC-12 | Passed | V-2/V-5 through V-8 prove sentinel confidentiality across required artifacts. |
+| AC-13 | Passed | Independent `just verify` passed all configured root gates with 19 suites and 249 tests. The approved follow-up test plan explicitly excludes harness checks. |
+
+## Documentation Review
+
+Passed. `PRD.md` now distinguishes the canonical short/prefix form from the complete actual runtime launch and matches committed command behavior. README, configuration examples, usage guidance, migration/no-impact notes, ADR/core-component architecture, recovery and Doctor operations, API/no-impact, and deployment/no-impact documentation were reviewed and remain accurate. No additional application-documentation change is required.
+
+## Validation Results
+
+- Root justfile exposes `verify-focused` and `verify`.
+- Independent `just verify`: passed, exit 0.
+- Lint, formatting, typecheck, 19 test suites / 249 tests, coverage, build, and `git diff --check`: passed.
+- Coverage: 87.67% statements, 82.32% branches, 93.99% functions, 89.44% lines.
+- No harness checks were run, as required by the approved follow-up V-13 plan.
+- GitHub PR #20 was created upstream with base `main` and head `szabta89:copilot-fix`.
+
+## Verifier Friction and Retro Harvest
+
+- Persisted verifier record: `.harness/records/retro/2026-08-12/015-issue-17-rpiv-verifier.md`.
+- The buffer was cleared only after schema 1.2 read-back confirmed agent, plan ID, both observations, fingerprints, and kept dispositions.
+- `harness retro insights` returned status `ok`, exit 0, schema `harness.retro-insights/v1`, and exact plan scope.
+- Harvest: 6 records, 27 entries, 4 agents, 0 malformed records, 0 unsupported versions, and 0 pending buffer entries.
+- `stash@{0}` was neither read nor modified.
+
+## Result
+
+All AC-1 through AC-13 passed independently. PR #20 was created from the verified implementation SHA. This follow-up verifier commit contains only this summary and the generated verifier retro record.
