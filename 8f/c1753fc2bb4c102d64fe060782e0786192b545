@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-12/013-issue-17-rpiv-verifier.md
+  s_80b07fef64e0b2::t_afced65c3cef36 1-6,9,14-16,24,29-30,32
+  s_80b07fef64e0b2::t_7c6fb207dd24f5 7-8,10-13,17-23,25-28,31,33
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/verify/summary.md
+  s_80b07fef64e0b2::t_e6ae157701e7c0 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8fc1753fc2bb4c102d64fe060782e0786192b545",
+  "prompts": {},
+  "sessions": {
+    "s_80b07fef64e0b2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_o1Zg4cWiytaWNaOlcJ3XKXWe",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
