@@ -4,6 +4,38 @@
 
 Implemented dependency-ordered tasks T-1 through T-8 on branch `feat/19-rpiv-progress-and-instructions`. This record provides implementation evidence only; final acceptance remains owned by Verify.
 
+## Latest Verify correction after `a92a056` — completed V3 legacy result compatibility
+
+### Compatibility design
+
+- Added explicit `LegacyAgentResultV1` and `LegacyFinalizationFactsV1` types for v2/v3 persistence instead of making `requiredFinalValidation` optional on the current result. `RunSnapshotV4` retains strict `FinalizationFactsV1` and current AgentResultV1 publication still uses the unchanged exact-key parser.
+- Snapshot parsing now selects the exact historical AgentResult shape only for v2/v3 finalization. A completed legacy result must contain one passed `just verify`; malformed shape, unsupported version, the current-only binding at a legacy boundary, and failed/missing legacy final validation all reject safely as `STATE_INVALID`. V4 snapshots containing the old shape remain invalid.
+- Migration removes legacy `requiredValidations`, fixes the sole snapshot requirement to `just verify`, and converts persisted legacy proof into a current binding with deterministic evidence reference `snapshot:v1-v3:agent-result.validations[just verify]`. It never reads current configuration and never interprets the retained focused entry as a requirement.
+- Recovery observes an immutable historical result through the legacy parser only when the snapshot version is v2/v3 or the migrated V4 persisted result carries the exact Runner-generated compatibility evidence. Current parsing is attempted first for V4, so no broad fallback weakens new snapshots or publication.
+- V1 remains readable and non-completable without acceptance migration. Completed V2 legacy persistence is directly readable; V2 and V3 share the same typed normalization path.
+
+### Acceptance evidence
+
+- **AC-11:** `src/recovery-persistence.test.ts` loads a completed base-valid V3 snapshot whose embedded result has the historical exact shape, proves the same shape is rejected in V4, and covers completed V2/V1 readability. `src/recovery-control.test.ts` migrates the completed V3 under both invalid and changed current configuration, obtains byte-equivalent normalized result/requirement facts, retains focused evidence only in supplementary `validations[]`, and observes the untouched historical artifact as `RESULT_MATCH`.
+- **AC-18:** Persistence negative controls reject unsupported legacy result versions, current-only fields at the legacy boundary, and failed/missing `just verify`; completion tests prove the current AgentResultV1 parser rejects the historical shape while deterministic legacy migration rejects non-migratable proof. Existing malformed/unknown state and recovery safety controls remain passing.
+
+### Changed files and documentation
+
+- Source: `src/domain.ts`, `src/completion.ts`, `src/persistence.ts`, `src/orchestrator.ts`, `src/reconciliation.ts`.
+- Tests: `src/completion.test.ts`, `src/recovery-persistence.test.ts`, `src/recovery-control.test.ts`, `src/documentation.test.ts`.
+- Documentation: `README.md`, `docs/rpiv-integration-contract.md`, and `docs/phase-3-recovery-operations.md` now precisely identify the historical result boundary, deterministic passed-`just verify` conversion, current-config independence, focused neutrality, and unchanged strict current/V4 contracts.
+- No ADR or core-component change was required because this restores their existing v1-v3 readability, sole-`just verify`, fail-safe, and strict-V4 decisions. No configuration option/default, network API, deployment procedure, or destructive migration changed.
+
+### Validation evidence
+
+- Targeted direct `just verify-focused src/recovery-persistence.test.ts src/recovery-control.test.ts src/completion.test.ts` passed 3 suites / 103 tests. The documentation-inclusive targeted rerun passed 4 suites / 124 tests.
+- Focused Harness envelope: `status: ok`, `scope: focused`, delegated `just verify-focused`, exit 0; 21 suites / 327 tests. Direct `just verify-focused` also passed 21 suites / 327 tests and diff hygiene.
+- The first full Harness run reached `format-check` and failed on four edited TypeScript files; after repository Prettier formatting, the required rerun returned `status: ok`, `scope: full`, delegated `just verify`, exit 0. Direct `just verify` passed lint, formatting, types, 21 suites / 327 tests, build, and diff hygiene with 88.04% statements, 83.48% branches, 94.44% functions, and 89.65% lines.
+
+### Friction evidence
+
+- `.harness/records/retro/2026-08-12/020-issue-19-rpiv-implementer-legacy-v3-compatibility.md` was scaffolded by Harness, written as schema 1.2 with the exact work-item plan ID and `rpiv-implementer` agent, read back with DL-001 through DL-005, then cleared with `cleared: 5`. Coordinator, Research, Plan, and Implement post-drain listings were empty; verifier observations were not listed or cleared.
+
 ## Verify rejection correction after `b321812`
 
 - **AC-3:** `validateDeclaredRecipe` now rejects a missing root `justfile` for both default `just verify` and configured recipes. Direct parser and new-run orchestration tests prove `CONFIG_INVALID` before lock, lease, snapshot, event, worktree, tmux, process, or other owned-resource mutation.

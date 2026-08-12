@@ -7,9 +7,14 @@ import type {
   CompletionGitFacts,
   CompletionPullRequestFacts,
   CompletionReconciliationV1,
+  LegacyAgentResultV1,
   RequiredAcceptanceCriterionV1,
   RequiredFinalValidationV1,
   TerminalState,
+} from "./domain";
+import {
+  DEFAULT_FINAL_VALIDATION,
+  LEGACY_FINAL_VALIDATION_EVIDENCE,
 } from "./domain";
 import { RunnerError } from "./errors";
 
@@ -131,6 +136,113 @@ export function parseAgentResult(text: string | null): AgentResultV1 {
     },
     completedAt: value.completedAt,
   };
+}
+
+export function parseLegacyAgentResult(
+  text: string | null,
+): LegacyAgentResultV1 {
+  if (text === null)
+    throw new RunnerError(
+      "RESULT_MISSING",
+      "The owned worktree has no legacy RPIV result artifact.",
+      "Preserve the legacy run and its result artifact before retrying.",
+    );
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (cause: unknown) {
+    throw invalidResult(
+      "Legacy RPIV result artifact is not valid JSON.",
+      cause,
+    );
+  }
+  if (isRecord(value) && value.schemaVersion !== 1)
+    throw new RunnerError(
+      "RESULT_VERSION_UNSUPPORTED",
+      "Legacy RPIV result artifact has an unsupported schema version.",
+      "Preserve the legacy run and migrate only a schemaVersion 1 result.",
+    );
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "schemaVersion",
+      "issueNumber",
+      "outcome",
+      "branch",
+      "headSha",
+      "prNumber",
+      "acceptanceCriteria",
+      "validations",
+      "completedAt",
+    ]) ||
+    value.schemaVersion !== 1 ||
+    !isPositiveInteger(value.issueNumber) ||
+    !OUTCOMES.includes(value.outcome as AgentOutcome) ||
+    !isNonemptyString(value.branch) ||
+    typeof value.headSha !== "string" ||
+    !SHA.test(value.headSha) ||
+    !isPositiveInteger(value.prNumber) ||
+    !Array.isArray(value.acceptanceCriteria) ||
+    !Array.isArray(value.validations) ||
+    typeof value.completedAt !== "string" ||
+    !ISO_TIME.test(value.completedAt) ||
+    !Number.isFinite(Date.parse(value.completedAt))
+  )
+    throw invalidResult(
+      "Legacy RPIV result artifact contains an invalid required field.",
+    );
+  const acceptanceCriteria = value.acceptanceCriteria.map(parseAcceptance);
+  const validations = value.validations.map(parseValidation);
+  requireUnique(
+    acceptanceCriteria.map((entry) => entry.id),
+    "acceptance criterion IDs",
+  );
+  requireUnique(
+    validations.map((entry) => entry.command),
+    "validation commands",
+  );
+  return {
+    schemaVersion: 1,
+    issueNumber: value.issueNumber as number,
+    outcome: value.outcome as AgentOutcome,
+    branch: value.branch as string,
+    headSha: value.headSha,
+    prNumber: value.prNumber as number,
+    acceptanceCriteria,
+    validations,
+    completedAt: value.completedAt,
+  };
+}
+
+export function migrateLegacyAgentResult(
+  result: LegacyAgentResultV1,
+): AgentResultV1 {
+  const finalValidation = result.validations.filter(
+    (entry) => entry.command === DEFAULT_FINAL_VALIDATION.command,
+  );
+  if (finalValidation.length !== 1 || finalValidation[0]?.status !== "passed")
+    throw invalidResult(
+      "Legacy RPIV completion does not contain one passed just verify result.",
+    );
+  return {
+    ...result,
+    requiredFinalValidation: {
+      command: DEFAULT_FINAL_VALIDATION.command,
+      status: "passed",
+      evidence: [LEGACY_FINAL_VALIDATION_EVIDENCE],
+    },
+  };
+}
+
+export function isMigratedLegacyAgentResult(result: AgentResultV1): boolean {
+  return (
+    result.requiredFinalValidation.command ===
+      DEFAULT_FINAL_VALIDATION.command &&
+    result.requiredFinalValidation.status === "passed" &&
+    result.requiredFinalValidation.evidence.length === 1 &&
+    result.requiredFinalValidation.evidence[0] ===
+      LEGACY_FINAL_VALIDATION_EVIDENCE
+  );
 }
 
 export function reconcileCompletion(

@@ -1,6 +1,18 @@
-import { parseAgentResult, reconcileCompletion } from "./completion";
-import type { AgentResultV1, RunSnapshotV2 } from "./domain";
-import { REQUIRED_VALIDATIONS } from "./domain";
+import {
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  parseLegacyAgentResult,
+  reconcileCompletion,
+} from "./completion";
+import type {
+  AgentResultV1,
+  LegacyAgentResultV1,
+  RunSnapshotV2,
+} from "./domain";
+import {
+  LEGACY_FINAL_VALIDATION_EVIDENCE,
+  REQUIRED_VALIDATIONS,
+} from "./domain";
 import { RunnerError } from "./errors";
 import { RunStore } from "./persistence";
 import type { FilePort } from "./ports";
@@ -32,6 +44,25 @@ const validResult: AgentResultV1 = {
     status: "passed",
     evidence: ["test:just-verify"],
   },
+  completedAt: "2026-08-11T12:00:00.000Z",
+};
+
+const legacyResult: LegacyAgentResultV1 = {
+  schemaVersion: 1,
+  issueNumber: 4,
+  outcome: "succeeded",
+  branch: "feat/4-proof",
+  headSha: sha,
+  prNumber: 14,
+  acceptanceCriteria: required.map(({ id }) => ({
+    id,
+    status: "verified",
+    evidence: [`test:${id}`],
+  })),
+  validations: [
+    { command: "just verify-focused", status: "passed" },
+    { command: "just verify", status: "passed" },
+  ],
   completedAt: "2026-08-11T12:00:00.000Z",
 };
 
@@ -147,6 +178,62 @@ describe("AgentResultV1", () => {
   it("strictly parses every required versioned result field", () => {
     expect(parseAgentResult(JSON.stringify(validResult))).toEqual(validResult);
   });
+  it("keeps legacy parsing explicit and current publication strict", () => {
+    expect(parseLegacyAgentResult(JSON.stringify(legacyResult))).toEqual(
+      legacyResult,
+    );
+    expect(() => parseAgentResult(JSON.stringify(legacyResult))).toThrow(
+      RunnerError,
+    );
+    const first = migrateLegacyAgentResult(legacyResult);
+    const second = migrateLegacyAgentResult(legacyResult);
+    expect(first).toEqual(second);
+    expect(first.requiredFinalValidation).toEqual({
+      command: "just verify",
+      status: "passed",
+      evidence: [LEGACY_FINAL_VALIDATION_EVIDENCE],
+    });
+    expect(first.validations).toContainEqual({
+      command: "just verify-focused",
+      status: "passed",
+    });
+  });
+
+  it.each([
+    ["unsupported version", { ...legacyResult, schemaVersion: 2 }],
+    [
+      "current-only required binding",
+      {
+        ...legacyResult,
+        requiredFinalValidation: validResult.requiredFinalValidation,
+      },
+    ],
+    [
+      "missing final validation",
+      {
+        ...legacyResult,
+        validations: legacyResult.validations.filter(
+          (entry) => entry.command !== "just verify",
+        ),
+      },
+    ],
+  ])("rejects legacy migration with %s", (_label, candidate) => {
+    if (
+      candidate.schemaVersion !== 1 ||
+      "requiredFinalValidation" in candidate
+    ) {
+      expect(() => parseLegacyAgentResult(JSON.stringify(candidate))).toThrow(
+        RunnerError,
+      );
+      return;
+    }
+    expect(() =>
+      migrateLegacyAgentResult(
+        parseLegacyAgentResult(JSON.stringify(candidate)),
+      ),
+    ).toThrow(RunnerError);
+  });
+
   it.each([
     ["missing", null, "RESULT_MISSING"],
     ["malformed", "{", "RESULT_INVALID"],

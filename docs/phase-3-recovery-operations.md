@@ -128,7 +128,7 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 
 ## Migration and upgrade notes
 
-- Valid `RunSnapshotV1`, `RunSnapshotV2`, and `RunSnapshotV3` remain readable; unknown versions are rejected. Supported legacy records use sole `just verify` and never reread current configuration.
+- Valid `RunSnapshotV1`, `RunSnapshotV2`, and `RunSnapshotV3` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation`, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
 - Legacy snapshots do not contain the complete v4 integration binding. They are never silently treated as v4 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
 - Existing version-1 events remain append-only history. A v2 event ahead of a legacy snapshot is not replayed because the prior revision cannot be proved.
 - New runs write schema v4 and event v2 with one immutable final-validation requirement. No destructive data migration or purge is performed.

@@ -1,5 +1,9 @@
 import path from "node:path";
-import { parseAgentResult } from "./completion";
+import {
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  parseLegacyAgentResult,
+} from "./completion";
 import type {
   ConcurrencyLeaseV1,
   IntegrationLaunchV1,
@@ -402,7 +406,9 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
     !isRequiredAcceptance(value.requiredAcceptanceCriteria) ||
     (value.schemaVersion !== 4 &&
       !isRequiredValidations(value.requiredValidations)) ||
-    !isFinalization(value.finalization)
+    (value.schemaVersion === 4
+      ? !isFinalization(value.finalization)
+      : !isLegacyFinalization(value.finalization, value.state))
   )
     return false;
   if (value.schemaVersion === 2) return true;
@@ -609,6 +615,31 @@ function isRpivStatus(value: unknown): boolean {
     typeof value.updatedAt === "string"
   );
 }
+function isLegacyFinalization(value: unknown, state: unknown): boolean {
+  if (value === null) return true;
+  if (
+    !isRecord(value) ||
+    !("result" in value) ||
+    !("git" in value) ||
+    !("pullRequest" in value) ||
+    !("reconciliation" in value)
+  )
+    return false;
+  if (value.result !== null) {
+    try {
+      const result = parseLegacyAgentResult(JSON.stringify(value.result));
+      if (state === "completed") migrateLegacyAgentResult(result);
+    } catch {
+      return false;
+    }
+  }
+  return (
+    isGitFacts(value.git) &&
+    isPullRequestFacts(value.pullRequest) &&
+    isReconciliation(value.reconciliation)
+  );
+}
+
 function isFinalization(value: unknown): boolean {
   if (value === null) return true;
   if (

@@ -1,6 +1,10 @@
 import path from "node:path";
 import { claimConcurrencySlot } from "./admission";
-import { parseAgentResult, reconcileCompletion } from "./completion";
+import {
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  reconcileCompletion,
+} from "./completion";
 import { parseConfiguration, renderPrompt } from "./config";
 import type {
   AgentResultV1,
@@ -1979,6 +1983,16 @@ function migrateLegacySnapshot(
     requiredFinalValidation,
   });
   const revision = snapshot.schemaVersion === 3 ? snapshot.revision + 1 : 1;
+  const finalization =
+    snapshot.finalization === null
+      ? null
+      : {
+          ...snapshot.finalization,
+          result:
+            snapshot.finalization.result === null
+              ? null
+              : migrateLegacyAgentResult(snapshot.finalization.result),
+        };
   const { requiredValidations: legacyValidations, ...base } = snapshot;
   void legacyValidations;
   return {
@@ -1995,6 +2009,7 @@ function migrateLegacySnapshot(
     logs: snapshot.schemaVersion === 3 ? snapshot.logs : [],
     mergedPullRequest:
       snapshot.schemaVersion === 3 ? snapshot.mergedPullRequest : null,
+    finalization,
     requiredFinalValidation,
     integrationLaunch: binding,
     progress: null,

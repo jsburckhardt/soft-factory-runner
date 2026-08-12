@@ -51,10 +51,16 @@ describe("V-11 Phase 3 operator documentation", () => {
       "missing root `justfile`",
       "strictly cross-checks launch run ID",
       "Every progress classification",
+      "exact historical AgentResult shape",
+      "only at the version-aware legacy persistence/recovery boundary",
+      "Current AgentResultV1 publication and v4 snapshot parsing still require the strict new shape",
     ])
       expect(integrationGuide).toContain(phrase);
     expect(readme).toContain("just run instructions --json");
     expect(readme).toContain("missing root file fails before ownership");
+    expect(readme).toContain(
+      "valid completed v2/v3 snapshots with the historical pre-binding AgentResult remain readable",
+    );
     expect(operations).toContain(
       "no progress classification changes completion, activity, decision code, safe actions, cleanup eligibility, ownership, recovery, or process control",
     );
@@ -190,6 +196,8 @@ describe("V-11 Phase 3 operator documentation", () => {
       "concurrency slot lease",
       "strictly parsed result artifact identity, content",
       "permission-denied process metadata",
+      "exact historical AgentResult parser only at the legacy boundary",
+      "historical result shape remains invalid for current publication and v4 snapshots",
     ])
       expect(operations).toContain(phrase);
     expect(issueRun).toContain("Phase 3 continuation");

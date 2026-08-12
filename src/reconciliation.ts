@@ -15,7 +15,12 @@ import type {
   TmuxIdentity,
   WorktreeObservationV1,
 } from "./domain";
-import { parseAgentResult } from "./completion";
+import {
+  isMigratedLegacyAgentResult,
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  parseLegacyAgentResult,
+} from "./completion";
 import { isRunnerError } from "./errors";
 import { RunStore } from "./persistence";
 import { classifyProgress } from "./integration";
@@ -155,11 +160,8 @@ export async function collectReconciliation(input: {
         return resultExpected
           ? absent<AgentResultV1>("RESULT_ABSENT")
           : notApplicable<AgentResultV1>("RESULT_NOT_REQUIRED");
-      const parsed = parseAgentResult(text);
-      const persistedResult =
-        persisted.schemaVersion === 1
-          ? null
-          : (persisted.finalization?.result ?? null);
+      const persistedResult = normalizedPersistedResult(persisted);
+      const parsed = parseObservedResult(text, persisted, persistedResult);
       const identityMatches =
         parsed.issueNumber === persisted.issueNumber &&
         parsed.branch === persisted.branch;
@@ -659,6 +661,36 @@ function sameOwner(actual: OwnerRecordV1, expected: OwnerRecordV1): boolean {
     actual.repository === expected.repository
   );
 }
+function normalizedPersistedResult(
+  snapshot: RunSnapshot,
+): AgentResultV1 | null {
+  if (snapshot.schemaVersion === 1 || snapshot.finalization?.result == null)
+    return null;
+  return snapshot.schemaVersion === 2 || snapshot.schemaVersion === 3
+    ? migrateLegacyAgentResult(snapshot.finalization.result)
+    : snapshot.finalization.result;
+}
+
+function parseObservedResult(
+  text: string,
+  snapshot: RunSnapshot,
+  persistedResult: AgentResultV1 | null,
+): AgentResultV1 {
+  if (snapshot.schemaVersion === 2 || snapshot.schemaVersion === 3)
+    return migrateLegacyAgentResult(parseLegacyAgentResult(text));
+  try {
+    return parseAgentResult(text);
+  } catch (cause: unknown) {
+    if (
+      snapshot.schemaVersion !== 4 ||
+      persistedResult === null ||
+      !isMigratedLegacyAgentResult(persistedResult)
+    )
+      throw cause;
+    return migrateLegacyAgentResult(parseLegacyAgentResult(text));
+  }
+}
+
 function completionHead(snapshot: RunSnapshot): string | null {
   return snapshot.schemaVersion !== 1
     ? (snapshot.finalization?.result?.headSha ?? null)

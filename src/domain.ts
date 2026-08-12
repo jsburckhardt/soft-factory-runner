@@ -219,7 +219,7 @@ export interface AgentValidationResultV1 {
   readonly status: "passed" | "failed";
 }
 
-export interface AgentResultV1 {
+export interface LegacyAgentResultV1 {
   readonly schemaVersion: 1;
   readonly issueNumber: number;
   readonly outcome: AgentOutcome;
@@ -228,12 +228,18 @@ export interface AgentResultV1 {
   readonly prNumber: number;
   readonly acceptanceCriteria: readonly AgentAcceptanceResultV1[];
   readonly validations: readonly AgentValidationResultV1[];
+  readonly completedAt: string;
+}
+
+export const LEGACY_FINAL_VALIDATION_EVIDENCE =
+  "snapshot:v1-v3:agent-result.validations[just verify]";
+
+export interface AgentResultV1 extends LegacyAgentResultV1 {
   readonly requiredFinalValidation: {
     readonly command: string;
     readonly status: "passed";
     readonly evidence: readonly string[];
   };
-  readonly completedAt: string;
 }
 
 export interface CompletionGitFacts {
@@ -267,6 +273,13 @@ export interface CompletionReconciliationV1 {
   readonly decisionCode: string;
 }
 
+export interface LegacyFinalizationFactsV1 {
+  readonly result: LegacyAgentResultV1 | null;
+  readonly git: CompletionGitFacts | null;
+  readonly pullRequest: CompletionPullRequestFacts | null;
+  readonly reconciliation: CompletionReconciliationV1 | null;
+}
+
 export interface FinalizationFactsV1 {
   readonly result: AgentResultV1 | null;
   readonly git: CompletionGitFacts | null;
@@ -279,7 +292,7 @@ export interface RunSnapshotV2 extends RunSnapshotBase {
   readonly state: RunState;
   readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
   readonly requiredValidations: readonly RequiredValidationV1[];
-  readonly finalization: FinalizationFactsV1 | null;
+  readonly finalization: LegacyFinalizationFactsV1 | null;
 }
 
 export interface RunSnapshotV3 extends RunSnapshotBase {
@@ -297,7 +310,7 @@ export interface RunSnapshotV3 extends RunSnapshotBase {
   readonly mergedPullRequest: MergedPullRequestFactsV1 | null;
   readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
   readonly requiredValidations: readonly RequiredValidationV1[];
-  readonly finalization: FinalizationFactsV1 | null;
+  readonly finalization: LegacyFinalizationFactsV1 | null;
 }
 
 export type RpivPhase =
@@ -350,9 +363,10 @@ export interface IntegrationLaunchV1 {
 }
 export interface RunSnapshotV4 extends Omit<
   RunSnapshotV3,
-  "schemaVersion" | "requiredValidations"
+  "schemaVersion" | "requiredValidations" | "finalization"
 > {
   readonly schemaVersion: 4;
+  readonly finalization: FinalizationFactsV1 | null;
   readonly requiredFinalValidation: RequiredFinalValidationV1;
   readonly integrationLaunch: IntegrationLaunchV1;
   readonly progress: RpivStatusV1 | null;
