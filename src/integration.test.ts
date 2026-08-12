@@ -6,11 +6,12 @@ import { promisify } from "node:util";
 import type {
   IssueFacts,
   RepositoryFacts,
-  RunSnapshotV2,
+  ProcessIdentityV1,
+  RunSnapshotV3,
   TmuxIdentity,
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
-import { createLivePorts } from "./live";
+import { createLivePorts, processObservationDisposition } from "./live";
 import type { CommandResult, CommandRunner } from "./live";
 import { RunnerError } from "./errors";
 import { IssueRunService } from "./orchestrator";
@@ -39,6 +40,7 @@ const issue: IssueFacts = {
 };
 
 class DiskFiles implements FilePort {
+  private temporaryCounter = 0;
   public async readText(filePath: string): Promise<string | null> {
     try {
       return await fs.readFile(filePath, "utf8");
@@ -61,6 +63,14 @@ class DiskFiles implements FilePort {
       throw cause;
     }
   }
+  public async list(directoryPath: string): Promise<readonly string[]> {
+    try {
+      return await fs.readdir(directoryPath);
+    } catch (cause: unknown) {
+      if (errorCode(cause) === "ENOENT") return [];
+      throw cause;
+    }
+  }
   public async exclusiveCreate(
     filePath: string,
     content: string,
@@ -76,13 +86,22 @@ class DiskFiles implements FilePort {
   }
   public async atomicWrite(filePath: string, content: string): Promise<void> {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
-    const temporary = `${filePath}.${Math.random()}.tmp`;
+    const temporary = `${filePath}.${++this.temporaryCounter}.tmp`;
     await fs.writeFile(temporary, content, { flag: "wx" });
     await fs.rename(temporary, filePath);
   }
   public async append(filePath: string, content: string): Promise<void> {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.appendFile(filePath, content);
+  }
+  public async compareAndDelete(
+    filePath: string,
+    expectedContent: string,
+  ): Promise<boolean> {
+    const actual = await this.readText(filePath);
+    if (actual !== expectedContent) return false;
+    await fs.unlink(filePath);
+    return true;
   }
 }
 
@@ -95,17 +114,29 @@ class BarrierGitHub implements GitHubPort {
   public async loadPullRequest(): Promise<null> {
     return null;
   }
-  public async loadIssue(): Promise<IssueFacts> {
+  public async loadMergedPullRequest(): Promise<null> {
+    return null;
+  }
+  public async loadIssue(
+    _repository: string,
+    issueNumber: number,
+  ): Promise<IssueFacts> {
     this.arrivals += 1;
     if (this.arrivals === 2) this.release?.();
     await this.barrier;
-    return issue;
+    return {
+      ...issue,
+      number: issueNumber,
+      title: `Concurrent run ${issueNumber}`,
+    };
   }
 }
 
 class CountingGit implements GitPort {
   public branches = 0;
   public worktrees = 0;
+  public readonly branchNames: string[] = [];
+  public readonly worktreePaths: string[] = [];
   public constructor(private readonly root: string) {}
   public async discover(): Promise<RepositoryFacts> {
     return {
@@ -123,6 +154,23 @@ class CountingGit implements GitPort {
   public async registeredWorktreeExists(): Promise<boolean> {
     return false;
   }
+  public async observeWorktree(_root: string, worktreePath: string) {
+    let pathExists = true;
+    try {
+      await fs.access(worktreePath);
+    } catch {
+      pathExists = false;
+    }
+    return {
+      pathExists,
+      registered: pathExists,
+      branch: pathExists ? "feat/3-concurrent-run" : null,
+      headSha: pathExists ? "a".repeat(40) : null,
+      staged: false,
+      unstaged: false,
+      untracked: false,
+    };
+  }
   public async fetch(): Promise<void> {}
   public async advertisedHead(): Promise<{
     readonly branch: string;
@@ -139,38 +187,92 @@ class CountingGit implements GitPort {
   public async remoteBranchSha(): Promise<string> {
     return "a".repeat(40);
   }
-  public async createBranch(): Promise<void> {
+  public async createBranch(_root: string, branch: string): Promise<void> {
     this.branches += 1;
+    this.branchNames.push(branch);
   }
-  public async addWorktree(): Promise<void> {
+  public async addWorktree(_root: string, worktreePath: string): Promise<void> {
     this.worktrees += 1;
+    this.worktreePaths.push(worktreePath);
+    await fs.mkdir(worktreePath, { recursive: true });
+  }
+  public async removeWorktree(
+    _root: string,
+    worktreePath: string,
+  ): Promise<void> {
+    await fs.rm(worktreePath, { recursive: true });
   }
 }
 
 class CountingTmux implements TmuxPort {
   public windows = 0;
+  public readonly identities: TmuxIdentity[] = [];
   public async createIssueWindow(input: {
     readonly sessionName: string;
     readonly windowName: string;
     readonly cwd: string;
   }): Promise<TmuxIdentity> {
     this.windows += 1;
-    return {
+    const identity = {
       sessionName: input.sessionName,
       windowName: input.windowName,
-      windowId: "@1",
-      paneId: "%1",
+      windowId: `@${input.windowName}`,
+      paneId: `%${input.windowName}`,
       cwd: input.cwd,
     };
+    this.identities.push(identity);
+    return identity;
   }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity> {
     return target;
   }
+  public async panePid(): Promise<number> {
+    return 100;
+  }
+  public async setRemainOnExit(): Promise<void> {}
+  public async capturePane() {
+    return { content: "", truncated: false };
+  }
+  public async restartWorker(): Promise<void> {}
+  public async removeWindow(): Promise<void> {}
   public async attach(): Promise<void> {}
 }
 
 const unusedProcess: ProcessPort = {
-  runCopilot: async () => ({ exitCode: 0 }),
+  spawnCopilot: async (input) => {
+    const identity: ProcessIdentityV1 = {
+      schemaVersion: 1,
+      pid: 101,
+      processGroupId: 101,
+      startToken: "1",
+      executable: "copilot",
+      args: input.args,
+      cwd: input.cwd,
+      launchedAt: input.launchedAt,
+      paneLineage: {
+        sessionName: input.pane.sessionName,
+        windowId: input.pane.windowId,
+        paneId: input.pane.paneId,
+        panePid: input.panePid,
+      },
+    };
+    return { identity, wait: async () => ({ exitCode: 0 }) };
+  },
+  identify: async (pid, paneLineage, launchedAt) => ({
+    schemaVersion: 1,
+    pid,
+    processGroupId: pid,
+    startToken: "worker",
+    executable: "/usr/bin/soft-factory",
+    args: ["internal", "run-agent"],
+    cwd: "/repo",
+    launchedAt,
+    paneLineage,
+  }),
+  observe: async () => null,
+  findLaunchCandidates: async () => [],
+  signalGroup: async () => undefined,
+  waitForExit: async () => true,
 };
 
 function errorCode(value: unknown): string | null {
@@ -217,6 +319,15 @@ process.stdout.write(JSON.stringify(response));
 `;
   await fs.writeFile(executable, script, { mode: 0o755 });
 }
+
+describe("live process observation classification", () => {
+  it("treats only missing proc entries as absent and permissions as unknown", () => {
+    expect(processObservationDisposition("ENOENT")).toBe("absent");
+    expect(processObservationDisposition("EACCES")).toBe("unknown");
+    expect(processObservationDisposition("EPERM")).toBe("unknown");
+    expect(processObservationDisposition(null)).toBe("unknown");
+  });
+});
 
 describe("live GitHub proof parsing", () => {
   const validIssueResponse = {
@@ -426,6 +537,50 @@ class RecordingCommandRunner implements CommandRunner {
   }
 }
 
+describe("merged pull-request source-head adapter", () => {
+  it("queries and parses immutable source head, merge time, and informational merge commit", async () => {
+    const commands = new RecordingCommandRunner({
+      exitCode: 0,
+      signal: null,
+      stdout: JSON.stringify({
+        number: 15,
+        state: "MERGED",
+        mergedAt: "2026-08-11T14:00:00.000Z",
+        headRefName: "feat/5-recovery",
+        headRefOid: "a".repeat(40),
+        mergeCommit: { oid: "b".repeat(40) },
+        closingIssuesReferences: [{ number: 5 }],
+      }),
+      stderr: "",
+    });
+    await expect(
+      createLivePorts(commands).github.loadMergedPullRequest("owner/repo", 15),
+    ).resolves.toEqual({
+      number: 15,
+      state: "MERGED",
+      mergedAt: "2026-08-11T14:00:00.000Z",
+      sourceBranch: "feat/5-recovery",
+      sourceHeadSha: "a".repeat(40),
+      mergeCommitSha: "b".repeat(40),
+      closesIssues: [5],
+      complete: true,
+    });
+    expect(commands.calls[0]).toMatchObject({
+      executable: "gh",
+      args: [
+        "pr",
+        "view",
+        "15",
+        "--repo",
+        "owner/repo",
+        "--json",
+        "number,state,mergedAt,headRefName,headRefOid,mergeCommit,closingIssuesReferences",
+      ],
+      timeoutMs: 15000,
+    });
+  });
+});
+
 describe("authoritative completion remote adapter", () => {
   const branch = "feat/4-proof";
   const ref = `refs/heads/${branch}`;
@@ -569,6 +724,166 @@ describe("real filesystem and Git integration", () => {
     }
   });
 
+  it("admits two distinct explicit issues into disjoint resource sets with capacity two", async () => {
+    for (let repetition = 0; repetition < 20; repetition += 1) {
+      const root = await fs.mkdtemp(
+        path.join(os.tmpdir(), "soft-factory-distinct-"),
+      );
+      try {
+        const files = new DiskFiles();
+        await files.atomicWrite(
+          path.join(root, ".soft-factory", "config.yml"),
+          "execution:\n  max_concurrent_runs: 2\n",
+        );
+        const github = new BarrierGitHub();
+        const repository = new CountingGit(root);
+        const tmux = new CountingTmux();
+        let id = 0;
+        const ports: RunnerPorts = {
+          files,
+          github,
+          git: repository,
+          tmux,
+          processes: unusedProcess,
+          clock: { now: () => "2026-08-11T00:00:00.000Z" },
+          ids: {
+            nextOwnerId: () => `owner-${++id}`,
+            nextRunId: () => `run-${++id}`,
+          },
+        };
+        const issueNumbers = [3, 4, 5] as const;
+        const results = await Promise.allSettled(
+          issueNumbers.map((issueNumber) =>
+            new IssueRunService(ports).run(issueNumber, root),
+          ),
+        );
+        const admitted = results.flatMap((entry) =>
+          entry.status === "fulfilled" ? [entry.value] : [],
+        );
+        expect(admitted.map((entry) => entry.admission?.slot).sort()).toEqual([
+          1, 2,
+        ]);
+        const refused = results.find((entry) => entry.status === "rejected");
+        expect(refused?.status).toBe("rejected");
+        if (refused?.status === "rejected")
+          expect(refused.reason).toMatchObject({
+            code: "CONCURRENCY_LIMIT_REACHED",
+          });
+        expect(new Set(repository.branchNames).size).toBe(2);
+        expect(new Set(repository.worktreePaths).size).toBe(2);
+        expect(
+          new Set(tmux.identities.map((entry) => entry.windowName)).size,
+        ).toBe(2);
+        expect(new Set(tmux.identities.map((entry) => entry.paneId)).size).toBe(
+          2,
+        );
+        expect(
+          tmux.identities.every(
+            (entry) => entry.sessionName === "sf-owner-repo",
+          ),
+        ).toBe(true);
+        const admittedIssues = new Set(
+          admitted.map((entry) => entry.issueNumber),
+        );
+        for (const issueNumber of issueNumbers) {
+          const expected = admittedIssues.has(issueNumber);
+          await expect(
+            files.exists(
+              path.join(root, ".soft-factory", "locks", `${issueNumber}.lock`),
+            ),
+          ).resolves.toBe(expected);
+          await expect(
+            files.exists(
+              path.join(root, ".soft-factory", "runs", `${issueNumber}.json`),
+            ),
+          ).resolves.toBe(expected);
+          await expect(
+            files.exists(
+              path.join(
+                root,
+                ".soft-factory",
+                "events",
+                `${issueNumber}.jsonl`,
+              ),
+            ),
+          ).resolves.toBe(expected);
+        }
+      } finally {
+        await fs.rm(root, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 20,
+        });
+      }
+    }
+  });
+
+  it("observes staged, unstaged, and untracked dirtiness and refuses forced worktree removal", async () => {
+    const parent = await fs.mkdtemp(
+      path.join(os.tmpdir(), "soft-factory-dirty-"),
+    );
+    const root = path.join(parent, "repository");
+    const worktreePath = path.join(parent, "owned-worktree");
+    try {
+      await fs.mkdir(root);
+      await git(root, ["init", "-b", "main"]);
+      await git(root, ["config", "user.email", "fixture@example.invalid"]);
+      await git(root, ["config", "user.name", "Fixture"]);
+      await fs.writeFile(path.join(root, "README.md"), "initial\n");
+      await git(root, ["add", "README.md"]);
+      await git(root, ["commit", "-m", "initial"]);
+      await git(root, [
+        "worktree",
+        "add",
+        "-b",
+        "feat/5-recovery",
+        worktreePath,
+      ]);
+      await fs.writeFile(path.join(worktreePath, "tracked.txt"), "staged\n");
+      await git(worktreePath, ["add", "tracked.txt"]);
+      await fs.writeFile(path.join(worktreePath, "tracked.txt"), "unstaged\n");
+      await fs.writeFile(
+        path.join(worktreePath, "untracked.txt"),
+        "untracked\n",
+      );
+      const live = createLivePorts();
+      await expect(
+        live.git.observeWorktree(root, worktreePath),
+      ).resolves.toMatchObject({
+        pathExists: true,
+        registered: true,
+        branch: "feat/5-recovery",
+        staged: true,
+        unstaged: true,
+        untracked: true,
+      });
+      await expect(
+        live.git.removeWorktree(root, worktreePath),
+      ).rejects.toMatchObject({
+        code: "EXTERNAL_COMMAND_FAILED",
+      });
+      await expect(
+        fs.readFile(path.join(worktreePath, "untracked.txt"), "utf8"),
+      ).resolves.toBe("untracked\n");
+      await git(worktreePath, ["reset", "--hard"]);
+      await git(worktreePath, ["clean", "-fd"]);
+      await expect(
+        live.git.removeWorktree(root, worktreePath),
+      ).resolves.toBeUndefined();
+      await expect(fs.access(worktreePath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await fs.rm(parent, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 20,
+      });
+    }
+  });
+
   it("creates the typed branch and worktree from the exact advertised and fetched SHA", async () => {
     const parent = await fs.mkdtemp(
       path.join(os.tmpdir(), "soft-factory-git-"),
@@ -703,8 +1018,10 @@ describe("real filesystem and Git integration", () => {
       const requiredAcceptanceCriteria = [
         { id: "AC-1", text: "authoritative remote proof" },
       ];
-      const snapshotFor = (updatedAt: string): RunSnapshotV2 => ({
-        schemaVersion: 2,
+      const snapshotFor = (updatedAt: string): RunSnapshotV3 => ({
+        schemaVersion: 3,
+        revision: 1,
+        attempt: 1,
         runId: "run-stale-remote",
         ownerId: "owner-stale-remote",
         repository: "owner/repo",
@@ -730,6 +1047,14 @@ describe("real filesystem and Git integration", () => {
           cwd: root,
         },
         copilot: null,
+        admission: null,
+        launchIntent: null,
+        workerProcess: null,
+        rpivProcess: null,
+        stop: null,
+        cleanup: null,
+        logs: [],
+        mergedPullRequest: null,
         error: null,
         updatedAt,
         requiredAcceptanceCriteria,
@@ -784,6 +1109,7 @@ describe("real filesystem and Git integration", () => {
         branchExists: (...args) => live.git.branchExists(...args),
         registeredWorktreeExists: (...args) =>
           live.git.registeredWorktreeExists(...args),
+        observeWorktree: (...args) => live.git.observeWorktree(...args),
         fetch: (...args) => live.git.fetch(...args),
         advertisedHead: (...args) => live.git.advertisedHead(...args),
         trackingSha: (...args) => live.git.trackingSha(...args),
@@ -791,6 +1117,7 @@ describe("real filesystem and Git integration", () => {
         remoteBranchSha: (...args) => live.git.remoteBranchSha(...args),
         createBranch: (...args) => live.git.createBranch(...args),
         addWorktree: (...args) => live.git.addWorktree(...args),
+        removeWorktree: (...args) => live.git.removeWorktree(...args),
       };
       const completionGithub: GitHubPort = {
         loadIssue: async () => null,
@@ -800,6 +1127,16 @@ describe("real filesystem and Git integration", () => {
           baseBranch: "main",
           headBranch: branch,
           headSha: expectedPrSha,
+          closesIssues: [4],
+          complete: true,
+        }),
+        loadMergedPullRequest: async () => ({
+          number: 14,
+          state: "OPEN",
+          mergedAt: null,
+          sourceBranch: branch,
+          sourceHeadSha: expectedPrSha,
+          mergeCommitSha: null,
           closesIssues: [4],
           complete: true,
         }),

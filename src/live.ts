@@ -6,9 +6,13 @@ import path from "node:path";
 import type {
   CompletionPullRequestFacts,
   IssueFacts,
+  LaunchIntentV1,
+  MergedPullRequestFactsV1,
+  ProcessIdentityV1,
   PullRequestFacts,
   RepositoryFacts,
   TmuxIdentity,
+  WorktreeObservationV1,
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
@@ -18,6 +22,7 @@ import type {
   GitPort,
   ProcessPort,
   RunnerPorts,
+  SpawnedProcessV1,
   TmuxPort,
 } from "./ports";
 
@@ -157,6 +162,14 @@ class NodeFilePort implements FilePort {
       throw fileFailure("inspect", filePath, cause);
     }
   }
+  public async list(directoryPath: string): Promise<readonly string[]> {
+    try {
+      return await fs.readdir(directoryPath);
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") return [];
+      throw fileFailure("enumerate", directoryPath, cause);
+    }
+  }
   public async exclusiveCreate(
     filePath: string,
     content: string,
@@ -205,6 +218,33 @@ class NodeFilePort implements FilePort {
       await fs.appendFile(filePath, content, { encoding: "utf8", mode: 0o600 });
     } catch (cause: unknown) {
       throw fileFailure("append", filePath, cause);
+    }
+  }
+  public async compareAndDelete(
+    filePath: string,
+    expectedContent: string,
+  ): Promise<boolean> {
+    let handle: fs.FileHandle;
+    try {
+      handle = await fs.open(filePath, "r");
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") return false;
+      throw fileFailure("open for compare-and-delete", filePath, cause);
+    }
+    try {
+      const actual = await handle.readFile("utf8");
+      if (actual !== expectedContent) return false;
+      const before = await handle.stat();
+      const current = await fs.stat(filePath);
+      if (before.dev !== current.dev || before.ino !== current.ino)
+        return false;
+      await fs.unlink(filePath);
+      return true;
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") return false;
+      throw fileFailure("compare-and-delete", filePath, cause);
+    } finally {
+      await handle.close();
     }
   }
 }
@@ -294,6 +334,63 @@ class LiveGitPort implements GitPort {
     return output
       .split(/\r?\n/)
       .some((line) => line === `worktree ${worktreePath}`);
+  }
+  public async observeWorktree(
+    repositoryRoot: string,
+    worktreePath: string,
+  ): Promise<WorktreeObservationV1> {
+    const output = await this.required(
+      ["worktree", "list", "--porcelain"],
+      repositoryRoot,
+      15_000,
+      "REPOSITORY_INVALID",
+    );
+    const blocks = output.split(/\r?\n\r?\n/);
+    const block = blocks.find((entry) =>
+      entry.split(/\r?\n/).includes(`worktree ${worktreePath}`),
+    );
+    let pathExists = true;
+    try {
+      await fs.access(worktreePath);
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") pathExists = false;
+      else throw fileFailure("inspect worktree", worktreePath, cause);
+    }
+    const lines = block?.split(/\r?\n/) ?? [];
+    const branchLine = lines.find((line) =>
+      line.startsWith("branch refs/heads/"),
+    );
+    const headLine = lines.find((line) => line.startsWith("HEAD "));
+    let staged = false;
+    let unstaged = false;
+    let untracked = false;
+    if (pathExists) {
+      const status = await this.required(
+        ["status", "--porcelain=v1", "--untracked-files=all"],
+        worktreePath,
+        15_000,
+        "EXTERNAL_COMMAND_FAILED",
+      );
+      for (const row of status.split(/\r?\n/).filter(Boolean)) {
+        if (row.startsWith("??")) untracked = true;
+        else {
+          if (row[0] !== " ") staged = true;
+          if (row[1] !== " ") unstaged = true;
+        }
+      }
+    }
+    return {
+      pathExists,
+      registered: block !== undefined,
+      branch:
+        branchLine === undefined
+          ? null
+          : branchLine.slice("branch refs/heads/".length),
+      headSha: headLine === undefined ? null : headLine.slice(5),
+      staged,
+      unstaged,
+      untracked,
+    };
   }
   public async fetch(repositoryRoot: string, remote: string): Promise<void> {
     const result = await this.commands.run(
@@ -416,6 +513,17 @@ class LiveGitPort implements GitPort {
   ): Promise<void> {
     await this.required(
       ["worktree", "add", worktreePath, branch],
+      repositoryRoot,
+      30_000,
+      "EXTERNAL_COMMAND_FAILED",
+    );
+  }
+  public async removeWorktree(
+    repositoryRoot: string,
+    worktreePath: string,
+  ): Promise<void> {
+    await this.required(
+      ["worktree", "remove", worktreePath],
       repositoryRoot,
       30_000,
       "EXTERNAL_COMMAND_FAILED",
@@ -587,6 +695,35 @@ class LiveGitHubPort implements GitHubPort {
     }
     return parseCompletionPullRequest(result.stdout);
   }
+  public async loadMergedPullRequest(
+    repository: string,
+    pullRequestNumber: number,
+  ): Promise<MergedPullRequestFactsV1 | null> {
+    const result = await this.commands.run(
+      "gh",
+      [
+        "pr",
+        "view",
+        String(pullRequestNumber),
+        "--repo",
+        repository,
+        "--json",
+        "number,state,mergedAt,headRefName,headRefOid,mergeCommit,closingIssuesReferences",
+      ],
+      process.cwd(),
+      15_000,
+    );
+    if (result.exitCode !== 0) {
+      if (/not found|could not resolve/i.test(result.stderr)) return null;
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Pull-request merge query failed.",
+        "Restore complete GitHub access and retry reconciliation.",
+        { details: { stderr: redact(result.stderr) } },
+      );
+    }
+    return parseMergedPullRequest(result.stdout);
+  }
 }
 
 class LiveTmuxPort implements TmuxPort {
@@ -666,13 +803,15 @@ class LiveTmuxPort implements TmuxPort {
         "tmux returned malformed window identity.",
         "Upgrade tmux and retry after preserving existing resources.",
       );
-    return {
+    const identity = {
       sessionName: input.sessionName,
       windowName: input.windowName,
       windowId,
       paneId,
       cwd: input.cwd,
     };
+    await this.setRemainOnExit(identity);
+    return identity;
   }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
     const result = await this.commands.run(
@@ -704,6 +843,91 @@ class LiveTmuxPort implements TmuxPort {
       cwd,
     };
   }
+  public async panePid(target: TmuxIdentity): Promise<number | null> {
+    const result = await this.commands.run(
+      "tmux",
+      ["display-message", "-p", "-t", target.paneId, "#{pane_pid}"],
+      target.cwd,
+      15_000,
+    );
+    if (result.exitCode !== 0) return null;
+    const value = result.stdout.trim();
+    if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)))
+      throw new RunnerError(
+        "TMUX_TARGET_MISMATCH",
+        "tmux returned a malformed pane process identity.",
+        "Preserve the pane and reconcile it before process control.",
+      );
+    return Number(value);
+  }
+  public async setRemainOnExit(target: TmuxIdentity): Promise<void> {
+    const result = await this.commands.run(
+      "tmux",
+      [
+        "set-window-option",
+        "-t",
+        `${target.sessionName}:${target.windowName}`,
+        "remain-on-exit",
+        "on",
+      ],
+      target.cwd,
+      15_000,
+    );
+    if (result.exitCode !== 0)
+      throw commandFailure("tmux remain-on-exit configuration", result);
+  }
+  public async capturePane(
+    target: TmuxIdentity,
+    maxBytes: number,
+  ): Promise<{ readonly content: string; readonly truncated: boolean }> {
+    const result = await this.commands.run(
+      "tmux",
+      ["capture-pane", "-p", "-S", "-", "-t", target.paneId],
+      target.cwd,
+      15_000,
+    );
+    if (result.exitCode !== 0)
+      throw commandFailure("tmux pane capture", result);
+    const bytes = Buffer.from(redact(result.stdout), "utf8");
+    const truncated = bytes.byteLength > maxBytes;
+    const selected = truncated
+      ? bytes.subarray(bytes.byteLength - maxBytes)
+      : bytes;
+    return { content: selected.toString("utf8"), truncated };
+  }
+  public async restartWorker(
+    target: TmuxIdentity,
+    executable: string,
+    args: readonly string[],
+  ): Promise<void> {
+    const result = await this.commands.run(
+      "tmux",
+      [
+        "respawn-pane",
+        "-k",
+        "-t",
+        target.paneId,
+        "-c",
+        target.cwd,
+        executable,
+        ...args,
+      ],
+      target.cwd,
+      15_000,
+    );
+    if (result.exitCode !== 0)
+      throw commandFailure("tmux worker restart", result);
+  }
+  public async removeWindow(target: TmuxIdentity): Promise<void> {
+    const result = await this.commands.run(
+      "tmux",
+      ["kill-window", "-t", `${target.sessionName}:${target.windowName}`],
+      target.cwd,
+      15_000,
+    );
+    if (result.exitCode !== 0)
+      throw commandFailure("tmux window removal", result);
+  }
   public async attach(target: TmuxIdentity): Promise<void> {
     const selected = await this.commands.run(
       "tmux",
@@ -730,20 +954,30 @@ class LiveTmuxPort implements TmuxPort {
 }
 
 class LiveProcessPort implements ProcessPort {
-  public runCopilot(input: {
+  public spawnCopilot(input: {
     readonly executable: "copilot";
     readonly args: readonly string[];
     readonly cwd: string;
     readonly environment: Readonly<Record<string, string>>;
-  }): Promise<{ readonly exitCode: number }> {
+    readonly pane: TmuxIdentity;
+    readonly panePid: number;
+    readonly launchedAt: string;
+  }): Promise<SpawnedProcessV1> {
     return new Promise((resolve, reject) => {
       const child = spawn(input.executable, input.args, {
         cwd: input.cwd,
         shell: false,
+        detached: true,
         stdio: "inherit",
         env: { ...allowedEnvironment(), ...input.environment },
       });
-      child.on("error", (cause: Error) =>
+      const completion = new Promise<{ readonly exitCode: number }>(
+        (complete) =>
+          child.on("close", (exitCode) =>
+            complete({ exitCode: exitCode ?? 1 }),
+          ),
+      );
+      child.once("error", (cause: Error) =>
         reject(
           new RunnerError(
             "EXTERNAL_COMMAND_FAILED",
@@ -753,8 +987,129 @@ class LiveProcessPort implements ProcessPort {
           ),
         ),
       );
-      child.on("close", (exitCode) => resolve({ exitCode: exitCode ?? 1 }));
+      child.once("spawn", () => {
+        const pid = child.pid;
+        if (pid === undefined) {
+          reject(
+            new RunnerError(
+              "EXTERNAL_COMMAND_FAILED",
+              "Copilot started without an observable process identifier.",
+              "Preserve the pane and retry only after process identity can be observed.",
+            ),
+          );
+          return;
+        }
+        void readProcessIdentity(
+          pid,
+          {
+            sessionName: input.pane.sessionName,
+            windowId: input.pane.windowId,
+            paneId: input.pane.paneId,
+            panePid: input.panePid,
+          },
+          input.launchedAt,
+        ).then(
+          (identity) => {
+            if (identity === null) {
+              reject(
+                new RunnerError(
+                  "EXTERNAL_COMMAND_FAILED",
+                  "Copilot process identity disappeared before it could be persisted.",
+                  "Inspect retained terminal evidence before retrying.",
+                ),
+              );
+              return;
+            }
+            resolve({ identity, wait: () => completion });
+          },
+          (cause: unknown) => reject(cause),
+        );
+      });
     });
+  }
+
+  public async identify(
+    pid: number,
+    paneLineage: ProcessIdentityV1["paneLineage"],
+    launchedAt: string,
+  ): Promise<ProcessIdentityV1 | null> {
+    return readProcessIdentity(pid, paneLineage, launchedAt);
+  }
+
+  public async observe(
+    identity: ProcessIdentityV1,
+  ): Promise<ProcessIdentityV1 | null> {
+    return this.identify(
+      identity.pid,
+      identity.paneLineage,
+      identity.launchedAt,
+    );
+  }
+
+  public async findLaunchCandidates(
+    intent: LaunchIntentV1,
+  ): Promise<readonly ProcessIdentityV1[]> {
+    const entries = await fs.readdir("/proc");
+    const candidates: ProcessIdentityV1[] = [];
+    for (const entry of entries) {
+      if (!/^[1-9]\d*$/.test(entry)) continue;
+      const pid = Number(entry);
+      if (!(await isDescendant(pid, intent.panePid))) continue;
+      const identity = await readProcessIdentity(
+        pid,
+        {
+          sessionName: intent.pane.sessionName,
+          windowId: intent.pane.windowId,
+          paneId: intent.pane.paneId,
+          panePid: intent.panePid,
+        },
+        intent.recordedAt,
+      );
+      if (
+        identity !== null &&
+        identity.cwd === intent.cwd &&
+        sameStringArray(identity.args, intent.args) &&
+        path.basename(identity.executable) === intent.executable
+      )
+        candidates.push(identity);
+    }
+    return candidates;
+  }
+
+  public async signalGroup(
+    identity: ProcessIdentityV1,
+    signal: "SIGTERM" | "SIGKILL",
+  ): Promise<void> {
+    const observed = await this.observe(identity);
+    if (observed === null || !sameProcessIdentity(observed, identity)) {
+      throw new RunnerError(
+        "PROCESS_IDENTITY_MISMATCH",
+        "Refusing to signal a process group whose identity no longer matches.",
+        "Reconcile the recorded PID, start token, command, cwd, and pane lineage.",
+      );
+    }
+    try {
+      process.kill(-identity.processGroupId, signal);
+    } catch (cause: unknown) {
+      throw new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        `Could not send ${signal} to the exact RPIV process group.`,
+        "Inspect the process identity and retry stop safely.",
+        { cause },
+      );
+    }
+  }
+
+  public async waitForExit(
+    identity: ProcessIdentityV1,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() <= deadline) {
+      if ((await this.observe(identity)) === null) return true;
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+    return (await this.observe(identity)) === null;
   }
 }
 
@@ -813,6 +1168,113 @@ function incompleteRemoteProof(
     },
   );
 }
+async function readProcessIdentity(
+  pid: number,
+  paneLineage: ProcessIdentityV1["paneLineage"],
+  launchedAt: string,
+): Promise<ProcessIdentityV1 | null> {
+  try {
+    const [stat, executable, cwd, commandLine] = await Promise.all([
+      fs.readFile(`/proc/${pid}/stat`, "utf8"),
+      fs.readlink(`/proc/${pid}/exe`),
+      fs.readlink(`/proc/${pid}/cwd`),
+      fs.readFile(`/proc/${pid}/cmdline`),
+    ]);
+    const parsed = parseProcStat(stat);
+    const argv = commandLine.toString("utf8").split("\0").filter(Boolean);
+    return {
+      schemaVersion: 1,
+      pid,
+      processGroupId: parsed.processGroupId,
+      startToken: parsed.startToken,
+      executable,
+      args: argv.slice(1),
+      cwd,
+      launchedAt,
+      paneLineage,
+    };
+  } catch (cause: unknown) {
+    const code = nodeErrorCode(cause);
+    if (processObservationDisposition(code) === "absent") return null;
+    throw fileFailure("observe process identity", `/proc/${pid}`, cause);
+  }
+}
+
+function parseProcStat(value: string): {
+  readonly parentPid: number;
+  readonly processGroupId: number;
+  readonly startToken: string;
+} {
+  const closing = value.lastIndexOf(")");
+  const fields =
+    closing < 0
+      ? []
+      : value
+          .slice(closing + 1)
+          .trim()
+          .split(/\s+/);
+  const parentPid = Number(fields[1]);
+  const processGroupId = Number(fields[2]);
+  const startToken = fields[19];
+  if (
+    !Number.isSafeInteger(parentPid) ||
+    !Number.isSafeInteger(processGroupId) ||
+    processGroupId <= 0 ||
+    startToken === undefined ||
+    !/^\d+$/.test(startToken)
+  ) {
+    throw new RunnerError(
+      "EXTERNAL_COMMAND_FAILED",
+      "The operating system returned malformed process identity facts.",
+      "Restore readable process metadata before recovery or control.",
+    );
+  }
+  return { parentPid, processGroupId, startToken };
+}
+
+async function isDescendant(
+  pid: number,
+  ancestorPid: number,
+): Promise<boolean> {
+  let current = pid;
+  const visited = new Set<number>();
+  while (current > 1 && !visited.has(current)) {
+    if (current === ancestorPid) return pid !== ancestorPid;
+    visited.add(current);
+    try {
+      const stat = await fs.readFile(`/proc/${current}/stat`, "utf8");
+      current = parseProcStat(stat).parentPid;
+    } catch (cause: unknown) {
+      const code = nodeErrorCode(cause);
+      if (processObservationDisposition(code) === "absent") return false;
+      throw fileFailure("observe process ancestry", `/proc/${current}`, cause);
+    }
+  }
+  return false;
+}
+
+export function processObservationDisposition(
+  code: string | null,
+): "absent" | "unknown" {
+  return code === "ENOENT" ? "absent" : "unknown";
+}
+
+function sameStringArray(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => entry === right[index])
+  );
+}
+function sameProcessIdentity(
+  left: ProcessIdentityV1,
+  right: ProcessIdentityV1,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function allowedEnvironment(): NodeJS.ProcessEnv {
   const keys = [
     "PATH",
@@ -1050,6 +1512,66 @@ function parseBlockers(text: string): {
   return {
     open,
     complete: !blockedBy.pageInfo.hasNextPage,
+  };
+}
+
+function parseMergedPullRequest(text: string): MergedPullRequestFactsV1 {
+  const value = parseObject(text, "Merged pull request");
+  const state = requireString(value, "state");
+  if (state !== "OPEN" && state !== "CLOSED" && state !== "MERGED")
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request merge state was unsupported.",
+      "Retry with compatible gh output.",
+    );
+  const closing = value.closingIssuesReferences;
+  if (!Array.isArray(closing))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request closing issues were incomplete.",
+      "Retry with complete gh output.",
+    );
+  const closesIssues = closing.map((entry, index) => {
+    if (
+      !isRecord(entry) ||
+      !Number.isSafeInteger(entry.number) ||
+      (entry.number as number) <= 0
+    )
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        `Pull-request closing issue ${index + 1} was malformed.`,
+        "Retry with complete gh output.",
+      );
+    return entry.number as number;
+  });
+  const sourceHeadSha = requireString(value, "headRefOid");
+  if (!/^[0-9a-f]{40,64}$/.test(sourceHeadSha))
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request source-head SHA was malformed.",
+      "Retry with complete immutable source-head output.",
+    );
+  const mergeCommit = value.mergeCommit;
+  const mergeCommitSha =
+    isRecord(mergeCommit) && typeof mergeCommit.oid === "string"
+      ? mergeCommit.oid
+      : null;
+  const mergedAt = value.mergedAt;
+  if (mergedAt !== null && typeof mergedAt !== "string")
+    throw new RunnerError(
+      "COMPLETION_PROOF_INCOMPLETE",
+      "Pull-request merged time was malformed.",
+      "Retry with complete merge output.",
+    );
+  return {
+    number: requireNumber(value, "number"),
+    state,
+    mergedAt,
+    sourceBranch: requireString(value, "headRefName"),
+    sourceHeadSha,
+    mergeCommitSha,
+    closesIssues,
+    complete: true,
   };
 }
 

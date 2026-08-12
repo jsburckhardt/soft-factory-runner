@@ -44,6 +44,12 @@ class MemoryFiles implements FilePort {
   public async exists(filePath: string): Promise<boolean> {
     return this.values.has(filePath);
   }
+  public async list(directoryPath: string): Promise<readonly string[]> {
+    const prefix = `${directoryPath}/`;
+    return [...this.values.keys()]
+      .filter((entry) => entry.startsWith(prefix))
+      .map((entry) => entry.slice(prefix.length).split("/")[0]);
+  }
   public async exclusiveCreate(
     filePath: string,
     content: string,
@@ -61,6 +67,14 @@ class MemoryFiles implements FilePort {
     this.trace.push("event");
     if (this.failAppend) throw new Error("append failed");
     this.values.set(filePath, (this.values.get(filePath) ?? "") + content);
+  }
+  public async compareAndDelete(
+    filePath: string,
+    expectedContent: string,
+  ): Promise<boolean> {
+    if (this.values.get(filePath) !== expectedContent) return false;
+    this.values.delete(filePath);
+    return true;
   }
 }
 

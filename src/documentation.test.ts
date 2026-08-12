@@ -3,123 +3,168 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(__dirname, "..");
-const guide = fs.readFileSync(
-  path.join(root, "docs", "phase-1-issue-run.md"),
-  "utf8",
-);
-const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+const read = (relative: string) =>
+  fs.readFileSync(path.join(root, relative), "utf8");
+const readme = read("README.md");
+const docsIndex = read("docs/README.md");
+const issueRun = read("docs/phase-1-issue-run.md");
+const operations = read("docs/phase-3-recovery-operations.md");
 
-describe("Phase 2 operator documentation", () => {
-  it("documents commands, configuration, artifact schema, and command authority", () => {
+describe("V-11 Phase 3 operator documentation", () => {
+  it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {
+    for (const command of [
+      "run --issue <positive-integer> [--json]",
+      "reconcile <positive-integer> [--json]",
+      "resume <positive-integer> [--json]",
+      "stop <positive-integer> [--json]",
+      "clean <positive-integer> [--json]",
+      "list [--json]",
+      "status <positive-integer> [--json]",
+      "attach <positive-integer>",
+      "logs <positive-integer> [--json]",
+    ])
+      expect(operations).toContain(`just run ${command}`);
     for (const phrase of [
-      "just run run --issue <positive-integer> [--json]",
-      "just run status <positive-integer> [--json]",
-      "just run attach <positive-integer>",
-      "repository.remote",
-      "repository.base_branch",
-      "feature: feat",
-      "FetchedBaseProofV1",
-      "AgentResultV1",
-      "agent-result.json",
-      "issueNumber",
-      "outcome",
-      "branch",
-      "headSha",
-      "prNumber",
-      "acceptanceCriteria",
-      "validations",
-      "completedAt",
+      "Human and JSON",
+      "observation states/codes/facts",
+      "shared reconciliation report",
+      "persisted state",
+      "outcome code",
+      "safe actions",
+      "remediation",
+      "exit 2",
+      "exit 3",
+      "exit 4",
+      "idempotent",
       "just verify-focused",
       "just verify",
     ])
-      expect(guide).toContain(phrase);
-    expect(readme).toContain("just run --help");
-    expect(readme).toContain("just run run --issue 3");
-    expect(readme).toContain("agent-result.json");
+      expect(operations).toContain(phrase);
+    expect(readme).toContain("just run reconcile 5 --json");
+    expect(docsIndex).toContain("Phase 3 recovery and concurrency operations");
     expect(readme).not.toMatch(/^soft-factory\s/m);
-    expect(guide).not.toMatch(/^soft-factory\s/m);
+    expect(operations).not.toMatch(/^soft-factory\s/m);
   });
 
-  it("documents persistence, terminal states, conjunction, rejection matrix, and deferrals", () => {
+  it("documents strict explicit concurrency configuration without issue selection", () => {
     for (const phrase of [
+      "execution.max_concurrent_runs",
+      "strict positive safe integer",
+      "defaults to `1`",
+      "Unknown leases consume capacity",
+      "Reducing the configured limit",
+      "CONCURRENCY_LIMIT_REACHED",
+      "does not queue, rank, query for, or automatically select another issue",
+      ".soft-factory/concurrency/slots/<slot>.lock",
+    ])
+      expect(operations).toContain(phrase);
+    expect(readme).toContain("max_concurrent_runs: 2");
+  });
+
+  it("documents recovery, exact process identity, resume decisions, and migration", () => {
+    for (const phrase of [
+      "RunSnapshotV3",
+      "TransitionEventV2",
+      "complete, contiguous",
+      "STATE_HISTORY_INVALID",
+      "PID",
+      "process-group ID",
+      "OS start token",
+      "exact argument vector",
+      "tmux pane lineage",
+      "active_preserved",
+      "exactly one matching pane descendant",
+      "ACTIVE_PRESERVED",
+      "COMPLETED_NOOP",
+      "RESUME_REFUSED",
+      "RunSnapshotV1",
       "RunSnapshotV2",
-      "event append failure",
-      "legacy snapshot",
-      "`completed`",
-      "`failed`",
-      "`blocked`",
-      "`cancelled`",
-      "`interrupted`",
-      "local HEAD",
-      "remote branch SHA",
-      "open PR",
-      "closes the issue",
-      "every isolated mismatch",
-      "RESULT_MISSING",
-      "COMPLETION_PROOF_INCOMPLETE",
-      "Restart recovery",
-      "resume",
-      "stop mechanics",
-      "cleanup",
-      "multiple-issue scheduling",
-      "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
-      "/workspaces/soft-factory-runner/.trees/3",
+      "never silently treated as v3",
+      "concurrency slot lease",
+      "strictly parsed result artifact identity and content",
+      "permission-denied process metadata",
     ])
-      expect(guide).toContain(phrase);
-    expect(guide).not.toContain(
-      "zero Copilot exit is **`interrupted`**, never `completed`",
+      expect(operations).toContain(phrase);
+    expect(issueRun).toContain("Phase 3 continuation");
+    expect(issueRun).not.toContain("## Remaining Prototype 3 deferrals");
+    expect(issueRun).not.toContain("operator cancellation control is deferred");
+    expect(issueRun).not.toContain(
+      "Only an explicit version 2 transition can carry required evidence",
     );
-    expect(readme).not.toContain("until a later completion protocol exists");
   });
 
-  it("names authoritative remote proof, incomplete classifications, and stale-cache divergence", () => {
-    const command =
-      "git ls-remote --refs <selected-remote> refs/heads/<issue-branch>";
-    expect(readme).toContain(command);
-    expect(guide).toContain(command);
+  it("documents stop bounds, retained evidence, guarded cleanup, and merge-source proof", () => {
     for (const phrase of [
-      "15-second timeout",
-      "no shell",
-      "never reads `refs/remotes/...`",
-      "Zero records are missing proof",
-      "duplicate records",
-      "wrong ref",
-      "COMPLETION_PROOF_INCOMPLETE",
-      "RESULT_REMOTE_SHA_MISMATCH",
-      "stale-cache divergence fixture",
-      "SHA A",
-      "SHA B",
+      "`SIGTERM`",
+      "10 seconds",
+      "`SIGKILL`",
+      "5 additional seconds",
+      "remain-on-exit",
+      "2 MiB",
+      ".soft-factory/logs/<issue>/<attempt>.log",
+      "staged, unstaged, and untracked",
+      "no `--force` bypass",
+      "non-forced `git worktree remove`",
+      "CLOSED-unmerged",
+      "immutable PR source head",
+      "merge-commit SHA is informational",
+      "deleted remote issue branch",
+      "retains tmux, local branch, snapshot, events, and logs",
+      "completed steps",
+      "remaining steps",
+      "STOP_PROCESS_STILL_ACTIVE",
+      "retain its process identity, running state, issue lock, slot lease",
+      "same owner and run",
+      "same-owner/run record",
+      "inject snapshot failure after every cleanup step",
+      "refuse unrelated replacements",
     ])
-      expect(guide).toContain(phrase);
-    expect(readme).toContain("RESULT_REMOTE_SHA_MISMATCH");
-    expect(guide).not.toContain("tracking ref is fresh completion proof");
+      expect(operations).toContain(phrase);
   });
-  it("executes documented commands through the root justfile without a global binary", () => {
+
+  it("documents local deployment limitations and no API impact", () => {
+    for (const phrase of [
+      "short-lived local CLI",
+      "no long-running daemon",
+      "network service/API deployment",
+      "next reconciliation-capable",
+      "no network API contract",
+      "API migration is not applicable",
+    ])
+      expect(operations).toContain(phrase);
+    expect(docsIndex).toContain(
+      "API reference documentation is therefore not applicable",
+    );
+  });
+
+  it("smoke tests help and safe missing-state controls through the root justfile", () => {
     const help = spawnSync("just", ["run", "--help"], {
       cwd: root,
       encoding: "utf8",
     });
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Soft Factory Runner Phase 2");
-    const invalidRun = spawnSync(
-      "just",
-      ["run", "run", "--issue", "0", "--json"],
-      { cwd: root, encoding: "utf8" },
-    );
-    expect(invalidRun.status).toBe(2);
-    expect(invalidRun.stderr).toContain('"code": "CLI_INVALID"');
-    const missingStatus = spawnSync(
-      "just",
-      ["run", "status", "2147483647", "--json"],
-      { cwd: root, encoding: "utf8" },
-    );
-    expect(missingStatus.status).toBe(3);
-    expect(missingStatus.stderr).toContain('"code": "STATE_NOT_FOUND"');
-    const missingAttach = spawnSync("just", ["run", "attach", "2147483647"], {
+    expect(help.stdout).toContain("Soft Factory Runner Phase 3");
+    for (const command of [
+      "status",
+      "reconcile",
+      "resume",
+      "stop",
+      "clean",
+      "logs",
+    ]) {
+      const result = spawnSync(
+        "just",
+        ["run", command, "2147483647", "--json"],
+        { cwd: root, encoding: "utf8" },
+      );
+      expect(result.status).toBe(3);
+      expect(result.stderr).toContain(`"code": "STATE_NOT_FOUND"`);
+    }
+    const inventory = spawnSync("just", ["run", "list", "--json"], {
       cwd: root,
       encoding: "utf8",
     });
-    expect(missingAttach.status).toBe(3);
-    expect(missingAttach.stderr).toContain("STATE_NOT_FOUND");
+    expect(inventory.status).toBe(0);
+    expect(inventory.stdout).toContain("INVENTORY_READY");
   });
 });

@@ -2,44 +2,67 @@
 
 [![APS version](https://img.shields.io/badge/APS-v1.2.2-blue?logo=github)](https://github.com/chris-buckley/agnostic-prompt-standard/releases/tag/v1.2.2)
 
-Soft Factory Runner is a local-first command-line application that deterministically runs autonomous software-delivery workflows against explicit GitHub issues.
+Soft Factory Runner is a local-first TypeScript CLI for deterministic, isolated, recoverable RPIV delivery of explicitly selected GitHub issues. Runner owns operational state, locks, worktrees, tmux processes, recovery, and cleanup; RPIV owns software-engineering decisions.
 
-Its goal is to safely coordinate isolated, visible, and recoverable RPIV executions, then reconcile their Git and GitHub outcomes using observable evidence. Runner controls state, locks, worktrees, tmux processes, and recovery; RPIV owns software engineering decisions.
+## Development and installation
 
-## Development
-
-Install Node.js 22 or newer, `just`, and ambient `@ai-substrate/engineering-harness` v0.13.0, then run `just setup`. The harness is an external development prerequisite and is not a project dependency.
-
-Autonomous agents use the tracked engineering harness as the deterministic product-development surface:
+Install Node.js 22+, Git, GitHub CLI (`gh`), tmux, Copilot CLI, `just`, and ambient `@ai-substrate/engineering-harness` v0.13.0. The harness is an external development prerequisite, not an npm or runtime dependency.
 
 ```text
+just setup
+just build
 harness instructions
-harness doctor --json
 harness boot --json
 harness checks --focused --json
-harness checks --json
+just verify-focused
+just verify
 ```
 
-The root `justfile` remains command authority for humans and RPIV boundaries. Discover recipes with `just --list`; direct `just verify-focused` and `just verify` remain required validation entry points. See [`.harness/engineering-harness.md`](.harness/engineering-harness.md) for governance and evidence contracts.
+The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
-Phase 2 can run one explicit ready issue in an exclusively owned visible environment and prove its completion through reconciled evidence. From a repository checkout, use the root recipe; `just setup`/`just build` do not globally install or link `soft-factory`:
+## Quick start and control commands
 
 ```text
-just build
 just run --help
-just run run --issue 3
-just run status 3 --json
-just run attach 3
+just run run --issue 5 --json
+just run reconcile 5 --json
+just run resume 5 --json
+just run stop 5 --json
+just run clean 5 --json
+just run list --json
+just run status 5 --json
+just run attach 5
+just run logs 5 --json
 ```
 
-The run fetches and proves the configured remote default HEAD before creating `feat/3-...` and `.trees/3`. Unknown resources are preserved and every Copilot launch is issue-named and telemetry-scoped. After a zero exit, Runner reads `<owned-worktree>/.soft-factory/agent-result.json`, observes local `HEAD`, and obtains authoritative remote proof with one post-exit, 15-second `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` query from the repository root. Completion never reads a local `refs/remotes/...` cache. It reports `completed` only when issue, branch, authoritative SHA, PR, acceptance, and required root-validation proof all match. A missing record, query failure, timeout, malformed/truncated/duplicate record, or wrong ref becomes `interrupted` with `COMPLETION_PROOF_INCOMPLETE`; a valid divergent remote SHA becomes `failed` with `RESULT_REMOTE_SHA_MISMATCH`. See [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) for the `AgentResultV1` schema, five terminal states, snapshot compatibility, troubleshooting, deterministic fixture matrix, and remaining Prototype 3 deferrals.
+Every product run names one explicit positive issue number. Runner never queries for, queues, ranks, or selects a next issue. `run` creates new state only; existing state returns `RUN_EXISTS` and must be inspected with reconciliation or control commands. Human and JSON output derive from the same state, outcome code, reconciliation observation states/codes/facts, safe actions, control facts, and remediation; human control output includes the same shared report carried by JSON.
 
-Feature behavior is defined in [`PRD.md`](PRD.md) and delivered through GitHub issues and the RPIV pipeline.
+## Recovery and concurrency
+
+New runs use revisioned `RunSnapshotV3` and replayable `TransitionEventV2` records. Reconciliation separately compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
+
+A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
+
+Configure repository-wide explicit-run capacity in `.soft-factory/config.yml`:
+
+```yaml
+execution:
+  max_concurrent_runs: 2
+```
+
+The value is a strict positive safe integer and defaults to `1`. Each active issue atomically owns one slot under `.soft-factory/concurrency/slots/`. Unknown leases consume capacity, unsafe limit reductions block admission, and a capacity loser returns `CONCURRENCY_LIMIT_REACHED` without downstream resources or a leftover just-created issue lock.
+
+`stop` captures terminal history, sends `SIGTERM`, waits at most 10 seconds, then sends `SIGKILL` only when still active and waits at most 5 additional seconds. Cancellation and slot release occur only after inactivity is proved; if the exact process remains active after escalation, Runner returns `STOP_PROCESS_STILL_ACTIVE` while preserving process identity, ownership, capacity, worktree, and tmux. Redacted attempt logs are capped at 2 MiB and retained at `.soft-factory/logs/<issue>/<attempt>.log`.
+
+After completion, Runner treats the immutable pull-request source head—not the merge commit—as merged-head proof. On the next `status`, `list`, or `reconcile`, a `MERGED` PR with a nonempty merge time, expected source branch, matching verified source SHA, clean exact worktree, and complete ownership proof triggers automatic non-forced removal of only the owned worktree and exact issue lock/slot. The local branch, tmux window, snapshot, events, and logs remain. Closed-unmerged, dirty, active, unknown, mismatched, or ambiguous facts preserve resources and return an actionable blocked outcome. There is no force-clean or evidence-purge command.
+
+See [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md) for command exits, resume decisions, migration, cleanup retry semantics, troubleshooting, and deployment limitations. See [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) for readiness, fetched-base, and completion-proof contracts.
 
 ## Documentation
 
-- [`PRD.md`](PRD.md) — product requirements, scope, requirements, and staged MVP evolution
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — pipeline workflow, how to contribute via GitHub Issues, and where artifacts belong
-- [`AGENTS.md`](AGENTS.md) — agent definitions, guardrails, and pipeline specification
-- [`docs/`](docs/) — application documentation, including the [issue-run and Phase 2 completion guide](docs/phase-1-issue-run.md)
-- [`project/`](project/) — architecture decisions, core-components, and human-readable work-item artifacts
+- [`PRD.md`](PRD.md) — product requirements and staged MVP evolution
+- [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) — issue readiness, ownership, fetched base, AgentResultV1, and completion proof
+- [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md) — CLI, configuration, recovery, concurrency, stop, logs, cleanup, migration, operations, and deployment
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — RPIV contribution workflow
+- [`.harness/engineering-harness.md`](.harness/engineering-harness.md) — deterministic harness governance
+- [`project/`](project/) — architecture decisions, core-components, and work-item evidence

@@ -5,7 +5,14 @@ import { errorExitCode, isRunnerError } from "./errors";
 import { createLivePorts } from "./live";
 import { IssueRunService } from "./orchestrator";
 import type { RunnerPorts } from "./ports";
-import { renderAttach, renderError, renderRun, renderStatus } from "./render";
+import {
+  renderAttach,
+  renderControl,
+  renderError,
+  renderReport,
+  renderRun,
+  renderStatus,
+} from "./render";
 
 export const projectName = "Soft Factory Runner";
 export const bootstrapMessage = `${projectName} is bootstrapped. Product commands will be delivered through RPIV.\n`;
@@ -33,7 +40,7 @@ export async function runCli(
     if (command.kind === "help")
       return { exitCode: 0, stdout: HELP_TEXT, stderr: "" };
     const service = new IssueRunService(ports);
-    if (command.kind === "run") {
+    if (command.kind === "run")
       return {
         exitCode: 0,
         stdout: renderRun(
@@ -42,8 +49,7 @@ export async function runCli(
         ),
         stderr: "",
       };
-    }
-    if (command.kind === "status") {
+    if (command.kind === "status")
       return {
         exitCode: 0,
         stdout: renderStatus(
@@ -52,8 +58,40 @@ export async function runCli(
         ),
         stderr: "",
       };
+    if (command.kind === "reconcile") {
+      const report = await service.reconcile(command.issueNumber, startPath);
+      const exitCode = report.activity === "blocked" ? 4 : 0;
+      return {
+        exitCode,
+        stdout: renderReport(report, command.json),
+        stderr: "",
+      };
     }
-    if (command.kind === "attach") {
+    if (command.kind === "list") {
+      const result = await service.list(startPath);
+      return {
+        exitCode: result.exitCode,
+        stdout: renderControl(result, command.json),
+        stderr: "",
+      };
+    }
+    if (
+      command.kind === "resume" ||
+      command.kind === "stop" ||
+      command.kind === "clean" ||
+      command.kind === "logs"
+    ) {
+      const result = await service[command.kind](
+        command.issueNumber,
+        startPath,
+      );
+      return {
+        exitCode: result.exitCode,
+        stdout: renderControl(result, command.json),
+        stderr: "",
+      };
+    }
+    if (command.kind === "attach")
       return {
         exitCode: 0,
         stdout: renderAttach(
@@ -61,7 +99,6 @@ export async function runCli(
         ),
         stderr: "",
       };
-    }
     const snapshot = await service.runWorker(command.issueNumber, startPath);
     return {
       exitCode: snapshot.state === "completed" ? 0 : 3,

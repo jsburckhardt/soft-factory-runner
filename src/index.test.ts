@@ -34,6 +34,23 @@ describe("CLI and domain primitives", () => {
       issueNumber: 3,
       json: false,
     });
+    for (const kind of [
+      "reconcile",
+      "resume",
+      "stop",
+      "clean",
+      "logs",
+    ] as const) {
+      expect(parseCommand([kind, "3", "--json"])).toEqual({
+        kind,
+        issueNumber: 3,
+        json: true,
+      });
+    }
+    expect(parseCommand(["list", "--json"])).toEqual({
+      kind: "list",
+      json: true,
+    });
     expect(parseCommand(["attach", "3"])).toEqual({
       kind: "attach",
       issueNumber: 3,
@@ -88,9 +105,20 @@ rpiv:
       baseBranch: "main",
       labelTypes: { feature: "feat" },
       promptTemplate: "Implement #{issue}",
+      maxConcurrentRuns: 1,
     });
     expect(renderPrompt(configuration.promptTemplate, 3)).toBe("Implement #3");
     expect(parseConfiguration(null).labelTypes).toEqual({ feature: "feat" });
+    expect(
+      parseConfiguration(`execution:
+  max_concurrent_runs: 2
+`).maxConcurrentRuns,
+    ).toBe(2);
+    for (const value of ["0", "-1", "1.5", "1e2", "9007199254740992"]) {
+      expect(() =>
+        parseConfiguration(`execution:\n  max_concurrent_runs: ${value}\n`),
+      ).toThrow("max_concurrent_runs");
+    }
     expect(() => parseConfiguration("bad line")).toThrow(
       "Unsupported configuration line",
     );
