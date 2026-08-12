@@ -98,6 +98,21 @@ Follow-up task T-6 is complete after recovery of the removed implementation chec
 - Coordinator `rpiv`, `rpiv-research`, and `rpiv-planner` each had zero pending observations.
 - `rpiv-implementer` had five concrete observations. All five were persisted with schema 1.2, matching plan/agent identity, fingerprints, and `disposition: kept` in `.harness/records/retro/2026-08-12/014-issue-17-rpiv-implementer-follow-up.md`, read back, then cleared with a successful JSON envelope reporting `cleared: 5`.
 
+## Verify-return validation investigation
+
+- The smallest retry, `just verify-focused src/integration.test.ts -t "observes staged, unstaged, and untracked dirtiness and refuses forced worktree removal"`, reproduced the reported assertion with the default macOS `TMPDIR`: Git reported the canonical `/private/var/...` worktree while the fixture requested the aliased `/var/...` path.
+- Repeating that same root recipe with `TMPDIR` resolved through `fs.realpathSync(os.tmpdir())` passed: 1 selected test passed and 20 were skipped. This isolates the condition to fixture path representation, not Issue #17 production behavior.
+- No unrelated production or test code changed. PRD section 27 still contains the generic invocation exactly once and retains the complete concrete Runner command; the 20-test documentation suite passed within the focused/full gates.
+- Canonical-temp direct `just verify-focused` passed 19 suites and 248 tests. A later full-gate run was terminated by host signal 11 after five Jest suites; one explicit retry of `just verify` passed lint, formatting, typecheck, 19 suites/248 tests, coverage, build, and diff checks.
+- Canonical-temp `harness checks --focused --json` and `harness checks --json` both returned `status: ok`, the expected scope/delegated command, and exit code 0. Coverage remained statements 87.67%, branches 82.32%, functions 93.99%, and lines 89.44%.
+- These results refresh AC-5 and AC-13 evidence only; all prior AC-1 through AC-12 behavior evidence remains unchanged. Final acceptance remains owned by Verify.
+
+## Verify-return validation friction drain
+
+- Coordinator `rpiv`, `rpiv-research`, and `rpiv-planner` had zero pending observations.
+- Implementer observations, including the signal-11 full-gate retry, were persisted with schema 1.2 and matching plan/agent identity in `.harness/records/retro/2026-08-12/015-issue-17-rpiv-implementer-validation-return.md`.
+- Retro read-back preserved every pending observation ID/fingerprint with `disposition: kept`; buffers were cleared only after persistence.
+
 ## Architecture and plan conformance
 
 Implementation stays within the accepted child-environment ADR and core-component boundaries. Application persistence schemas and Copilot argument order are unchanged. No architecture or plan deviation occurred. Final acceptance remains owned by Verify.
