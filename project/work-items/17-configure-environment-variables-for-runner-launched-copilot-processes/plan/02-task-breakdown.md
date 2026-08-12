@@ -143,15 +143,27 @@ Run the focused environment/parser/orchestration/documentation suites through `j
 - **Status:** Complete
 - **Complexity:** Low
 - **Dependencies:** T-4, T-5
-- **Acceptance Criteria:** AC-5, AC-13
+- **Acceptance Criteria:** AC-5, AC-13, AC-14, AC-15, AC-16
+- **Related ADRs:** ADR-260811-prototype-one-run-orchestration, ADR-260812-copilot-child-environment
+- **Related Core-Components:** CORE-COMPONENT-260811-issue-run-orchestration, CORE-COMPONENT-260812-copilot-child-environment-contract, CORE-COMPONENT-260806-agent-executable-acceptance-criteria, CORE-COMPONENT-260810-development-standards, CORE-COMPONENT-260806-rpiv-stage-contract
 
 ### Description
-Preserve the completed T-1 through T-5 history. Update PRD section 27 with exactly the one-line generic invocation `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo` while retaining the complete concrete Runner command. Add a focused `src/documentation.test.ts` regression assertion for both forms. Do not alter Issue #17 runtime behavior.
+Preserve the completed T-1 through T-5 history. Keep PRD section 27's complete concrete Runner invocation and add exactly the standalone generic invocation `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`. Scope the deterministic documentation regression to section 27, where it must prove the generic command is one exact standalone line and the concrete complete command remains present. Keep this follow-up documentation-only: do not change production code, production behavior, ADRs, core-components, or the decision log.
+
+### Acceptance Criteria
+- AC-5 and AC-13 retain their existing documentation and validation evidence.
+- AC-14 is met only when section 27 contains the exact generic invocation as a standalone line.
+- AC-15 is met only when V-11 deterministically extracts section 27, matches that whole line exactly, and proves it occurs once in that section.
+- AC-16 is met only when the concrete complete invocation is retained and scoped review proves no production or architecture change.
+- Task completion requires all AC-14 through AC-16 evidence together; passing commands alone do not complete T-6. The current `Complete` status records the restored PR #22 implementation and validation evidence, while this Plan correction supplies the previously missing stable IDs and mappings without reopening T-1 through T-5.
 
 ### Test Coverage
-- Implement V-11 as a repository-documentation assertion that counts exactly one generic invocation line and matches the complete concrete command.
+- Implement V-11 as a repository-documentation assertion that isolates PRD section 27, counts exactly one whole line equal to the generic invocation, and matches the complete concrete command in the same section.
+- Validate AC-16 by reviewing the follow-up diff against its pre-follow-up base and confirming production source and architecture paths are unchanged; the test-file change is documentation-regression coverage only.
 - Run root `just verify-focused` and `just verify`, plus their harness delegates, without changing product execution code.
 
 ### Expected Evidence
-- PRD section 27 contains the exact generic line once and retains the concrete Runner command.
-- Focused and full validation pass with the new documentation regression.
+- A section-27 extract contains the exact generic line once as a standalone line and retains the complete concrete Runner invocation.
+- A passing named V-11 assertion reports the section-scoped exact-line and concrete-command checks.
+- A scoped changed-file/diff report shows the follow-up implementation changed only `PRD.md` and `src/documentation.test.ts`, with no production or architecture artifact change.
+- Focused and full validation pass, preserving AC-5 and AC-13 evidence while directly proving AC-14 through AC-16.

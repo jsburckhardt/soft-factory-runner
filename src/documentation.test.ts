@@ -287,19 +287,26 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
   });
 });
 
-describe("V-9 Copilot child environment documentation", () => {
-  const guides = [readme, issueRun, operations, doctorGuide];
-
-  it("keeps the generic and concrete PRD Copilot invocations explicit", () => {
+describe("V-11 PRD section 27 Copilot invocations", () => {
+  it("keeps the standalone generic and complete concrete invocations explicit", () => {
+    const sectionStart = prd.indexOf("# 27. RPIV Execution");
+    const sectionEnd = prd.indexOf("# 28. Attach", sectionStart);
+    expect(sectionStart).toBeGreaterThanOrEqual(0);
+    expect(sectionEnd).toBeGreaterThan(sectionStart);
+    const section27 = prd.slice(sectionStart, sectionEnd);
     const genericInvocation = `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`;
     expect(
-      prd.split("\n").filter((line) => line === genericInvocation),
+      section27.split("\n").filter((line) => line === genericInvocation),
     ).toHaveLength(1);
-    expect(prd).toContain(
+    expect(section27).toContain(
       `OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" \\
   copilot --yolo --name "issue-123" --agent rpiv -p "Deliver issue #123"`,
     );
   });
+});
+
+describe("V-9 Copilot child environment documentation", () => {
+  const guides = [readme, issueRun, operations, doctorGuide];
 
   it("documents the mapping, example, grammar, explicit empty strings, and defaults", () => {
     for (const guide of guides) {

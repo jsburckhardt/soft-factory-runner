@@ -224,19 +224,26 @@ Successful direct command results, structured `ok` harness envelopes, coverage s
 
 ## Test V-11: Preserve generic and concrete PRD Copilot invocations
 
-- **Type:** Documentation regression
+- **Type:** Documentation regression / scope validation
 - **Task:** T-6
-- **Acceptance Criteria:** AC-5, AC-13
+- **Acceptance Criteria:** AC-5, AC-13, AC-14, AC-15, AC-16
 - **Priority:** High
 
+### Setup
+Load `PRD.md`, deterministically isolate the text from the `# 27. RPIV Execution` heading up to (but not including) `# 28. Attach`, and retain the pre-follow-up base for a scoped changed-file review. Define the expected generic line exactly as `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo` and the existing multiline concrete Runner invocation exactly as published.
+
 ### Steps
-1. Load PRD section 27 through `src/documentation.test.ts`.
-2. Assert exactly one line equals `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`.
-3. Assert the complete concrete Runner command remains unchanged.
-4. Run the focused and full root validation recipes.
+1. Extract only PRD section 27 using its bounded headings.
+2. Split the section into lines and assert exactly one whole line equals `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`, proving the generic invocation is standalone.
+3. Assert the same section retains the complete concrete Runner command with generated project/issue attributes and the full Copilot arguments.
+4. Review the follow-up implementation diff and assert it changes only `PRD.md` and `src/documentation.test.ts`; confirm production source and all `project/architecture/` artifacts are unchanged.
+5. Run the focused and full root validation recipes and their harness delegates.
 
 ### Expected Result
-The generic operator-facing invocation is explicit and singular, the concrete Runner command is preserved, and no Issue #17 runtime behavior changes.
+Section 27 contains the exact generic invocation once as a standalone line and retains the concrete complete invocation. The regression is deterministic and section-scoped. The follow-up remains documentation-only, with no production behavior or architecture change, and all validation gates pass.
 
 ### Expected Evidence
-Passing named documentation assertion plus focused and full validation results mapped to AC-5 and AC-13.
+- Section-27 line-match output proving AC-14 and AC-15 without relying on a whole-document substring match.
+- Passing named V-11 documentation assertion for the standalone generic and retained concrete invocations.
+- Scoped changed-file/diff evidence proving AC-16: only `PRD.md` and `src/documentation.test.ts` changed in the follow-up implementation, with no production or architecture changes.
+- Successful focused/full direct and harness validation preserving AC-5 and AC-13 evidence.

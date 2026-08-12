@@ -25,6 +25,9 @@
 - **AC-11:** Deterministic repository evidence exercises absent and empty mappings, valid and explicitly empty values, inherited/configured/Runner-owned collisions, every listed invalid-input class, literal metacharacters, configuration correction, and two concurrent distinct-issue launches without live Copilot, credentials, telemetry infrastructure, or network access.
 - **AC-12:** Verification compares unique sentinel values at the Copilot child boundary but reports only variable names and pass/fail results; the sentinel values are absent from fixture-produced human and JSON output, errors, persisted snapshots, transition events, and retained attempt logs for successful and rejected launches.
 - **AC-13:** `just verify-focused` and `just verify` pass, and RPIV evidence identifies each named verification scenario and its result without exposing configured values.
+- **AC-14:** PRD section 27 contains the exact standalone generic invocation `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`.
+- **AC-15:** A deterministic documentation test scoped to PRD section 27 proves the exact generic invocation is a standalone line.
+- **AC-16:** The follow-up is documentation-only, retains the concrete complete invocation, and makes no production or architecture change.
 
 ## Acceptance Coverage
 
@@ -43,8 +46,11 @@
 | AC-11 | T-1, T-2, T-3 | V-1 through V-8 | Named deterministic scenario matrix with no live external dependency | CORE-COMPONENT-260810-development-standards; CORE-COMPONENT-260806-agent-executable-acceptance-criteria |
 | AC-12 | T-3 | V-2, V-8 | Sentinel scan of outputs, errors, snapshots, events, and logs reports names/results only | ADR-260812-copilot-child-environment; CORE-COMPONENT-260810-structured-events |
 | AC-13 | T-5 | V-10 | Successful direct just and harness envelopes plus redacted scenario ledger | ADR-260811-engineering-harness-surface; CORE-COMPONENT-260806-project-command-interface |
+| AC-14 | T-6 | V-11 | Section-27 extract showing the exact generic invocation as one standalone line | ADR-260811-prototype-one-run-orchestration; CORE-COMPONENT-260811-issue-run-orchestration |
+| AC-15 | T-6 | V-11 | Passing deterministic section-27 assertion for exact line equality and a count of one | CORE-COMPONENT-260806-agent-executable-acceptance-criteria; CORE-COMPONENT-260810-development-standards |
+| AC-16 | T-6 | V-11 | Section-27 concrete-command assertion and scoped diff proving no production or architecture change | ADR-260812-copilot-child-environment; CORE-COMPONENT-260812-copilot-child-environment-contract; CORE-COMPONENT-260806-rpiv-stage-contract |
 
-Coverage proof: all AC-1 through AC-13 have at least one dependency-ordered implementation task, explicit test or validation, expected evidence, and governing architecture reference.
+Coverage proof: all AC-1 through AC-16 have at least one dependency-ordered implementation task, explicit test or validation, expected evidence, and governing architecture reference. AC-14 through AC-16 are jointly implemented by T-6 and independently evidenced by V-11; AC-1 through AC-13 remain unchanged.
 
 ## Implementation Tasks
 1. **T-1 — Extend strict configuration and domain typing** (AC-1, AC-4, AC-6, AC-11): add `copilot.environment` parsing/defaults and value-free strict validation.
@@ -52,4 +58,4 @@ Coverage proof: all AC-1 through AC-13 have at least one dependency-ordered impl
 3. **T-3 — Prove correction, concurrency, and confidentiality** (AC-9, AC-10, AC-11, AC-12): extend deterministic orchestration/integration fixtures and leak scans.
 4. **T-4 — Document the public configuration contract** (AC-5): align README and issue-run, recovery, and Doctor configuration guidance plus documentation assertions.
 5. **T-5 — Run direct and harness validation and record evidence** (AC-13): execute focused/full root recipes and delegating harness checks, recording named redacted outcomes.
-6. **T-6 — Restore the explicit PRD invocation contract after Verify return** (AC-5, AC-13): retain the complete concrete Runner command, add exactly one one-line generic invocation, and lock both forms with focused documentation evidence.
+6. **T-6 — Restore the explicit PRD invocation contract after Verify return** (AC-5, AC-13, AC-14, AC-15, AC-16; depends on T-4 and T-5): retain the complete concrete Runner command, add the exact standalone generic invocation, lock section 27 with deterministic V-11 evidence, and prove the follow-up changes no production or architecture artifact. T-6 is complete only when V-11 and the scoped diff evidence prove AC-14 through AC-16 together.
