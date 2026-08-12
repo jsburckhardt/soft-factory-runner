@@ -1,0 +1,23 @@
+.harness/records/retro/2026-08-12/015-issue-19-rpiv-implementer.md
+  s_98309231fd6431::t_8979d1ef19599e 12,57-70
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/implementation/00-implementation.md
+  s_98309231fd6431::t_8979d1ef19599e 86
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/plan/03-test-plan.md
+  s_98309231fd6431::t_8979d1ef19599e 228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b89f3ffd1ad63249505212fbeff4dc623be97041",
+  "prompts": {},
+  "sessions": {
+    "s_98309231fd6431": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_GbI1TKVuyfdy55tU9ZgkNJIx",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
