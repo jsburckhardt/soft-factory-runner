@@ -1,0 +1,50 @@
+src/doctor-runtime.test.ts
+  s_963de212d49261::t_8ee59f8e8addb4 188-222
+src/doctor-runtime.ts
+  s_963de212d49261::t_8ee59f8e8addb4 280
+fixtures/doctor/blocked.json
+  s_963de212d49261::t_df768cc13d69c0 13-14,20-21,27-28,34-35,41-42,48-49,55-56,62-63,69-70,76-77,83-84,90-91,97-98,104-105,111-112,118-119,125-126,132-133,139-140,146-147,153-154,160-161,167-168,174-175
+src/doctor-integration.test.ts
+  s_963de212d49261::t_5a040e12a7b876 5-9,18,103-118,120,123-126,128-133,135-149,151,153-164,166-169,171-177,179-237,305,309-321,324,327,329,335-337,339,372,376,387
+  s_963de212d49261::t_3016cab0acdd17 119,121-122,127,134,150,152,165,170,178
+README.md
+  s_963de212d49261::t_9b4a7ae1f2650d 44
+.harness/records/retro/2026-08-12/004-issue-6-rpiv-implementer-correction.md
+  s_963de212d49261::t_96f0860bede0c9 7-8,10-13,17-23,25-56,59,61
+  s_963de212d49261::t_5138dcd89fcd6f 1-6,9,14-16,24,57-58,60
+src/config.ts
+  s_963de212d49261::t_c2e3440c3b6b05 27-32,46,70-71,84,140-147,150,153-158
+  s_963de212d49261::t_0919def3ee60bf 159
+project/work-items/6-phase-4-diagnose-repository-readiness/implementation/00-implementation.md
+  s_963de212d49261::t_038d951e800034 32,39,45,61,66-67,78-79,100,102,115-118,120-132,134,137-141
+  s_963de212d49261::t_1de02bdf6eca0e 133
+  s_963de212d49261::t_3f8d73de384059 135
+  s_963de212d49261::t_a0a4b123499d9d 73,94-95,101,111-112,119
+  s_963de212d49261::t_3209e900f514bb 136
+  s_963de212d49261::t_0c3a4119baf88f 142
+src/doctor.test.ts
+  s_963de212d49261::t_e1697f53744574 92-103,106-107
+docs/phase-4-repository-doctor.md
+  s_963de212d49261::t_3a8a1779bd1b11 124
+  s_963de212d49261::t_9b4a7ae1f2650d 38,96
+src/documentation.test.ts
+  s_963de212d49261::t_9b4a7ae1f2650d 229-230,264-265
+docs/phase-1-issue-run.md
+  s_963de212d49261::t_9b4a7ae1f2650d 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "26fb8fa5c5111acba1b031490fa46c8e4dcb7937",
+  "prompts": {},
+  "sessions": {
+    "s_963de212d49261": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_wPQhxvCij3M3PwOyAotu2zrb",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
