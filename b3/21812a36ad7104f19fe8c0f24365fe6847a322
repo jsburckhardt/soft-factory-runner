@@ -1,0 +1,43 @@
+.harness/records/retro/2026-08-12/017-issue-19-rpiv-resume-correction.md
+  s_66265023f64e4a::t_d078c0a5007304 7-8,10-13,15-28,31-51,53-56,59,61
+  s_66265023f64e4a::t_d35297e69b8fc9 1-6,9,14,29-30,52,57-58,60
+.harness/records/retro/2026-08-12/017-issue-19-rpiv-implementer-resume-correction.md
+  s_66265023f64e4a::t_d35297e69b8fc9 1-6,9,14-16,24,71-72,74
+  s_66265023f64e4a::t_d078c0a5007304 7-8,10-13,17-23,25-70,73,75
+src/integration.ts
+  s_66265023f64e4a::t_dcf5278599060b 562-564,566
+src/integration-contract.test.ts
+  s_66265023f64e4a::t_71e0e8eeeacc75 237-260,262-278
+  s_66265023f64e4a::t_dda255e8e52b8f 261
+  s_66265023f64e4a::t_1067133b563544 298-302
+src/orchestration.test.ts
+  s_66265023f64e4a::t_bf495e4c17be85 1038
+  s_66265023f64e4a::t_2eedaf125b0ce5 1034-1037,1039-1112
+docs/rpiv-integration-contract.md
+  s_66265023f64e4a::t_9c4a213ef093f0 48
+src/documentation.test.ts
+  s_66265023f64e4a::t_dda255e8e52b8f 32-33
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/implementation/00-implementation.md
+  s_66265023f64e4a::t_e3bf438bd0b412 53
+  s_66265023f64e4a::t_79793e9e81931c 7-19,21,42,47,51,62,67,92-95,103-104
+  s_66265023f64e4a::t_e684f678bf39e0 20,105
+.harness/records/retro/2026-08-12/018-issue-19-rpiv-implementer-evidence-correction.md
+  s_66265023f64e4a::t_9e396671022bc8 7-8,10-13,17-23,25-28,31,33
+  s_66265023f64e4a::t_0ece1fd23d9391 1-6,9,14-16,24,29-30,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b321812a36ad7104f19fe8c0f24365fe6847a322",
+  "prompts": {},
+  "sessions": {
+    "s_66265023f64e4a": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_34TqBW9pateEH9jNGjTsHYXQ",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
