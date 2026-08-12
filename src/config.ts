@@ -24,6 +24,12 @@ const allowedTypes = new Set([
   "chore",
   "revert",
 ]);
+const MAPPING_KEYS = new Set([
+  "repository",
+  "rpiv",
+  "execution",
+  "branch_types",
+]);
 const FIXED_KEYS = new Set([
   "protocol_version",
   "repository.remote",
@@ -37,6 +43,7 @@ const FIXED_KEYS = new Set([
 export function parseConfiguration(text: string | null): RunConfiguration {
   if (text === null || text.trim() === "") return DEFAULT_CONFIGURATION;
   const values = new Map<string, string>();
+  const mappings = new Set<string>();
   const levels: string[] = [];
   for (const rawLine of text.split(/\r?\n/)) {
     const uncommented = stripComment(rawLine);
@@ -60,6 +67,8 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     const key = match[2];
     const rawValue = (match[3] ?? "").trim();
     if (rawValue === "") {
+      const fullKey = [...levels.slice(0, depth), key].join(".");
+      mappings.add(fullKey);
       levels[depth] = key;
       continue;
     }
@@ -72,7 +81,7 @@ export function parseConfiguration(text: string | null): RunConfiguration {
       );
     values.set(fullKey, unquote(rawValue));
   }
-  validateKnownKeys(values);
+  validateKnownKeys(values, mappings);
   const protocolValue = optional(values, "protocol_version");
   const protocolVersion =
     protocolValue === null
@@ -128,15 +137,25 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     maxConcurrentRuns,
   };
 }
-function validateKnownKeys(values: ReadonlyMap<string, string>): void {
+function validateKnownKeys(
+  values: ReadonlyMap<string, string>,
+  mappings: ReadonlySet<string>,
+): void {
+  for (const key of mappings) {
+    if (MAPPING_KEYS.has(key)) continue;
+    throw unknownConfigurationKey(key);
+  }
   for (const key of values.keys()) {
     if (FIXED_KEYS.has(key) || key.startsWith("branch_types.")) continue;
-    throw new RunnerError(
-      "CONFIG_INVALID",
-      "Unknown configuration key: " + key,
-      "Remove unsupported keys from .soft-factory/config.yml.",
-    );
+    throw unknownConfigurationKey(key);
   }
+}
+function unknownConfigurationKey(key: string): RunnerError {
+  return new RunnerError(
+    "CONFIG_INVALID",
+    "Unknown configuration key: " + key,
+    "Remove unsupported keys from .soft-factory/config.yml.",
+  );
 }
 function stripComment(line: string): string {
   let quoted = false;

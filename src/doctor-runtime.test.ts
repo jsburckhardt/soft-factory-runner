@@ -185,6 +185,41 @@ describe("Doctor runtime safety inventory", () => {
     await fs.rm(f.root, { recursive: true, force: true });
   });
 
+  it("fails snapshot/lock repository mismatch when discovery is unavailable and accepts a matching control", async () => {
+    const matching = await runtimeFixture(true);
+    const matchingResult = await observeDoctorRuntime({
+      primaryWorktree: matching.root,
+      worktreeRoot: matching.trees,
+      stateRoot: matching.state,
+      repositoryIdentity: null,
+      gitExecutable: "/bin/git",
+      runner: new WorktreeRunner([matching.root, matching.worktree]),
+      token: "matching-no-discovery",
+    });
+    expect(matchingResult.treesOwnership.ok).toBe(true);
+    await fs.rm(matching.root, { recursive: true, force: true });
+
+    const mismatched = await runtimeFixture(true);
+    await fs.writeFile(
+      path.join(mismatched.state, "locks", "5.lock"),
+      JSON.stringify({ ...owner(), repository: "other/repo" }),
+    );
+    const mismatchResult = await observeDoctorRuntime({
+      primaryWorktree: mismatched.root,
+      worktreeRoot: mismatched.trees,
+      stateRoot: mismatched.state,
+      repositoryIdentity: null,
+      gitExecutable: "/bin/git",
+      runner: new WorktreeRunner([mismatched.root, mismatched.worktree]),
+      token: "mismatch-no-discovery",
+    });
+    expect(mismatchResult.treesOwnership.ok).toBe(false);
+    expect(mismatchResult.treesOwnership.message).toContain(
+      "mismatched ownership proof",
+    );
+    await fs.rm(mismatched.root, { recursive: true, force: true });
+  });
+
   it("uses exclusive reversible required-path probes and preserves collisions", async () => {
     const f = await runtimeFixture();
     const collision = path.join(f.trees, ".doctor-path-worktree-collision");

@@ -41,7 +41,7 @@ just run logs 5 --json
 
 Run `just run doctor` for complete human repository-readiness diagnostics or `just run doctor --json` for schema-version-1 automation output. Doctor reports exactly 24 ordered blocking prerequisites and exits `0` with `STATUS: READY` only when all pass; a complete blocked report exits `3` with `STATUS: NOT READY`, messages, and remediations. It is repository-only: it does not query, select, prioritize, or assess an issue. Product Doctor is distinct from ambient `harness doctor`, which diagnoses the engineering surface.
 
-A Doctor-ready `.soft-factory/config.yml` declares protocol and safe repository roots. Existing configuration files must migrate to these fields; unknown keys, absolute/traversing/overlapping roots, and unsupported protocol values fail readiness:
+A Doctor-ready `.soft-factory/config.yml` declares protocol and safe repository roots. Existing configuration files must migrate to these fields; unknown keys at every supported mapping level—including unknown empty mappings—plus absolute/traversing/overlapping roots and unsupported protocol values fail readiness:
 
 ```yaml
 protocol_version: 1

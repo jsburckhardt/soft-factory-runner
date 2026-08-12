@@ -89,8 +89,22 @@ describe("Doctor contracts", () => {
       worktreeRoot: "worktrees",
       stateRoot: "state",
     });
+    expect(
+      parseConfiguration(
+        "repository:\nrpiv:\nexecution:\nbranch_types:\nprotocol_version: 1\n",
+      ),
+    ).toMatchObject({
+      protocolVersion: 1,
+      worktreeRoot: ".trees",
+      stateRoot: ".soft-factory",
+      promptTemplate: "Deliver issue #{issue}",
+      maxConcurrentRuns: 1,
+      labelTypes: { feature: "feat" },
+    });
     for (const text of [
       "unknown: value\n",
+      "unknown:\n",
+      "repository:\n  unknown:\n",
       "protocol_version: nope\n",
       "repository:\n  worktree_root: /tmp/trees\n",
       "repository:\n  state_root: ../state\n",

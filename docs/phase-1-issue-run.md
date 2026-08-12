@@ -21,7 +21,7 @@ just run attach <positive-integer>
 
 ## Configuration and readiness
 
-Runner reads optional `.soft-factory/config.yml` for issue execution, while repository Doctor requires the file and protocol declaration. Configuration parsing is strict and rejects unknown keys. Existing files migrate by adding `protocol_version` and safe repository roots:
+Runner reads optional `.soft-factory/config.yml` for issue execution, while repository Doctor requires the file and protocol declaration. Configuration parsing is strict and rejects unknown scalar keys and unknown empty mapping keys at every supported mapping level; known empty mappings retain documented defaults. Existing files migrate by adding `protocol_version` and safe repository roots:
 
 ```yaml
 protocol_version: 1

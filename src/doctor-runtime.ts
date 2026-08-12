@@ -277,6 +277,7 @@ async function classifyOwnership(
         owner.issueNumber !== issue ||
         snapshot.ownerId !== owner.ownerId ||
         snapshot.runId !== owner.runId ||
+        snapshot.repository !== owner.repository ||
         (input.repositoryIdentity !== null &&
           (snapshot.repository !== input.repositoryIdentity ||
             owner.repository !== input.repositoryIdentity))

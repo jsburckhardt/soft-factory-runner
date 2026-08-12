@@ -35,7 +35,7 @@ Every invocation emits exactly these 24 checks in this order. Every check is blo
 | `compatibility.trees-ignored` | Git proves a representative worktree-root descendant ignored; add a complete ignore rule. |
 | `compatibility.runtime-state-ignored` | Git proves a representative state-root descendant ignored; add a complete ignore rule. |
 | `compatibility.result-contract` | RPIV declares `agent-result-v1`; install compatible metadata. |
-| `runtime.trees-ownership` | Every numeric worktree has matching path, Git registration, issue, run, owner, snapshot, lock, and repository; reconcile but preserve unknown resources. |
+| `runtime.trees-ownership` | Every numeric worktree has matching path, Git registration, issue, run, owner, snapshot, lock, and repository; snapshot/lock repository disagreement fails even when repository discovery is unavailable; reconcile but preserve unknown resources. |
 | `runtime.state-readable` | Recognized snapshots, events, logs, and result artifacts parse/read strictly; preserve and repair or migrate malformed records. |
 | `runtime.locks-interpretable` | Recognized owner locks and slot leases parse strictly; preserve and repair malformed records. |
 | `runtime.required-paths-creatable` | Exclusive reversible probes prove safe creation under validated ancestors; restore permissions or resolve collisions. |
@@ -93,7 +93,7 @@ execution:
   max_concurrent_runs: 1
 ```
 
-`repository.remote`, `repository.base_branch`, branch mappings, prompt, and concurrency retain their existing behavior. The roots default to `.trees` and `.soft-factory`, but `protocol_version` has no inferred default for Doctor. Existing configuration files must add `protocol_version: 1`; unknown keys are now rejected. This is a configuration compatibility migration, not a data migration.
+`repository.remote`, `repository.base_branch`, branch mappings, prompt, and concurrency retain their existing behavior. The roots default to `.trees` and `.soft-factory`, but `protocol_version` has no inferred default for Doctor. Existing configuration files must add `protocol_version: 1`; unknown scalar keys and unknown empty mapping keys are rejected at every supported mapping level. Known empty `repository`, `rpiv`, `execution`, and `branch_types` mappings retain documented defaults. This is a configuration compatibility migration, not a data migration.
 
 Both roots must be normalized repository-relative paths, distinct and non-overlapping, contained lexically and physically by the primary worktree, and separate from the Git common directory. Absolute paths, traversal, empty segments, files, symlink escape, and Git metadata collisions fail.
 
@@ -121,7 +121,7 @@ Tracked manifests are:
 - `fixtures/doctor/blocked.json` — all 24 checks failed with details, NOT READY;
 - `fixtures/doctor/isolated-failures.json` — one named failing variant for every ID.
 
-`src/doctor-integration.test.ts` validates manifest completeness/order/uniqueness, executes the 24 isolated variants, builds a 24-row pass/fail matrix, trips on any issue-port access, and invokes both human and JSON modes through normal application composition. Controlled local fake Git, gh, tmux, Node, and Copilot executables require no credentials or network. The ready and blocked built-process fixtures compare normalized human meaning with JSON, repeat ready JSON for determinism, and verify no fixture mutation. Monotonic timing starts immediately before spawning the built CLI and includes process exit; the controlled ready fixture must exit in at most 10,000 ms while the product deadline remains 9,000 ms.
+`src/doctor-integration.test.ts` validates manifest completeness/order/uniqueness and executes all 24 isolated input faults through the actual `DoctorService`, repository/authentication adapters, compatibility checks, and runtime inventory. The machine-checked 24-row pass/fail matrix proves every real check passes in the ready composition and fails in its named fault composition; no manufactured prebuilt Doctor result supplies this proof. Issue-port tripwires remain active, and controlled local fake Git, gh, tmux, Node, and Copilot dependencies require no credentials or network. The ready and blocked built-process fixtures compare both normalized human and parsed JSON output completely with their declared manifests—including repository facts, readiness, ordered statuses/blocking, and every failure message/remediation—repeat ready JSON for determinism, and verify no fixture mutation. Monotonic timing starts immediately before spawning the built CLI and includes process exit; the controlled ready fixture must exit in at most 10,000 ms while the product deadline remains 9,000 ms.
 
 Run acceptance and project gates only through root recipes and their harness delegates:
 
