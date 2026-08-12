@@ -20,22 +20,28 @@
 - The PRD diff contains one hunk in Section 27; `src/` and `project/architecture/` are unchanged.
 - Work-item task evidence and harness retro records are non-product implementation artifacts.
 
+## Verify Correction Cycle
+- Verify rejected commit `0b0001aff67c013c50c6c2c58d475219f2b5c730` after `src/integration.test.ts` observed the dirty fixture path as existing but not registered, with `branch: null`; the other 246 tests passed.
+- `harness boot --json` reproduced the same single failure: Node created the fixture beneath `TMPDIR=/var/folders/...`, while `git worktree list --porcelain` reported the equivalent canonical macOS path beneath `/private/var/folders/...`. The adapter correctly requires an exact registered-path match, so the alias mismatch produced `registered: false` and no branch.
+- The fixture cleanup completed normally and no repository-local stale fixture remained. The PRD-only implementation did not cause the failure; therefore no product behavior, test, architecture, or unrelated file was changed.
+- Canonicalizing `TMPDIR` with `realpath` before invoking the unchanged root recipes made Node and Git use the same path spelling and restored repeatable focused and full validation in this checkout.
+
 ## Documentation Evidence
 - Updated `PRD.md` Section 27 so its launch usage example uses generic project and issue placeholders.
-- No README, API, configuration, migration, architecture, runbook, or deployment update is required: this patch changes only the existing PRD launch example and does not alter runtime behavior, contracts, setup, configuration, or operational procedures.
+- This correction cycle changes only implementation evidence and its required harness retro record. No README, API, configuration, migration, architecture, runbook, deployment, or usage update is required because runtime behavior, contracts, setup, and supported workflows are unchanged.
 
 ## Validation Evidence
 - TEST-1: Section 27 excerpt inspection passed.
 - TEST-2: exact launch block and argument comparison passed (count: 1).
 - TEST-3: product diff inventory contained only `PRD.md`; architecture diff was empty; `git diff --check` passed.
-- `just verify-focused`: passed for T-1 and T-2; 19 suites and 247 tests passed on the final focused runs.
-- `harness checks --focused --json`: status `ok`, delegated command `just verify-focused`, exit code 0.
-- `just verify`: passed; lint, formatting, type-check, 19 suites/247 tests, coverage, build, and diff hygiene completed.
-- `harness checks --json`: status `ok`, delegated command `just verify`, exit code 0.
-- On macOS, final validation used a canonical `TMPDIR=/private/var/...` so Git worktree paths matched fixture inputs.
+- Correction `just verify-focused`: passed with canonical `TMPDIR`; 19 suites and 247 tests passed, including `src/integration.test.ts`.
+- Correction `harness checks --focused --json`: status `ok`, scope `focused`, delegated command `just verify-focused`, exit code 0.
+- Correction `just verify`: passed with canonical `TMPDIR`; lint, formatting, type-check, 19 suites/247 tests, coverage, build, and diff hygiene completed.
+- Correction `harness checks --json`: status `ok`, scope `full`, delegated command `just verify`, exit code 0.
 
 ## Harness Friction Records
 - `.harness/records/retro/2026-08-12/014-issue-1-rpiv-planner.md`
 - `.harness/records/retro/2026-08-12/014-issue-1-rpiv-implementer.md`
+- `.harness/records/retro/2026-08-12/015-issue-1-rpiv-implementer.md`
 
-Implementation evidence is ready for independent Verify-stage review; final acceptance remains owned by Verify.
+Implementation correction evidence is ready for independent Verify-stage review; final acceptance remains owned by Verify.
