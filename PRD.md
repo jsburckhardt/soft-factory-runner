@@ -1095,8 +1095,7 @@ soft-factory internal run-agent --issue 123
 The internal worker then launches:
 
 ```bash
-OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" \
-  copilot --yolo --name "issue-<number>" --agent rpiv -p "Deliver issue #<number>"
+OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo
 ```
 
 Runner MUST set `OTEL_RESOURCE_ATTRIBUTES` for each Copilot process using the
