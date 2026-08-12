@@ -1,0 +1,73 @@
+src/reconciliation.ts
+  s_cec7c60ed6ead3::t_fa13387ee38592 430
+docs/phase-3-recovery-operations.md
+  s_cec7c60ed6ead3::t_4aaa5df51bb8d8 63,174
+src/documentation.test.ts
+  s_cec7c60ed6ead3::t_c35235e4a3e550 57-60
+  s_cec7c60ed6ead3::t_24901bcfd6f951 15-18,51-53,95-96,98-99,102-104,106-118
+  s_cec7c60ed6ead3::t_1ab0a4285d66c3 97,100-101,105
+  s_cec7c60ed6ead3::t_af6651e5249d1a 119-120
+project/architecture/ADR/DECISION-LOG.md
+  s_cec7c60ed6ead3::t_3ec411cedde0c8 155
+src/config.ts
+  s_cec7c60ed6ead3::t_ffcaa758eeec71 62,66,379,398
+  s_cec7c60ed6ead3::t_dcf7635de47b22 409
+docs/phase-1-issue-run.md
+  s_cec7c60ed6ead3::t_3ec411cedde0c8 73
+README.md
+  s_cec7c60ed6ead3::t_4aaa5df51bb8d8 44
+docs/rpiv-integration-contract.md
+  s_cec7c60ed6ead3::t_3ec411cedde0c8 24,32,50
+src/recovery-persistence.test.ts
+  s_cec7c60ed6ead3::t_7713a7b515775d 171-174
+  s_cec7c60ed6ead3::t_db43c58348f407 5,10,99,101,103-119,137-170,175-224
+  s_cec7c60ed6ead3::t_1ab0a4285d66c3 100,102
+src/orchestration.test.ts
+  s_cec7c60ed6ead3::t_d088f051d9f789 1077-1125
+  s_cec7c60ed6ead3::t_bab0e4fab62923 420-422,1142
+  s_cec7c60ed6ead3::t_dcf7635de47b22 478-480,1041-1076
+  s_cec7c60ed6ead3::t_7fe22ea74e3a6b 1126-1141,1143-1207
+  s_cec7c60ed6ead3::t_0bcbe9b42e2197 477
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_cec7c60ed6ead3::t_3ec411cedde0c8 18-19,33-34
+src/integration.test.ts
+  s_cec7c60ed6ead3::t_afb3a03d1857d3 42-48,411,695,756
+src/recovery-control.test.ts
+  s_cec7c60ed6ead3::t_7713a7b515775d 631-632
+  s_cec7c60ed6ead3::t_9949b49ac9946c 626-630,633-635
+src/integration-contract.test.ts
+  s_cec7c60ed6ead3::t_dcf7635de47b22 152-154
+  s_cec7c60ed6ead3::t_7713a7b515775d 155-162
+src/reconciliation.test.ts
+  s_cec7c60ed6ead3::t_6781715cc990a9 119-128,156-157,186,225-230,234-327
+  s_cec7c60ed6ead3::t_7713a7b515775d 231-233
+  s_cec7c60ed6ead3::t_0d019f45c7462c 328
+src/persistence.ts
+  s_cec7c60ed6ead3::t_4028bc844cf1d5 5,7,535-537,550,558
+  s_cec7c60ed6ead3::t_ea882e3c4e8e0b 426,546-549,551-557,559-569
+  s_cec7c60ed6ead3::t_7713a7b515775d 570-573
+src/orchestrator.ts
+  s_cec7c60ed6ead3::t_6273e4485c6682 971-972,977,985,987-996
+.harness/records/retro/2026-08-12/019-issue-19-rpiv-implementer-verify-rejection-correction.md
+  s_cec7c60ed6ead3::t_f9acea664ab243 7-8,10-13,17-126,129,131
+  s_cec7c60ed6ead3::t_22a7657db175ea 1-6,9,14-16,127-128,130
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/implementation/00-implementation.md
+  s_cec7c60ed6ead3::t_1bceba725ba379 59,64,67-69,73-74,84,86,115-116,128-129
+  s_cec7c60ed6ead3::t_4a2a2921c9e8d4 7-28,75,89,114,117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a92a056857b28f96d5eec267d95293b8ccdc9faf",
+  "prompts": {},
+  "sessions": {
+    "s_cec7c60ed6ead3": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_NQWZUjqe2ctN4OJ1Bs9CkbFV",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
