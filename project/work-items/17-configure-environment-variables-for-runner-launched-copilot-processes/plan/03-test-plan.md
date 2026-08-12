@@ -220,3 +220,30 @@ Both direct root recipes and both delegating harness checks succeed; coverage re
 
 ### Expected Evidence
 Successful direct command results, structured `ok` harness envelopes, coverage summary, and redacted AC/scenario ledger.
+
+
+## Follow-up validation after infrastructure recovery
+
+## Test V-11: Verify exact PRD launch forms and context
+
+- **Type:** Documentation contract
+- **Tasks:** T-6, T-7
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+Assert the exact canonical short/prefix line, the complete placeholder-based runtime launch with `--name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`, and nearby text identifying the role of each form.
+
+## Test V-12: Protect Issue #17 PRD regressions
+
+- **Type:** Documentation regression
+- **Tasks:** T-6, T-7, T-8
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+Assert the PRD launch section retains Runner-owned project/issue attributes and no longer contains the stale `-p "Deliver issue` launch spelling.
+
+## Test V-13: Pass root validation recipes
+
+- **Type:** Repository quality gate
+- **Task:** T-8
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+Run the targeted documentation suite, `just verify-focused`, and `just verify`. Do not run harness checks during this infrastructure-recovery follow-up.

@@ -1092,11 +1092,17 @@ The issue window launches an internal Runner command:
 soft-factory internal run-agent --issue 123
 ```
 
-The internal worker then launches:
+The canonical short/prefix form for the internal worker launch is:
 
 ```bash
-OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" \
-  copilot --yolo --name "issue-123" --agent rpiv -p "Deliver issue #123"
+OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo
+```
+
+The complete actual runtime launch preserves the issue-specific process name,
+RPIV agent, and prompt suffix:
+
+```bash
+OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo --name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"
 ```
 
 Runner MUST set `OTEL_RESOURCE_ATTRIBUTES` for each Copilot process using the

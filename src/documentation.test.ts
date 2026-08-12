@@ -13,6 +13,7 @@ const doctorGuide = read("docs/phase-4-repository-doctor.md");
 const assetGuide = read("docs/phase-5-official-assets.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
+const prd = read("PRD.md");
 
 describe("V-11 Phase 3 operator documentation", () => {
   it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {
@@ -358,6 +359,34 @@ describe("V-9 Copilot child environment documentation", () => {
     expect(readme).toContain("Copilot argument order");
     expect(issueRun).toContain("argument order remain");
     expect(docsIndex).toContain("persisted-schema");
+  });
+});
+
+describe("V-11 Issue #17 PRD launch documentation", () => {
+  const canonicalPrefix = `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`;
+  const completeRuntimeLaunch =
+    canonicalPrefix +
+    ` --name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`;
+
+  it("identifies the exact canonical prefix and complete runtime suffix", () => {
+    expect(prd).toContain("canonical short/prefix form");
+    expect(prd).toContain(canonicalPrefix);
+    expect(prd).toContain("complete actual runtime launch");
+    expect(prd).toContain(completeRuntimeLaunch);
+  });
+
+  it("retains Runner-owned issue context and rejects the stale prompt flag", () => {
+    const executionSection = prd.slice(
+      prd.indexOf("# 27. RPIV Execution"),
+      prd.indexOf("# 28."),
+    );
+    expect(executionSection).toContain(
+      "project.name=<project>,issue.id=issue-<number>",
+    );
+    expect(executionSection).toContain(
+      `--name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`,
+    );
+    expect(executionSection).not.toContain(`-p "Deliver issue`);
   });
 });
 

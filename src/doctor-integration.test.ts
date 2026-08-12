@@ -69,8 +69,8 @@ async function writeExecutable(target: string, body: string): Promise<void> {
   await fs.chmod(target, 0o700);
 }
 async function readyRepository(): Promise<{ root: string; bin: string }> {
-  const root = await fs.mkdtemp(
-    path.join(os.tmpdir(), "doctor-ready-process-"),
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "doctor-ready-process-")),
   );
   const bin = path.join(root, "bin");
   await fs.mkdir(bin);

@@ -80,3 +80,41 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 ## Architecture and plan conformance
 
 Implementation stays within the accepted child-environment ADR and core-component boundaries. Application persistence schemas and Copilot argument order are unchanged. No architecture or plan deviation occurred. Final acceptance remains owned by Verify.
+
+
+## Infrastructure-recovery follow-up
+
+This section appends evidence for approved follow-up Tasks T-6 through T-8 after workspace recovery; all prior Issue #17 evidence above is preserved. It provides implementation evidence for Verify and does not claim final acceptance.
+
+### Completed follow-up tasks
+
+- **T-6 (follow-up T-1):** `PRD.md` now identifies the exact placeholder-based telemetry-and-command line as the canonical short/prefix form, shows the complete actual runtime suffix, and replaces stale `-p` with `--prompt`.
+- **T-7 (follow-up T-2):** `src/documentation.test.ts` adds narrow V-11/V-12 assertions for both exact forms, their explanatory context, Runner-owned project/issue attributes, and absence of the stale prompt flag.
+- **T-8 (follow-up T-3):** targeted and root validation passed; this evidence was appended after draining implementation friction.
+
+### Follow-up acceptance evidence
+
+| AC | Evidence |
+| --- | --- |
+| AC-2 | The PRD complete runtime form preserves `copilot --yolo --name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`; V-11 asserts that exact suffix. |
+| AC-3 | Both PRD forms place Runner-owned `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>"` before Copilot; V-12 asserts the generated project/issue context. |
+| AC-5 | `PRD.md` explicitly labels the exact short line as the canonical short/prefix form and distinguishes it from the complete actual runtime launch. V-11/V-12 prevent stale `-p` and incomplete-context regressions. |
+
+### Follow-up validation evidence
+
+- **V-11 exact form/context:** `just verify-focused src/documentation.test.ts` passed with 21 documentation tests, including both new Issue #17 cases.
+- **V-12 Issue #17 regressions:** exact canonical prefix, complete runtime suffix, Runner-owned attributes, and stale-flag rejection passed.
+- **V-13 root recipes:** final `just verify-focused` passed 19 suites / 249 tests; final `just verify` passed lint, formatting, typecheck, 19 suites / 249 tests, coverage, build, and diff check. Coverage remained 87.67% statements, 82.32% branches, 93.99% functions, and 89.44% lines.
+- Per the infrastructure-recovery instruction, no `harness checks` command was run. Root justfile recipes remained the authoritative validation boundary.
+- Two pre-existing Darwin temporary-fixture path aliases surfaced during focused validation. `src/integration.test.ts` and `src/doctor-integration.test.ts` now canonicalize only their test-local temporary roots with `fs.realpath`; targeted regressions and the root suites passed, with no production behavior change.
+
+### Follow-up documentation evidence
+
+- **Changed user-visible documentation:** `PRD.md` now contains the requested canonical short/prefix line and the complete actual runtime launch form.
+- **README/configuration/usage/migration/API/operations/deployment:** no update required because this follow-up clarifies an existing launch contract and changes no setup, configuration option/default, supported workflow, API, persisted data, runtime operation, or deployment procedure.
+- **Architecture:** no ADR, core-component, or decision-log update was required or made; the clarification remains within the accepted child-environment and issue-run orchestration contracts.
+
+### Follow-up harness friction record
+
+- Seven concrete `rpiv-implementer` observations were persisted and read back in `.harness/records/retro/2026-08-12/014-issue-17-rpiv-implementer-recovery.md`, then cleared with a successful JSON envelope.
+- Coordinator, Research, and Plan buffers each returned `status: ok` with zero pending observations.

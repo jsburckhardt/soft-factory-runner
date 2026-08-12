@@ -136,3 +136,50 @@ Run the focused environment/parser/orchestration/documentation suites through `j
 - Successful `just verify-focused` and `just verify` command results.
 - Successful structured harness envelopes showing delegation to root recipes.
 - Redacted AC/scenario ledger and coverage summary in `implementation/00-implementation.md`.
+
+
+## Follow-up implementation after infrastructure recovery
+
+The approved follow-up preserves Tasks T-1 through T-5 above and narrows Issue #17 to PRD launch-form documentation and its contract proof.
+
+## Task T-6: Clarify PRD canonical and complete launch forms (follow-up T-1)
+
+- **Status:** Complete
+- **Complexity:** Low
+- **Dependencies:** T-5
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+### Description
+Identify the exact placeholder-based `OTEL_RESOURCE_ATTRIBUTES=... copilot --yolo` line as the canonical short/prefix form, show the complete runtime `--name`, `--agent`, and `--prompt` suffix, and remove the stale `-p` spelling. Do not change production behavior or architecture contracts.
+
+### Test Coverage
+- V-11 exact form and context.
+- V-12 Issue #17 regression assertions.
+
+## Task T-7: Add narrow PRD documentation contract test (follow-up T-2)
+
+- **Status:** Complete
+- **Complexity:** Low
+- **Dependencies:** T-6
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+### Description
+Extend `src/documentation.test.ts` with exact assertions for the canonical prefix, complete runtime suffix, explanatory context, and absence of the stale short prompt flag.
+
+### Test Coverage
+- V-11 exact form and context.
+- V-12 Issue #17 regressions.
+
+## Task T-8: Validate and append evidence (follow-up T-3)
+
+- **Status:** Complete
+- **Complexity:** Low
+- **Dependencies:** T-7
+- **Acceptance Criteria:** AC-2, AC-3, AC-5
+
+### Description
+Run the targeted documentation test and authoritative root `just verify-focused` and `just verify` recipes, then append follow-up evidence without replacing the prior implementation record.
+
+### Test Coverage
+- V-12 Issue #17 regressions.
+- V-13 root recipes.

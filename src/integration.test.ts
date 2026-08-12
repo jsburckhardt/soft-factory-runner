@@ -820,8 +820,8 @@ describe("real filesystem and Git integration", () => {
   });
 
   it("observes staged, unstaged, and untracked dirtiness and refuses forced worktree removal", async () => {
-    const parent = await fs.mkdtemp(
-      path.join(os.tmpdir(), "soft-factory-dirty-"),
+    const parent = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-dirty-")),
     );
     const root = path.join(parent, "repository");
     const worktreePath = path.join(parent, "owned-worktree");
