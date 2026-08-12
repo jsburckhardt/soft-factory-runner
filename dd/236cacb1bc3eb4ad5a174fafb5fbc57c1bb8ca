@@ -1,0 +1,111 @@
+src/copilot-environment.test.ts
+  s_6dd7f5b465e9b0::t_6287d8fceab987 56,58-59,78-82,95,106-107,109-112,123-125,134-137,140-149,155,163-172,174,179-183
+  s_6dd7f5b465e9b0::t_2705775a5107a7 1-55,57,60-77,83-94,96-105,108,113-122,126-133,138-139,150-154,156-162,173,175-178,184-193
+project/architecture/ADR/DECISION-LOG.md
+  s_da2db8337bbdbe::t_18798964d8b9ad 16,41,141-148
+src/orchestrator.ts
+  s_6dd7f5b465e9b0::t_eb21ad90b9e443 409-412,458,1628-1635
+  s_6dd7f5b465e9b0::t_647f4f5a2cd07b 1636-1637
+src/live.ts
+  s_6dd7f5b465e9b0::t_78646fa4bb1de2 972,1278-1287,1303
+src/orchestration.test.ts
+  s_6dd7f5b465e9b0::t_8371d73fdb0211 704-706
+  s_6dd7f5b465e9b0::t_81ed26c8605374 7,890-899,901,903-925,927,929-963,973-992
+  s_6dd7f5b465e9b0::t_287f839f5ce020 632-664
+  s_6dd7f5b465e9b0::t_516ec200aa9e7d 12,301-306,323-328
+  s_6dd7f5b465e9b0::t_0031d0cd848c69 99,128-131,133,136-137,140,143,189,195,264-265,274-275
+  s_6dd7f5b465e9b0::t_d835df2c364e48 13,767-778,780,782-805,807,809-833,835,837-889
+  s_6dd7f5b465e9b0::t_8fbc3fe47b4e2e 631,665-670,678-703,707-710,713-743,745,747-766,993
+  s_6dd7f5b465e9b0::t_28664670496aa5 300,307-308,322,330-337,339-340,343-345,357,361,371-373,376,378,383,387-391,394,396,398,400-401
+  s_6dd7f5b465e9b0::t_6287d8fceab987 141-142,213,671-677,711-712,744,746,779,781,806,808,834,836,900,902,926,928,964-972
+project/architecture/core-components/CORE-COMPONENT-260811-issue-run-orchestration.md
+  s_da2db8337bbdbe::t_18798964d8b9ad 30,83
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/research/00-research.md
+  s_c40968c0ef8164::t_fad499c9fc551b 1-81
+docs/phase-4-repository-doctor.md
+  s_6dd7f5b465e9b0::t_c401a336f74d52 102,104
+  s_6dd7f5b465e9b0::t_de04e1e74450a1 94-97,100-101,103
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/implementation/00-implementation.md
+  s_6dd7f5b465e9b0::t_21e1e966c64561 1-82
+README.md
+  s_6dd7f5b465e9b0::t_888470ff5a92dd 89-107,109-111
+  s_6dd7f5b465e9b0::t_c401a336f74d52 108
+.harness/records/retro/2026-08-12/011-issue-17-rpiv-research.md
+  s_6dd7f5b465e9b0::t_e0ad1ce4ad3ae6 1-34
+  s_6dd7f5b465e9b0::t_8765be9741116c 35-61
+src/index.test.ts
+  s_6dd7f5b465e9b0::t_22af47e51d8bc5 127
+  s_6dd7f5b465e9b0::t_6850cc2cac23ba 137
+  s_6dd7f5b465e9b0::t_ff4f3f43158ee2 112
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/plan/03-test-plan.md
+  s_da2db8337bbdbe::t_602265ed32debc 1-142,144-145,151-222
+  s_da2db8337bbdbe::t_9ab77d7d10748c 143,146-150
+src/domain.ts
+  s_6dd7f5b465e9b0::t_a365193f2f6f94 384
+project/architecture/ADR/ADR-260812-copilot-child-environment.md
+  s_da2db8337bbdbe::t_0aad9ae82a77b2 1-52
+src/config.ts
+  s_6dd7f5b465e9b0::t_6287d8fceab987 159-162,186-189,221,242-246,248-252,300-302,314-317,320-323
+  s_6dd7f5b465e9b0::t_4c2ea83c6a8cb7 4-6,12,15-17,36-37,48-55,59,61,66-71,73-75,79-81,84-88,90-94,96-101,103,107,109,129-131,143-158,163-164,166,172,175-176,178,180,185,193-198,202,204-207,210-212,215,217-218,220,222-229,231-233,240-241,247,253-285,287,290,293,297,306,326
+docs/phase-1-issue-run.md
+  s_6dd7f5b465e9b0::t_cb2d7492873887 39-53,55-57,59-61
+  s_6dd7f5b465e9b0::t_d3c85ab76da893 54
+  s_6dd7f5b465e9b0::t_c401a336f74d52 58
+docs/phase-3-recovery-operations.md
+  s_6dd7f5b465e9b0::t_64229da2b348b8 43-58,60
+  s_6dd7f5b465e9b0::t_8e4bff25e86dbb 59
+docs/README.md
+  s_6dd7f5b465e9b0::t_1be36f93a17595 13-16
+src/documentation.test.ts
+  s_6dd7f5b465e9b0::t_d3c85ab76da893 231
+  s_6dd7f5b465e9b0::t_03522e30850058 289-363
+project/architecture/core-components/CORE-COMPONENT-260812-copilot-child-environment-contract.md
+  s_da2db8337bbdbe::t_24dcae76e5f951 1-76
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/plan/01-action-plan.md
+  s_da2db8337bbdbe::t_6ec9b6e88a1417 1-54
+project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes/plan/02-task-breakdown.md
+  s_da2db8337bbdbe::t_c9a606b343dfa0 1-4,6-33,35-64,66-93,95-116,118-138
+  s_6dd7f5b465e9b0::t_5b33178fc6bdcb 65
+  s_6dd7f5b465e9b0::t_7975597fd26a7e 94
+  s_6dd7f5b465e9b0::t_38f72873e12332 5
+  s_6dd7f5b465e9b0::t_e9cc1f567d5fb2 117
+  s_6dd7f5b465e9b0::t_5b67f97d3a3d42 34
+.harness/records/retro/2026-08-12/010-issue-17-rpiv-planner.md
+  s_6dd7f5b465e9b0::t_e0ad1ce4ad3ae6 1-34
+  s_6dd7f5b465e9b0::t_ba36a66fc8299c 35-61
+.harness/records/retro/2026-08-12/012-issue-17-rpiv-implementer.md
+  s_6dd7f5b465e9b0::t_e0ad1ce4ad3ae6 1-34
+  s_6dd7f5b465e9b0::t_44220b34aca3e4 35-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "dd236cacb1bc3eb4ad5a174fafb5fbc57c1bb8ca",
+  "prompts": {},
+  "sessions": {
+    "s_6dd7f5b465e9b0": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_ZEKzF3F16Rl73NuIDtjwSuKE",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_c40968c0ef8164": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_GtQFcXEUKD0tcpYsT6P9SHKc",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_da2db8337bbdbe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_xyaXlQTtnYkVePfv3LcF2Ik4",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
