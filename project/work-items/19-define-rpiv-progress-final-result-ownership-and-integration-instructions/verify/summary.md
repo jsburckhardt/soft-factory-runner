@@ -60,9 +60,9 @@ All six implementation commits use Conventional Commits and include `Co-authored
 
 ## RPIV Retro Harvest
 
-Verifier observations from every prior, retry, resumed, and final pass were persisted in `.harness/records/retro/2026-08-12/021-issue-19-rpiv-verifier.md` as schema 1.2 with the exact plan ID and `rpiv-verifier` agent. All 18 entries were read back before `harness observe --clear`; clear reported 18 and the post-clear list was empty.
+Verifier observations from every prior, retry, resumed, and final pass were persisted in `.harness/records/retro/2026-08-12/021-issue-19-rpiv-verifier.md` (18 entries) and `.harness/records/retro/2026-08-12/022-issue-19-rpiv-verifier.md` (3 final confirmation retries), each as schema 1.2 with the exact plan ID and `rpiv-verifier` agent. All 21 entries were read back before their respective `harness observe --clear` calls; the clears reported 18 and 3, and each post-clear list was empty.
 
-`harness retro insights --plan 19-define-rpiv-progress-final-result-ownership-and-integration-instructions --json` passed with schema `harness.retro-insights/v1`, exact plan scope, 10 records, 57 entries, 5 agents, 50 open / 7 encoded lifecycle entries, no malformed or unsupported records, and no pending observation buffer.
+`harness retro insights --plan 19-define-rpiv-progress-final-result-ownership-and-integration-instructions --json` passed with schema `harness.retro-insights/v1`, exact plan scope, 11 records, 60 entries, 5 agents, 53 open / 7 encoded lifecycle entries, no malformed or unsupported records, and no pending observation buffer.
 
 ## Runner Integration Publication
 
