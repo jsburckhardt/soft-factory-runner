@@ -1,0 +1,55 @@
+src/orchestrator.ts
+  s_ff2f7dd87581bf::t_7c38ab784e2ace 3-7,1986-1995,2012
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/implementation/00-implementation.md
+  s_ff2f7dd87581bf::t_86802f273c5d44 7-38
+src/completion.ts
+  s_ff2f7dd87581bf::t_cb2da83af1a0d6 154-157
+  s_ff2f7dd87581bf::t_e285b09203133c 10,15-18,141-153,158-246
+  s_ff2f7dd87581bf::t_e45ceaa4debf8e 247
+src/completion.test.ts
+  s_ff2f7dd87581bf::t_cb2da83af1a0d6 221-224
+  s_ff2f7dd87581bf::t_c6452fbc9ba71b 1-15,50-68,181-220,225-236
+src/recovery-control.test.ts
+  s_ff2f7dd87581bf::t_740e0adea71f9d 8,71-89,425,493,635,797,964
+  s_ff2f7dd87581bf::t_00167c7db68cd1 17-20,535-599
+README.md
+  s_ff2f7dd87581bf::t_73b78f6103e775 116
+docs/rpiv-integration-contract.md
+  s_ff2f7dd87581bf::t_73b78f6103e775 26
+src/documentation.test.ts
+  s_ff2f7dd87581bf::t_b8a72ab747d7d1 54-56,61-63
+  s_ff2f7dd87581bf::t_1471f2f7d91f8a 199-200
+src/domain.ts
+  s_ff2f7dd87581bf::t_3f4f3ac1d74cbb 222,231-237,276-282,295,313,366,369
+src/reconciliation.ts
+  s_ff2f7dd87581bf::t_b98328bfa7bfee 18-23,163-164,664-693
+docs/phase-3-recovery-operations.md
+  s_ff2f7dd87581bf::t_73b78f6103e775 131
+src/persistence.ts
+  s_ff2f7dd87581bf::t_b202a0769390ca 619
+  s_ff2f7dd87581bf::t_060a0ca3d137a9 2-6,409-411,618,620-642
+src/recovery-persistence.test.ts
+  s_ff2f7dd87581bf::t_cb2da83af1a0d6 390-393
+  s_ff2f7dd87581bf::t_05953db357c0b0 2,81-99,115,119-136,263-321
+  s_ff2f7dd87581bf::t_dce0f8088816ed 385-389,394
+  s_ff2f7dd87581bf::t_9ca98a225c68e1 322
+.harness/records/retro/2026-08-12/020-issue-19-rpiv-implementer-legacy-v3-compatibility.md
+  s_ff2f7dd87581bf::t_0c4f4c5acfff4a 1-6,9,14-16,24,85-86,88
+  s_ff2f7dd87581bf::t_8d9a374676b086 7-8,10-13,17-23,25-84,87,89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9c68c942c369f8a2b023a171a2f3ce4a03e990af",
+  "prompts": {},
+  "sessions": {
+    "s_ff2f7dd87581bf": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_znR48HlW4cDyKmrzYyMmsAvW",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
