@@ -47,7 +47,15 @@ export type ErrorCode =
   | "CLEANUP_PARTIAL"
   | "LOG_NOT_FOUND"
   | "DOCTOR_ADAPTER_FAILED"
-  | "DOCTOR_INVARIANT";
+  | "DOCTOR_INVARIANT"
+  | "ASSET_CATALOG_INVALID"
+  | "ASSET_PROTOCOL_INCOMPATIBLE"
+  | "ASSET_INTEGRITY_INVALID"
+  | "ASSET_MANIFEST_INVALID"
+  | "ASSET_PATH_INVALID"
+  | "ASSET_LOCAL_MODIFIED"
+  | "ASSET_FILESYSTEM_FAILED"
+  | "ASSET_ROLLBACK_UNCERTAIN";
 
 export class RunnerError extends Error {
   public readonly code: ErrorCode;
@@ -86,7 +94,9 @@ export function errorExitCode(error: RunnerError): number {
     error.code.startsWith("CLEANUP_") ||
     error.code === "RESUME_REFUSED" ||
     error.code === "STOP_REFUSED" ||
-    error.code === "STOP_PROCESS_STILL_ACTIVE"
+    error.code === "STOP_PROCESS_STILL_ACTIVE" ||
+    error.code === "ASSET_LOCAL_MODIFIED" ||
+    error.code === "ASSET_ROLLBACK_UNCERTAIN"
   )
     return 4;
   return 3;

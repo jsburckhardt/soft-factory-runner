@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import { HELP_TEXT, parseCommand } from "./command";
+import type { AssetInstaller } from "./asset-installation";
+import { createLiveAssetInstaller } from "./asset-live";
+import { renderAssetInstallation } from "./asset-render";
 import { errorExitCode, isRunnerError } from "./errors";
 import { renderDoctor } from "./doctor-render";
 import { createLiveDoctorService, type DoctorRunner } from "./doctor-service";
@@ -34,6 +37,7 @@ export async function runCli(
   startPath: string,
   ports: RunnerPorts,
   doctorRunner?: DoctorRunner,
+  assetInstaller?: AssetInstaller,
 ): Promise<CliResult> {
   const jsonRequested = args.includes("--json");
   try {
@@ -42,6 +46,16 @@ export async function runCli(
       return { exitCode: 0, stdout: bootstrapMessage, stderr: "" };
     if (command.kind === "help")
       return { exitCode: 0, stdout: HELP_TEXT, stderr: "" };
+    if (command.kind === "install") {
+      const result = await (
+        assetInstaller ?? createLiveAssetInstaller()
+      ).install(startPath, command.assets);
+      return {
+        exitCode: 0,
+        stdout: renderAssetInstallation(result),
+        stderr: "",
+      };
+    }
     if (command.kind === "doctor") {
       const result = await (doctorRunner ?? createLiveDoctorService()).run(
         startPath,

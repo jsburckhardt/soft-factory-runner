@@ -12,6 +12,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Accepted | 2026-08-11 |
 | ADR-260811-prototype-three-recovery-concurrency | Prototype Three Recovery and Explicit Concurrency | Accepted | 2026-08-11 |
 | ADR-260812-repository-doctor-readiness | Repository Doctor Readiness Architecture | Accepted | 2026-08-12 |
+| ADR-260812-official-asset-distribution-installation | Official Asset Distribution and Installation | Accepted | 2026-08-12 |
 
 ## Core-Components
 
@@ -35,6 +36,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260811-concurrent-run-admission | Concurrent Run Admission | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-owned-resource-cleanup | Owned Resource Cleanup | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260812-repository-doctor-contract | Repository Doctor Contract | Adopted | 2026-08-12 |
+| CORE-COMPONENT-260812-official-asset-installation-contract | Official Asset Installation Contract | Adopted | 2026-08-12 |
 
 ## Decisions
 
@@ -127,3 +129,10 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 83 | Fail Doctor checks on missing, malformed, contradictory, or ambiguous proof | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
 | 84 | Prohibit Doctor from selecting or inspecting GitHub issues | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
 | 85 | Bound Doctor probes to 2 seconds and aggregate execution to 9 seconds | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
+| 86 | Package official agent assets with the Runner npm release | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
+| 87 | Verify packaged asset bytes against compiled SHA-256 catalog digests | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
+| 88 | Apply recommended asset installation as one all-or-nothing batch | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
+| 89 | Preserve the canonical Doctor check set and RPIV asset authority | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
+| 90 | Require manifest digest proof before replacing differing installed assets | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
+| 91 | Delegate official Operator lifecycle operations to Runner commands | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
+| 92 | Treat complete Doctor JSON as authoritative Assessor readiness evidence | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |

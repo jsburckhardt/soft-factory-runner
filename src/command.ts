@@ -1,9 +1,14 @@
 import { RunnerError } from "./errors";
+import type { OfficialAssetIdentity } from "./official-assets";
 
 export type Command =
   | { readonly kind: "bootstrap" }
   | { readonly kind: "help" }
   | { readonly kind: "doctor"; readonly json: boolean }
+  | {
+      readonly kind: "install";
+      readonly assets: readonly OfficialAssetIdentity[];
+    }
   | {
       readonly kind: "run";
       readonly issueNumber: number;
@@ -35,6 +40,24 @@ export function parseCommand(args: readonly string[]): Command {
   if (args.length === 0) return { kind: "bootstrap" };
   if (args.length === 1 && (args[0] === "--help" || args[0] === "help"))
     return { kind: "help" };
+  if (args[0] === "install" && args.length === 2 && args[1] === "--recommended")
+    return {
+      kind: "install",
+      assets: [
+        { type: "agent", name: "soft-factory" },
+        { type: "agent", name: "soft-factory-assessor" },
+        { type: "skill", name: "soft-factory" },
+      ],
+    };
+  if (
+    args[0] === "install" &&
+    args.length === 3 &&
+    (args[1] === "agent" || args[1] === "skill") &&
+    ((args[1] === "agent" &&
+      (args[2] === "soft-factory" || args[2] === "soft-factory-assessor")) ||
+      (args[1] === "skill" && args[2] === "soft-factory"))
+  )
+    return { kind: "install", assets: [{ type: args[1], name: args[2] }] };
   if (args[0] === "doctor" && (args.length === 1 || args.length === 2))
     return { kind: "doctor", json: parseOptionalJson(args.slice(1)) };
   if (
@@ -105,9 +128,13 @@ function parseOptionalJson(args: readonly string[]): boolean {
   );
 }
 
-export const HELP_TEXT = `Soft Factory Runner Phase 4
+export const HELP_TEXT = `Soft Factory Runner Phase 5
 
 Usage:
+  soft-factory install agent soft-factory
+  soft-factory install agent soft-factory-assessor
+  soft-factory install skill soft-factory
+  soft-factory install --recommended
   soft-factory doctor [--json]
   soft-factory run --issue <number> [--json]
   soft-factory reconcile <issue> [--json]
@@ -119,6 +146,7 @@ Usage:
   soft-factory attach <issue>
   soft-factory logs <issue> [--json]
 
+Install writes verified package-local official assets transactionally beneath .agents/.
 Doctor reports repository readiness only; it never selects or assesses an issue.
 Control commands return stable state, code, facts, remediation, and exit status.
 `;

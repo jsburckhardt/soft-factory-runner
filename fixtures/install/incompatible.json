@@ -1,0 +1,7 @@
+{
+  "name": "incompatible",
+  "command": ["install", "--recommended"],
+  "expectedCode": "ASSET_PROTOCOL_INCOMPATIBLE",
+  "expectedStatuses": [],
+  "expectedWriteOrder": []
+}

@@ -1,0 +1,7 @@
+{
+  "name": "integrity-invalid",
+  "command": ["install", "--recommended"],
+  "expectedCode": "ASSET_INTEGRITY_INVALID",
+  "expectedStatuses": [],
+  "expectedWriteOrder": []
+}
