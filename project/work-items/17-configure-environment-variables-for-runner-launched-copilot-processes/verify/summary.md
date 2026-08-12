@@ -88,3 +88,19 @@ All AC-1 through AC-13 passed. Issue #17 was updated and PR #18 was created. Onl
 - Restored relevant verifier-owned retros: `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-publication-conflict.md`, `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-rerun.md`, and `.harness/records/retro/2026-08-12/017-issue-17-rpiv-verifier-push-failure.md`.
 - Newly drained retros: `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-publication-resume.md` and `.harness/records/retro/2026-08-12/018-issue-17-rpiv-verifier-summary-retry.md`; each buffer was cleared only after schema-1.2 read-back confirmed the exact observation.
 - Final harvest: `status: ok`, schema `harness.retro-insights/v1`, exact plan scope, 11 records, 36 entries, 4 agents, 0 malformed records, no unsupported versions, and 0 pending buffer entries.
+
+
+## Verification Resume Failure - August 12, 2026
+
+- Work item directory: `project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes`.
+- Exact Implement handoff verified: branch `copilot-fix`, commit `3a6fd21795e05df27d93cab1e92a1c1777c3ce9e`, initially clean.
+- Full `origin/main...3a6fd21795e05df27d93cab1e92a1c1777c3ce9e` diff, commit standards, PRD change, documentation regression, ADR, and core-component contracts passed scope and architecture review.
+- Documentation review passed: the PRD generic invocation appears exactly once, the concrete Runner invocation remains unchanged, and no README, API, configuration, usage, migration, architecture, operations, or deployment update is required by this evidence-only resume.
+- Independent `TMPDIR=/private/tmp just verify` passed lint, formatting, typecheck, 19 suites/248 tests, coverage, build, and diff check. The checkout persisted at the exact handoff SHA with a clean tree afterward.
+- AC-14: Failed — no stable AC-14 exists in the sole action plan or marker-bounded GitHub issue.
+- AC-15: Failed — no stable AC-15 exists in the sole action plan or marker-bounded GitHub issue.
+- AC-16: Failed — no stable AC-16 exists in the sole action plan or marker-bounded GitHub issue.
+- Return stage: Plan. Missing acceptance text and coverage cannot be inferred.
+- Publication: existing PR #22 already publishes the equivalent PRD/documentation-test change from commit `cdac69f47c23dad4510f656d2d1fb434d089f5c7`; no duplicate PR, issue edit, push, force-push, or head rewrite was performed.
+- Verifier friction record: `.harness/records/retro/2026-08-12/020-issue-17-rpiv-verifier-ac-catalog-gap.md`.
+- Retro harvest passed: `status: ok`, schema `harness.retro-insights/v1`, exact plan scope, 13 records, 42 entries, 4 agents, and 0 pending buffer entries.
