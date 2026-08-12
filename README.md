@@ -37,6 +37,40 @@ just run attach 5
 just run logs 5 --json
 ```
 
+## Official agent assets
+
+Install one packaged official asset or the complete recommended set from the
+target repository root:
+
+```text
+just run install agent soft-factory
+just run install agent soft-factory-assessor
+just run install skill soft-factory
+just run install --recommended
+```
+
+The recommended batch installs the Operator at
+`.agents/agents/soft-factory.agent.md`, the Assessor at
+`.agents/agents/soft-factory-assessor.agent.md`, and the skill at
+`.agents/skills/soft-factory/SKILL.md`. Strict `.agents/manifest.json` schema v1
+records each asset’s type, name, package-coupled version, Runner protocol 1,
+fixed destination, and catalog SHA-256 digest.
+
+Sources are package-local under `assets/official/`; install performs no network
+or subprocess operation. It validates protocol and integrity before writes,
+preserves unrelated content, adopts identical unmanaged bytes, and is a stable
+no-op after convergence. Differing bytes require exact prior manifest digest
+proof; otherwise the complete batch refuses with no changes. Staged atomic
+replacement writes the manifest last and either rolls back exactly or reports
+uncertain rollback with direct remediation.
+
+The Operator delegates explicit issue execution and every lifecycle operation
+to Runner. The Assessor preserves the complete `soft-factory doctor --json`
+readiness result as authoritative. Doctor’s canonical 24 checks and sole
+`.github/agents/rpiv.agent.md` authority are unchanged. See
+[`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) for schema,
+metadata, safety, errors, packaging, migration, and local deployment details.
+
 ## Repository readiness Doctor
 
 Run `just run doctor` for complete human repository-readiness diagnostics or `just run doctor --json` for schema-version-1 automation output. Doctor reports exactly 24 ordered blocking prerequisites and exits `0` with `STATUS: READY` only when all pass; a complete blocked report exits `3` with `STATUS: NOT READY`, messages, and remediations. It is repository-only: it does not query, select, prioritize, or assess an issue. Product Doctor is distinct from ambient `harness doctor`, which diagnoses the engineering surface.
@@ -84,6 +118,7 @@ See [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md)
 ## Documentation
 
 - [`PRD.md`](PRD.md) — product requirements and staged MVP evolution
+- [`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) — official asset commands, manifest, integrity, transactions, authority, packaging, migration, and operations
 - [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) — issue readiness, ownership, fetched base, AgentResultV1, and completion proof
 - [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) — repository readiness checks, schema, configuration migration, fixtures, timing, and troubleshooting
 - [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md) — CLI, configuration, recovery, concurrency, stop, logs, cleanup, migration, operations, and deployment

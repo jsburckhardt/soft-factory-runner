@@ -1,0 +1,10 @@
+{
+  "name": "clean",
+  "command": ["install", "agent", "soft-factory"],
+  "expectedCode": "ASSETS_INSTALLED",
+  "expectedStatuses": ["installed"],
+  "expectedWriteOrder": [
+    ".agents/agents/soft-factory.agent.md",
+    ".agents/manifest.json"
+  ]
+}

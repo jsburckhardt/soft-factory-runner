@@ -49,5 +49,11 @@
     "tsx": "^4.23.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
-  }
+  },
+  "files": [
+    "dist/",
+    "assets/official/",
+    "README.md",
+    "docs/"
+  ]
 }

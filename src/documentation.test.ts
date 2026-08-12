@@ -10,6 +10,7 @@ const docsIndex = read("docs/README.md");
 const issueRun = read("docs/phase-1-issue-run.md");
 const operations = read("docs/phase-3-recovery-operations.md");
 const doctorGuide = read("docs/phase-4-repository-doctor.md");
+const assetGuide = read("docs/phase-5-official-assets.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
 
@@ -146,7 +147,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       encoding: "utf8",
     });
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Soft Factory Runner Phase 4");
+    expect(help.stdout).toContain("Soft Factory Runner Phase 5");
     for (const command of [
       "status",
       "reconcile",
@@ -282,5 +283,116 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("soft-factory doctor [--json]");
     expect(help.stdout).toContain("repository readiness only");
+  });
+});
+
+describe("V-9 Phase 5 official asset documentation", () => {
+  it("documents every install command, exact destination, and strict manifest metadata", () => {
+    for (const command of [
+      "just run install agent soft-factory",
+      "just run install agent soft-factory-assessor",
+      "just run install skill soft-factory",
+      "just run install --recommended",
+    ]) {
+      expect(assetGuide).toContain(command);
+      expect(readme).toContain(command);
+    }
+    for (const phrase of [
+      ".agents/agents/soft-factory.agent.md",
+      ".agents/agents/soft-factory-assessor.agent.md",
+      ".agents/skills/soft-factory/SKILL.md",
+      ".agents/manifest.json",
+      "schemaVersion",
+      "runnerProtocol",
+      "destination",
+      "sha256",
+      "stable catalog",
+      "package version",
+      "protocol 1",
+    ])
+      expect(assetGuide).toContain(phrase);
+  });
+
+  it("documents integrity, all-or-nothing safety, idempotency, collisions, rollback, and remediation", () => {
+    for (const phrase of [
+      "package-local",
+      "integrity trust source",
+      "ASSET_PROTOCOL_INCOMPATIBLE",
+      "ASSET_INTEGRITY_INVALID",
+      "ASSET_MANIFEST_INVALID",
+      "ASSET_PATH_INVALID",
+      "ASSET_LOCAL_MODIFIED",
+      "ASSET_FILESYSTEM_FAILED",
+      "ASSET_ROLLBACK_UNCERTAIN",
+      "all-or-nothing",
+      "Existing desired bytes are never rewritten",
+      "prior manifest digest",
+      "No files changed",
+      "no force option",
+      "same-volume staged files",
+      "manifest last",
+      "version control",
+      "preserves every unrelated `.agents/` path",
+    ])
+      expect(assetGuide).toContain(phrase);
+  });
+
+  it("documents Operator, Assessor, and unchanged Doctor authority boundaries", () => {
+    for (const phrase of [
+      "soft-factory run --issue <number>",
+      "soft-factory doctor --json",
+      "complete result",
+      "top-level `ready` value as authoritative",
+      "cannot infer READY",
+      "canonical 24 ordered blocking checks",
+      ".github/agents/rpiv.agent.md",
+      "does not inspect",
+      "worktrees, locks, state, tmux/process",
+    ])
+      expect(assetGuide).toContain(phrase);
+  });
+
+  it("documents npm packaging, additive migration, configuration/API no-impact, and local deployment", () => {
+    for (const phrase of [
+      "explicit npm `files` allowlist",
+      "dist/",
+      "assets/official/",
+      "npm pack --dry-run --json",
+      "changes no `.soft-factory/config.yml` option or default",
+      "no configuration migration",
+      "no network API contract",
+      "API specification",
+      "API migration",
+      "short-lived CLI invocation",
+      "no-network",
+      "does not fetch a remote catalog",
+      "invoke a subprocess",
+      "just verify-focused",
+      "just verify",
+    ])
+      expect(assetGuide).toContain(phrase);
+    expect(docsIndex).toContain(
+      "Phase 5 official asset installation and operations",
+    );
+    expect(readme).toContain("docs/phase-5-official-assets.md");
+    expect(assetGuide).not.toMatch(/^soft-factory\s/m);
+  });
+
+  it("exposes the cumulative Phase 5 command grammar in help", () => {
+    const help = spawnSync("just", ["run", "--help"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Soft Factory Runner Phase 5");
+    for (const command of [
+      "soft-factory install agent soft-factory",
+      "soft-factory install agent soft-factory-assessor",
+      "soft-factory install skill soft-factory",
+      "soft-factory install --recommended",
+      "soft-factory doctor [--json]",
+      "soft-factory run --issue <number> [--json]",
+    ])
+      expect(help.stdout).toContain(command);
   });
 });
