@@ -114,6 +114,9 @@ class BarrierGitHub implements GitHubPort {
   public async loadPullRequest(): Promise<null> {
     return null;
   }
+  public async findOpenPullRequest(): Promise<null> {
+    return null;
+  }
   public async loadMergedPullRequest(): Promise<null> {
     return null;
   }
@@ -469,7 +472,11 @@ describe("live completion pull-request proof", () => {
       headRefOid: "a".repeat(40),
       closingIssuesReferences: [{ number: 4 }],
     };
-    await writeFakeGitHubCli(bin, { ...base, completionPullRequest: complete });
+    await writeFakeGitHubCli(bin, {
+      ...base,
+      pullRequests: [complete],
+      completionPullRequest: complete,
+    });
     const originalPath = process.env.PATH;
     process.env.PATH = bin + ":" + (originalPath ?? "");
     try {
@@ -485,10 +492,17 @@ describe("live completion pull-request proof", () => {
         closesIssues: [4],
         complete: true,
       });
+      await expect(
+        live.github.findOpenPullRequest("owner/repo", "feat/4-proof"),
+      ).resolves.toMatchObject({ number: 14, headSha: "a".repeat(40) });
       await writeFakeGitHubCli(bin, {
         ...base,
+        pullRequests: [complete, { ...complete, number: 15 }],
         completionPullRequest: { ...complete, headRefOid: "short" },
       });
+      await expect(
+        live.github.findOpenPullRequest("owner/repo", "feat/4-proof"),
+      ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
       await expect(
         live.github.loadPullRequest("owner/repo", 14),
       ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
@@ -1126,6 +1140,15 @@ describe("real filesystem and Git integration", () => {
       };
       const completionGithub: GitHubPort = {
         loadIssue: async () => null,
+        findOpenPullRequest: async () => ({
+          number: 14,
+          state: "OPEN",
+          baseBranch: "main",
+          headBranch: branch,
+          headSha: expectedPrSha,
+          closesIssues: [4],
+          complete: true,
+        }),
         loadPullRequest: async () => ({
           number: 14,
           state: "OPEN",

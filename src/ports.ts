@@ -80,6 +80,10 @@ export interface GitHubPort {
     repository: string,
     pullRequestNumber: number,
   ): Promise<CompletionPullRequestFacts | null>;
+  findOpenPullRequest(
+    repository: string,
+    headBranch: string,
+  ): Promise<CompletionPullRequestFacts | null>;
   loadMergedPullRequest(
     repository: string,
     pullRequestNumber: number,

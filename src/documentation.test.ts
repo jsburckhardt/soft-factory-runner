@@ -38,6 +38,10 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Copilot environment names and values",
       "no network API",
       "no elapsed-age timeout",
+      "terminal `failed` publication",
+      "classifies before writing",
+      "Candidate `prNumber` is never trusted",
+      "verification summary and verifier retro commits",
     ])
       expect(integrationGuide).toContain(phrase);
     expect(readme).toContain("just run instructions --json");
@@ -48,6 +52,28 @@ describe("V-11 Phase 3 operator documentation", () => {
     expect(rpivAgent).toContain("injected local AgentResultV1 validator");
     expect(verifierAgent).toContain("publish strict AgentResultV1 only after");
     expect(verifierAgent).toContain("injected no-clobber Runner helper");
+    expect(rpivAgent).toContain("publish-failed-terminal-progress");
+    expect(rpivAgent).toContain("preserve ORIGINAL_FAILURE verbatim first");
+    const createPr = verifierAgent.indexOf("RUN `create-pull-request`");
+    const summary = verifierAgent.indexOf("RUN `write-verification-summary`");
+    const confirmHead = verifierAgent.indexOf(
+      "RUN `confirm-final-head-and-pr`",
+    );
+    const publishResult = verifierAgent.indexOf("RUN `publish-agent-result`");
+    expect(createPr).toBeGreaterThan(-1);
+    expect(summary).toBeGreaterThan(createPr);
+    expect(confirmHead).toBeGreaterThan(summary);
+    expect(publishResult).toBeGreaterThan(confirmHead);
+    const router = rpivAgent.slice(
+      rpivAgent.indexOf('<process id="rpiv-router"'),
+      rpivAgent.indexOf('<process id="publish-research-progress"'),
+    );
+    const failedReturns =
+      router.match(/RETURN: format="PIPELINE_ERROR"/g) ?? [];
+    const failedPublications =
+      router.match(/RUN `publish-failed-terminal-progress`/g) ?? [];
+    expect(failedReturns.length).toBeGreaterThanOrEqual(10);
+    expect(failedPublications).toHaveLength(failedReturns.length);
     expect(issueRun).not.toContain(
       "exactly one passed `just verify-focused` and `just verify`",
     );

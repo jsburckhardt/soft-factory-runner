@@ -60,10 +60,17 @@ interface ParsedScalar {
 export function parseConfiguration(
   text: string | null,
   rootJustfile: string | null = null,
+  persistedFinalValidation?: RequiredFinalValidationV1,
 ): RunConfiguration {
   if (text === null || text.trim() === "") {
-    validateDeclaredRecipe(DEFAULT_FINAL_VALIDATION.command, rootJustfile);
-    return DEFAULT_CONFIGURATION;
+    if (persistedFinalValidation === undefined)
+      validateDeclaredRecipe(DEFAULT_FINAL_VALIDATION.command, rootJustfile);
+    return persistedFinalValidation === undefined
+      ? DEFAULT_CONFIGURATION
+      : Object.freeze({
+          ...DEFAULT_CONFIGURATION,
+          finalValidation: persistedFinalValidation,
+        });
   }
   const values = new Map<string, ParsedScalar>();
   const mappings = new Set<string>();
@@ -113,11 +120,26 @@ export function parseConfiguration(
       levels[depth] = key;
       continue;
     }
-    values.set(field, parseScalar(rawValue, field));
+    values.set(
+      field,
+      field.startsWith("rpiv.final_validation") &&
+        persistedFinalValidation !== undefined
+        ? { raw: rawValue, value: rawValue, quoted: false }
+        : parseScalar(rawValue, field),
+    );
   }
 
+  if (persistedFinalValidation !== undefined) {
+    for (const key of [...values.keys()])
+      if (key.startsWith("rpiv.final_validation")) values.delete(key);
+    for (const key of [...mappings])
+      if (key.startsWith("rpiv.final_validation")) mappings.delete(key);
+  }
   validateKnownKeys(values, mappings);
-  if (mappings.has("rpiv.final_validation"))
+  if (
+    persistedFinalValidation === undefined &&
+    mappings.has("rpiv.final_validation")
+  )
     throw invalidConfiguration(
       "rpiv.final_validation",
       "value must be one argument-free just recipe and must not be empty",
@@ -146,10 +168,9 @@ export function parseConfiguration(
     );
   const promptTemplate =
     optional(values, "rpiv.prompt") ?? DEFAULT_CONFIGURATION.promptTemplate;
-  const finalValidation = parseFinalValidation(
-    values.get("rpiv.final_validation"),
-    rootJustfile,
-  );
+  const finalValidation =
+    persistedFinalValidation ??
+    parseFinalValidation(values.get("rpiv.final_validation"), rootJustfile);
   const concurrencyValue = optional(values, "execution.max_concurrent_runs");
   const maxConcurrentRuns =
     concurrencyValue === null

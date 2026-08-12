@@ -119,13 +119,13 @@ export function integrationContract(
         "PROGRESS_VALID",
       ],
       semantics:
-        "Progress is mutable non-authorizing diagnostics; unknown, stale, regressed, repeated, conflicting, and late facts never authorize ownership, processes, recovery, cleanup, or completion.",
+        "Progress is mutable non-authorizing diagnostics; every failure publishes terminal failed before nonzero exit, and only the exact next forward transition mutates progress. Unknown, stale, regressed, repeated, conflicting, identity-invalid, and late facts are rejected with stable nonzero codes and never authorize ownership, processes, recovery, cleanup, or completion.",
     },
     result: {
       schema: "AgentResultV1",
       owner: "Verifier",
       timing:
-        "Publish only after acceptance, the snapshotted final validation, final-head push, and pull-request creation.",
+        "Publish only after acceptance, the snapshotted final validation, pull-request creation/update, every verification summary and retro commit is pushed, and the pull request is independently confirmed at the final head.",
       requiredIdentity: [
         "issueNumber",
         "branch",
@@ -137,7 +137,7 @@ export function integrationContract(
         "completedAt",
       ],
       publication:
-        "Publish by same-directory synced no-clobber atomic installation; an existing valid byte-equivalent result is idempotent and is never replaced.",
+        "Bind the candidate to the independently observed one open pull request for the owned branch and final head, reject candidate PR mismatch, then use same-directory synced no-clobber atomic installation; an existing valid byte-equivalent result is idempotent and is never replaced.",
       coordinatorGate:
         "The coordinator validates the owned artifact against the injected binding before zero exit; no valid final artifact means no successful RPIV exit.",
     },
@@ -329,29 +329,119 @@ export function classifyProgress(input: {
     Date.parse(observed.updatedAt) > Date.parse(input.observedAt)
   )
     return progressObservation("PROGRESS_STALE", observed, lastAccepted);
+  if (lastAccepted !== null && observed.sequence === lastAccepted.sequence)
+    return progressObservation(
+      same(observed, lastAccepted) ? "PROGRESS_REPEATED" : "PROGRESS_CONFLICT",
+      observed,
+      lastAccepted,
+    );
   const acceptedResult =
     input.snapshot.schemaVersion === 1
       ? false
       : input.snapshot.finalization?.result !== null &&
         input.snapshot.finalization?.result !== undefined;
-  if (input.snapshot.state === "completed" || acceptedResult)
+  if (
+    input.snapshot.state === "completed" ||
+    acceptedResult ||
+    lastAccepted?.phase === "terminal"
+  )
     return progressObservation("PROGRESS_LATE", observed, lastAccepted);
-  if (lastAccepted !== null) {
-    if (observed.sequence === lastAccepted.sequence)
-      return progressObservation(
-        same(observed, lastAccepted)
-          ? "PROGRESS_REPEATED"
-          : "PROGRESS_CONFLICT",
-        observed,
-        lastAccepted,
-      );
+  if (lastAccepted === null) {
     if (
-      observed.sequence < lastAccepted.sequence ||
-      PHASES.indexOf(observed.phase) < PHASES.indexOf(lastAccepted.phase) ||
-      Date.parse(observed.updatedAt) < Date.parse(lastAccepted.updatedAt)
+      observed.sequence !== 1 ||
+      (observed.phase !== "research" &&
+        !(observed.phase === "terminal" && observed.status !== "succeeded"))
     )
-      return progressObservation("PROGRESS_REGRESSED", observed, lastAccepted);
+      return progressObservation("PROGRESS_CONFLICT", observed, lastAccepted);
+    return validProgress(observed);
   }
+  if (
+    observed.sequence < lastAccepted.sequence ||
+    PHASES.indexOf(observed.phase) < PHASES.indexOf(lastAccepted.phase) ||
+    Date.parse(observed.updatedAt) < Date.parse(lastAccepted.updatedAt)
+  )
+    return progressObservation("PROGRESS_REGRESSED", observed, lastAccepted);
+  if (observed.sequence !== lastAccepted.sequence + 1)
+    return progressObservation("PROGRESS_CONFLICT", observed, lastAccepted);
+  if (observed.phase === "terminal") {
+    if (observed.status === "succeeded" && lastAccepted.phase !== "verify")
+      return progressObservation("PROGRESS_CONFLICT", observed, lastAccepted);
+    return validProgress(observed);
+  }
+  if (PHASES.indexOf(observed.phase) !== PHASES.indexOf(lastAccepted.phase) + 1)
+    return progressObservation("PROGRESS_CONFLICT", observed, lastAccepted);
+  return validProgress(observed);
+}
+
+export async function publishProgress(
+  files: FilePort,
+  launch: IntegrationLaunchV1,
+  snapshot: RunSnapshot,
+  phase: RpivPhase,
+  status: RpivProgressStatus,
+  now: string,
+): Promise<RpivStatusV1> {
+  const priorText = await files.readText(launch.progressPath);
+  const lastAccepted = snapshot.schemaVersion === 4 ? snapshot.progress : null;
+  if (
+    lastAccepted !== null &&
+    lastAccepted.phase === phase &&
+    lastAccepted.status === status
+  )
+    throwProgressObservation(
+      progressObservation("PROGRESS_REPEATED", lastAccepted, lastAccepted),
+    );
+  if (lastAccepted === null) {
+    if (priorText !== null) {
+      const prior = classifyProgress({
+        text: priorText,
+        snapshot,
+        observedAt: now,
+      });
+      throwProgressObservation(
+        prior.classification === "PROGRESS_VALID"
+          ? progressObservation("PROGRESS_CONFLICT", prior.observed, null)
+          : prior,
+      );
+    }
+  } else {
+    const prior = classifyProgress({
+      text: priorText,
+      snapshot,
+      observedAt: now,
+    });
+    if (
+      prior.classification !== "PROGRESS_REPEATED" ||
+      !same(prior.observed, lastAccepted)
+    )
+      throwProgressObservation(prior);
+  }
+  const next: RpivStatusV1 = {
+    schemaVersion: 1,
+    runId: launch.runId,
+    attempt: launch.attempt,
+    issueNumber: launch.issueNumber,
+    branch: launch.branch,
+    sequence: (lastAccepted?.sequence ?? 0) + 1,
+    phase,
+    status,
+    updatedAt: now,
+  };
+  const classification = classifyProgress({
+    text: JSON.stringify(next),
+    snapshot,
+    observedAt: now,
+  });
+  if (classification.classification !== "PROGRESS_VALID")
+    throwProgressObservation(classification);
+  await files.atomicWrite(
+    launch.progressPath,
+    JSON.stringify(next, null, 2) + "\n",
+  );
+  return next;
+}
+
+function validProgress(observed: RpivStatusV1): ProgressObservationV1 {
   return {
     classification: "PROGRESS_VALID",
     phase: observed.phase,
@@ -360,34 +450,13 @@ export function classifyProgress(input: {
   };
 }
 
-export async function publishProgress(
-  files: FilePort,
-  launch: IntegrationLaunchV1,
-  phase: RpivPhase,
-  status: RpivProgressStatus,
-  now: string,
-): Promise<RpivStatusV1> {
-  const priorText = await files.readText(launch.progressPath);
-  let prior: RpivStatusV1 | null = null;
-  if (priorText !== null && priorText !== "")
-    prior = parseRpivStatus(priorText);
-  const next: RpivStatusV1 = {
-    schemaVersion: 1,
-    runId: launch.runId,
-    attempt: launch.attempt,
-    issueNumber: launch.issueNumber,
-    branch: launch.branch,
-    sequence: (prior?.sequence ?? 0) + 1,
-    phase,
-    status,
-    updatedAt: now,
-  };
-  parseRpivStatus(JSON.stringify(next));
-  await files.atomicWrite(
-    launch.progressPath,
-    JSON.stringify(next, null, 2) + "\n",
+function throwProgressObservation(observation: ProgressObservationV1): never {
+  throw new RunnerError(
+    observation.classification,
+    "RPIV progress transition was rejected before publication.",
+    "Preserve the last accepted progress and publish only the next bound transition.",
+    { details: { classification: observation.classification } },
   );
-  return next;
 }
 
 export interface LocalResultBinding {

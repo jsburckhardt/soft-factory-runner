@@ -56,14 +56,14 @@ You MUST update GitHub acceptance criterion checkboxes only after every AC-* ID 
 You MUST push the verified feature branch.
 You MUST create the pull request from the verified feature branch.
 You MUST read the injected run binding and snapshotted final validation without reading or changing Runner snapshots.
-You MUST publish strict AgentResultV1 only after acceptance passes, the snapshotted final validation passes, the final head is pushed, and the pull request is created.
+You MUST publish strict AgentResultV1 only after acceptance passes, the snapshotted final validation passes, the pull request is created or updated, every verification summary and verifier retro commit is finalized and pushed, and the pull request is independently confirmed to point at that final head.
 You MUST include issue, branch, final head, pull request, outcome, every AC evidence item, `requiredFinalValidation` command/status/evidence, supplementary diagnostics, and completion time.
 You MUST publish through the injected no-clobber Runner helper and MUST preserve an existing artifact on every write, schema, identity, or evidence failure.
 You MUST return nonzero to the coordinator when result publication or read-back validation fails.
 You MUST include every AC-* ID, status, and evidence in the pull request.
 You MUST use a Conventional Commit title for the pull request.
 You MUST write <WORK_ITEM_PATH>/verify/summary.md after pull request creation.
-You MAY commit and push only the generated verification summary and generated verifier retro records after pull request creation.
+You MUST commit and push only the generated verification summary and generated verifier retro records after pull request creation and before immutable result publication.
 You MUST leave the working tree clean.
 You MUST NOT force-push or use --no-verify.
 </instructions>
@@ -212,9 +212,10 @@ RUN `harvest-rpiv-friction`
 RUN `check-github-auth`
 RUN `push-branch`
 RUN `create-pull-request`
-RUN `publish-agent-result`
 RUN `update-issue-checkboxes`
 RUN `write-verification-summary`
+RUN `confirm-final-head-and-pr`
+RUN `publish-agent-result`
 RUN `verify-clean`
 RETURN: format="VERIFY_REPORT", ac_results=AC_RESULTS, branch_name=BRANCH_NAME, commit_sha=HANDOFF_COMMIT, issue_number=ISSUE_NUMBER, pr_url=PR_URL, validation_results=VALIDATION_RESULTS
 </process>
@@ -253,8 +254,8 @@ IF HARVEST_PASSED is false:
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=RETRO_HARVEST, error_message="RPIV friction harvest failed", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 </process>
 
-<process id="publish-agent-result" name="Publish bound immutable AgentResultV1 after PR creation">
-SET AGENT_RESULT := <RESULT> (from "Agent Inference" using ISSUE_NUMBER, BRANCH_NAME, CURRENT_COMMIT, PR_URL, AC_RESULTS, VALIDATION_RESULTS; strict AgentResultV1 with the injected requiredFinalValidation binding and completion time)
+<process id="publish-agent-result" name="Publish bound immutable AgentResultV1 after final metadata push and PR head confirmation">
+SET AGENT_RESULT := <RESULT> (from "Agent Inference" using ISSUE_NUMBER, BRANCH_NAME, CURRENT_COMMIT, PR_URL, AC_RESULTS, VALIDATION_RESULTS; strict AgentResultV1 whose headSha and prNumber exactly equal the independently confirmed final pull-request facts, with the injected requiredFinalValidation binding and completion time)
 USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_RESULT_COMMAND>"
 CAPTURE PUBLICATION_RESULT from `execute/runInTerminal`
 SET PUBLICATION_PASSED := <PASSED> (from "Agent Inference" using PUBLICATION_RESULT; require no-clobber publication, durable read-back, exact identity, and final-validation evidence binding)
@@ -416,6 +417,18 @@ IF VERIFY_METADATA_ONLY is false:
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=STAGED_FILES, error_message="Verifier attempted to stage files outside the verification summary", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 USE `execute/runInTerminal` where: command="git commit -m 'docs: add verification summary for #<ISSUE_NUMBER>' -m '' -m '<CO_AUTHOR_TRAILER>'"
 USE `execute/runInTerminal` where: command="git push origin <BRANCH_NAME>"
+</process>
+
+<process id="confirm-final-head-and-pr" name="Bind publication to the independently observed final pull-request head">
+USE `execute/runInTerminal` where: command="git rev-parse HEAD"
+CAPTURE CURRENT_COMMIT from `execute/runInTerminal`
+USE `execute/runInTerminal` where: command="git push origin <BRANCH_NAME>"
+CAPTURE FINAL_PUSH_RESULT from `execute/runInTerminal`
+USE `execute/runInTerminal` where: command="gh pr view <PR_URL> --json number,state,headRefName,headRefOid"
+CAPTURE EXPECTED_PR_FACTS from `execute/runInTerminal`
+SET FINAL_PR_BOUND := <BOUND> (from "Agent Inference" using EXPECTED_PR_FACTS, PR_URL, BRANCH_NAME, CURRENT_COMMIT, FINAL_PUSH_RESULT; require exit zero, one OPEN pull request, exact branch, and headRefOid equal CURRENT_COMMIT)
+IF FINAL_PR_BOUND is false:
+  RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=EXPECTED_PR_FACTS, error_message="Pull request does not point to the final verification head", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 </process>
 
 <process id="verify-clean" name="Confirm final repository cleanliness">

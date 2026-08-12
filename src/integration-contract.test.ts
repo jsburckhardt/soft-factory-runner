@@ -159,6 +159,20 @@ describe("V-1/V-2 integration instructions and final-validation configuration", 
         justfile,
       ).finalValidation.command,
     ).toBe("just release_check");
+    expect(
+      parseConfiguration(
+        "rpiv:\n  final_validation: [invalid current value]\n",
+        justfile,
+        { command: "just verify" },
+      ).finalValidation.command,
+    ).toBe("just verify");
+    expect(
+      parseConfiguration(
+        "rpiv:\n  final_validation:\n    unsupported: current\n",
+        justfile,
+        { command: "just verify" },
+      ).finalValidation.command,
+    ).toBe("just verify");
     for (const value of [
       "",
       "just verify-focused",
@@ -268,6 +282,7 @@ describe("V-5/V-7 RPIV progress schema, transition, and atomic publication", () 
     const research = await publishProgress(
       files,
       launch,
+      snapshot,
       "research",
       "running",
       "2026-08-12T08:00:01.000Z",
@@ -275,6 +290,7 @@ describe("V-5/V-7 RPIV progress schema, transition, and atomic publication", () 
     const plan = await publishProgress(
       files,
       launch,
+      { ...snapshot, progress: research },
       "plan",
       "running",
       "2026-08-12T08:00:02.000Z",
@@ -287,6 +303,20 @@ describe("V-5/V-7 RPIV progress schema, transition, and atomic publication", () 
       "atomic:" + launch.progressPath,
       "atomic:" + launch.progressPath,
     ]);
+    await expect(
+      publishProgress(
+        files,
+        launch,
+        { ...snapshot, progress: plan },
+        "plan",
+        "running",
+        "2026-08-12T08:00:03.000Z",
+      ),
+    ).rejects.toMatchObject({ code: "PROGRESS_REPEATED" });
+    expect(
+      parseRpivStatus((await files.readText(launch.progressPath)) as string),
+    ).toEqual(plan);
+    expect(files.writes).toHaveLength(2);
   });
 });
 

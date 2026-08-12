@@ -26,7 +26,7 @@ export const OFFICIAL_ASSET_CATALOG: readonly OfficialAssetCatalogEntry[] =
       version: OFFICIAL_ASSET_VERSION,
       runnerProtocol: DOCTOR_PROTOCOL_VERSION,
       sha256:
-        "2a3e24f17f97152488c5e7cf894ac4edccb24cb03dea7d67f5066e22e26b27b8",
+        "46b96e18bbf06178c8163d34bd0698ec82c80015af782c22ce6bc44527ced760",
     }),
     Object.freeze({
       type: "agent" as const,
@@ -36,7 +36,7 @@ export const OFFICIAL_ASSET_CATALOG: readonly OfficialAssetCatalogEntry[] =
       version: OFFICIAL_ASSET_VERSION,
       runnerProtocol: DOCTOR_PROTOCOL_VERSION,
       sha256:
-        "6a0a62f84af8389ba419099b51d8e2858be3ae4ae46b038c37c14171637759bf",
+        "40054f0959a92710cdaed42b8bb870867faae29d5e3c1acf6087349762b7ed3d",
     }),
     Object.freeze({
       type: "skill" as const,
@@ -46,7 +46,7 @@ export const OFFICIAL_ASSET_CATALOG: readonly OfficialAssetCatalogEntry[] =
       version: OFFICIAL_ASSET_VERSION,
       runnerProtocol: DOCTOR_PROTOCOL_VERSION,
       sha256:
-        "fb10ec46a5249f79fe92c855a4396fefc579f7bf351f190c6d08aae74c7e928a",
+        "07d0c15bb765281f7d47cb0d8e1784b70cb5d2ec06f3943880420f8c579d3b6f",
     }),
   ]);
 

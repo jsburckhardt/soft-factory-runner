@@ -56,7 +56,6 @@ export class IssueRunService {
   ): Promise<RunSnapshotV4> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
-    const configuration = await this.configuration(repository.root);
     if (await store.snapshotExists(issueNumber)) {
       let existing = await store.load(issueNumber);
       let report = await collectReconciliation({
@@ -95,6 +94,7 @@ export class IssueRunService {
         },
       );
     }
+    const configuration = await this.configuration(repository.root);
     const issue = await this.ports.github.loadIssue(
       repository.identity.nameWithOwner,
       issueNumber,
@@ -425,7 +425,10 @@ export class IssueRunService {
       return this.releaseTerminalLease(store, interrupted);
     }
 
-    const configuration = await this.configuration(repository.root);
+    const configuration = await this.configuration(
+      repository.root,
+      snapshot.requiredFinalValidation,
+    );
     const identity = {
       nameWithOwner: snapshot.repository,
       normalizedName: normalizeRepositoryName(snapshot.repository),
@@ -908,7 +911,10 @@ export class IssueRunService {
         persisted.state,
       )
     ) {
-      const configuration = await this.configuration(repository.root);
+      const configuration = await this.configuration(
+        repository.root,
+        persisted.requiredFinalValidation,
+      );
       const prepared = await this.prepareResources(
         persisted,
         repository,
@@ -944,7 +950,10 @@ export class IssueRunService {
         report,
         "Restore the exact recorded tmux target before resume.",
       );
-    const configuration = await this.configuration(repository.root);
+    const configuration = await this.configuration(
+      repository.root,
+      persisted.requiredFinalValidation,
+    );
     const owner = await store.readOwner(issueNumber);
     if (
       owner === null ||
@@ -1680,10 +1689,7 @@ export class IssueRunService {
     phase: string,
     status: string,
   ) {
-    const { snapshot, store } = await this.boundV4Snapshot(
-      issueNumber,
-      startPath,
-    );
+    const initial = await this.boundV4Snapshot(issueNumber, startPath);
     const phases: readonly string[] = [
       "research",
       "plan",
@@ -1709,20 +1715,63 @@ export class IssueRunService {
         "Invalid RPIV progress phase or status.",
         "Use a nonterminal running phase or terminal outcome from instructions.",
       );
-    const progress = await publishProgress(
-      this.ports.files,
-      snapshot.integrationLaunch,
-      phase as RpivPhase,
-      status as RpivProgressStatus,
-      this.ports.clock.now(),
-    );
-    await this.persistTransition(
-      store,
-      snapshot,
-      { progress },
-      "rpiv-progress-" + phase + "-" + status,
-    );
-    return progress;
+    const lockPath = initial.snapshot.integrationLaunch.progressPath + ".lock";
+    const now = this.ports.clock.now();
+    const lock =
+      JSON.stringify({
+        runId: initial.snapshot.runId,
+        attempt: initial.snapshot.attempt,
+        phase,
+        status,
+        at: now,
+      }) + "\n";
+    if (!(await this.ports.files.exclusiveCreate(lockPath, lock)))
+      throw new RunnerError(
+        "PROGRESS_CONFLICT",
+        "Another RPIV progress publication owns the transition boundary.",
+        "Preserve accepted progress and retry only after observing the owner.",
+      );
+    let published: Awaited<ReturnType<typeof publishProgress>> | null = null;
+    let publicationError: unknown;
+    let publicationFailed = false;
+    try {
+      const { snapshot, store } = await this.boundV4Snapshot(
+        issueNumber,
+        startPath,
+      );
+      published = await publishProgress(
+        this.ports.files,
+        snapshot.integrationLaunch,
+        snapshot,
+        phase as RpivPhase,
+        status as RpivProgressStatus,
+        now,
+      );
+      await this.persistTransition(
+        store,
+        snapshot,
+        { progress: published },
+        "rpiv-progress-" + phase + "-" + status,
+      );
+    } catch (cause: unknown) {
+      publicationFailed = true;
+      publicationError = cause;
+    }
+    if (!(await this.ports.files.compareAndDelete(lockPath, lock)))
+      throw new RunnerError(
+        "PROGRESS_CONFLICT",
+        "RPIV progress publication lock ownership changed unexpectedly.",
+        "Preserve accepted progress and reconcile the transient publisher lock.",
+        { cause: publicationError },
+      );
+    if (publicationFailed) throw publicationError;
+    if (published === null)
+      throw new RunnerError(
+        "PROGRESS_CONFLICT",
+        "RPIV progress publication produced no accepted fact.",
+        "Preserve accepted progress and retry the exact next transition.",
+      );
+    return published;
   }
 
   public async publishRpivResult(
@@ -1740,26 +1789,12 @@ export class IssueRunService {
         "Use the injected worktree-relative candidate path.",
       );
     const candidate = await this.ports.files.readText(resolved);
-    const parsed = parseAgentResult(candidate);
-    const headSha = await this.ports.git.localHeadSha(snapshot.worktreePath);
-    if (headSha === null)
-      throw new RunnerError(
-        "RESULT_IDENTITY_MISMATCH",
-        "Final worktree head is unavailable.",
-        "Restore the exact final head before publication.",
-      );
+    const binding = await this.trustedResultBinding(snapshot);
     return publishAgentResult(
       this.ports.files,
       snapshot.integrationLaunch.resultPath,
       candidate as string,
-      {
-        issueNumber,
-        branch: snapshot.branch,
-        headSha,
-        prNumber: parsed.prNumber,
-        requiredAcceptanceCriteria: snapshot.requiredAcceptanceCriteria,
-        requiredFinalValidation: snapshot.requiredFinalValidation,
-      },
+      binding,
     );
   }
 
@@ -1768,22 +1803,46 @@ export class IssueRunService {
     const text = await this.ports.files.readText(
       snapshot.integrationLaunch.resultPath,
     );
-    const parsed = parseAgentResult(text);
-    const headSha = await this.ports.git.localHeadSha(snapshot.worktreePath);
+    return validateBoundResult(text, await this.trustedResultBinding(snapshot));
+  }
+
+  private async trustedResultBinding(snapshot: RunSnapshotV4) {
+    const [headSha, pullRequest] = await Promise.all([
+      this.ports.git.localHeadSha(snapshot.worktreePath),
+      this.ports.github.findOpenPullRequest(
+        snapshot.repository,
+        snapshot.branch,
+      ),
+    ]);
     if (headSha === null)
       throw new RunnerError(
         "RESULT_IDENTITY_MISMATCH",
         "Final worktree head is unavailable.",
-        "Restore the exact final head before coordinator validation.",
+        "Restore the exact final head before result publication or validation.",
       );
-    return validateBoundResult(text, {
-      issueNumber,
+    if (
+      pullRequest === null ||
+      !pullRequest.complete ||
+      pullRequest.state !== "OPEN" ||
+      pullRequest.headBranch !== snapshot.branch ||
+      pullRequest.headSha !== headSha ||
+      !pullRequest.closesIssues.includes(snapshot.issueNumber) ||
+      (snapshot.fetchedBaseProof !== null &&
+        pullRequest.baseBranch !== snapshot.fetchedBaseProof.defaultBranch)
+    )
+      throw new RunnerError(
+        "RESULT_IDENTITY_MISMATCH",
+        "Independently observed pull-request facts do not match the final owned head.",
+        "Push the final head and update one complete open pull request before publication.",
+      );
+    return {
+      issueNumber: snapshot.issueNumber,
       branch: snapshot.branch,
       headSha,
-      prNumber: parsed.prNumber,
+      prNumber: pullRequest.number,
       requiredAcceptanceCriteria: snapshot.requiredAcceptanceCriteria,
       requiredFinalValidation: snapshot.requiredFinalValidation,
-    });
+    };
   }
 
   private async boundV4Snapshot(
@@ -1820,14 +1879,21 @@ export class IssueRunService {
     );
   }
 
-  private async configuration(repositoryRoot: string) {
+  private async configuration(
+    repositoryRoot: string,
+    persistedFinalValidation?: RunSnapshotV4["requiredFinalValidation"],
+  ) {
     const [configuration, justfile] = await Promise.all([
       this.ports.files.readText(
         path.join(repositoryRoot, ".soft-factory", "config.yml"),
       ),
       this.ports.files.readText(path.join(repositoryRoot, "justfile")),
     ]);
-    return parseConfiguration(configuration, justfile);
+    return parseConfiguration(
+      configuration,
+      justfile,
+      persistedFinalValidation,
+    );
   }
 
   private async assertResourcesAbsent(

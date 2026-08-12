@@ -139,7 +139,28 @@ class CommandExecutor implements CommandRunner {
   }
 }
 
-class NodeFilePort implements FilePort {
+export type PublicationOperation = "mutable" | "immutable";
+export type PublicationStep =
+  | "temporary-created"
+  | "temporary-synced"
+  | "before-publish"
+  | "published"
+  | "directory-synced";
+export interface PublicationFaultPort {
+  step(
+    operation: PublicationOperation,
+    step: PublicationStep,
+    destination: string,
+  ): Promise<void>;
+}
+const NO_PUBLICATION_FAULTS: PublicationFaultPort = {
+  step: async () => undefined,
+};
+
+export class NodeFilePort implements FilePort {
+  public constructor(
+    private readonly publicationFaults: PublicationFaultPort = NO_PUBLICATION_FAULTS,
+  ) {}
   public async readText(filePath: string): Promise<string | null> {
     try {
       return await fs.readFile(filePath, "utf8");
@@ -201,20 +222,41 @@ class NodeFilePort implements FilePort {
     try {
       const handle = await fs.open(temporary, "wx", 0o600);
       try {
+        await this.publicationFaults.step(
+          "immutable",
+          "temporary-created",
+          filePath,
+        );
         await handle.writeFile(content, "utf8");
         await handle.sync();
+        await this.publicationFaults.step(
+          "immutable",
+          "temporary-synced",
+          filePath,
+        );
       } finally {
         await handle.close();
       }
+      await this.publicationFaults.step(
+        "immutable",
+        "before-publish",
+        filePath,
+      );
       try {
         await fs.link(temporary, filePath);
       } catch (cause: unknown) {
         if (nodeErrorCode(cause) === "EEXIST") return false;
         throw cause;
       }
+      await this.publicationFaults.step("immutable", "published", filePath);
       const directory = await fs.open(path.dirname(filePath), "r");
       try {
         await directory.sync();
+        await this.publicationFaults.step(
+          "immutable",
+          "directory-synced",
+          filePath,
+        );
       } finally {
         await directory.close();
       }
@@ -231,15 +273,32 @@ class NodeFilePort implements FilePort {
     try {
       const handle = await fs.open(temporary, "wx", 0o600);
       try {
+        await this.publicationFaults.step(
+          "mutable",
+          "temporary-created",
+          filePath,
+        );
         await handle.writeFile(content, "utf8");
         await handle.sync();
+        await this.publicationFaults.step(
+          "mutable",
+          "temporary-synced",
+          filePath,
+        );
       } finally {
         await handle.close();
       }
+      await this.publicationFaults.step("mutable", "before-publish", filePath);
       await fs.rename(temporary, filePath);
+      await this.publicationFaults.step("mutable", "published", filePath);
       const directory = await fs.open(path.dirname(filePath), "r");
       try {
         await directory.sync();
+        await this.publicationFaults.step(
+          "mutable",
+          "directory-synced",
+          filePath,
+        );
       } finally {
         await directory.close();
       }
@@ -738,6 +797,62 @@ class LiveGitHubPort implements GitHubPort {
       );
     }
     return parseCompletionPullRequest(result.stdout);
+  }
+  public async findOpenPullRequest(
+    repository: string,
+    headBranch: string,
+  ): Promise<CompletionPullRequestFacts | null> {
+    const result = await this.commands.run(
+      "gh",
+      [
+        "pr",
+        "list",
+        "--repo",
+        repository,
+        "--state",
+        "open",
+        "--head",
+        headBranch,
+        "--limit",
+        "2",
+        "--json",
+        "number,state,baseRefName,headRefName,headRefOid,closingIssuesReferences",
+      ],
+      process.cwd(),
+      15_000,
+    );
+    if (result.exitCode !== 0)
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Trusted pull-request binding query failed.",
+        "Restore complete GitHub access and retry result publication.",
+        { details: { stderr: redact(result.stderr) } },
+      );
+    let candidates: unknown;
+    try {
+      candidates = JSON.parse(result.stdout);
+    } catch (cause: unknown) {
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Trusted pull-request binding response was malformed.",
+        "Retry with a compatible gh version.",
+        { cause },
+      );
+    }
+    if (!Array.isArray(candidates))
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "Trusted pull-request binding response had an unexpected shape.",
+        "Retry with a compatible gh version.",
+      );
+    if (candidates.length === 0) return null;
+    if (candidates.length !== 1)
+      throw new RunnerError(
+        "COMPLETION_PROOF_INCOMPLETE",
+        "More than one open pull request claims the owned branch.",
+        "Preserve all pull requests and restore one unambiguous branch binding.",
+      );
+    return parseCompletionPullRequest(JSON.stringify(candidates[0]));
   }
   public async loadMergedPullRequest(
     repository: string,

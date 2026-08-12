@@ -255,6 +255,9 @@ class ControlGitHub implements GitHubPort {
       complete: true,
     };
   }
+  public async findOpenPullRequest() {
+    return this.loadPullRequest();
+  }
   public mergedFailure: RunnerError | null = null;
   public async loadMergedPullRequest() {
     if (this.mergedFailure !== null) throw this.mergedFailure;
@@ -487,6 +490,24 @@ describe("V-1 explicit legacy migration", () => {
       state: "interrupted",
     });
     expect(await f.store.loadHistory(5)).toHaveLength(2);
+  });
+
+  it("normalizes supported legacy state to sole just verify despite invalid current final-validation config", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: null }),
+    );
+    f.files.values.set(
+      path.join(root, ".soft-factory", "config.yml"),
+      "rpiv:\n  final_validation: [invalid current value]\n",
+    );
+    await new IssueRunService(f.ports).reconcile(5, root);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      schemaVersion: 4,
+      requiredFinalValidation: { command: "just verify" },
+      integrationLaunch: {
+        requiredFinalValidation: { command: "just verify" },
+      },
+    });
   });
 });
 
