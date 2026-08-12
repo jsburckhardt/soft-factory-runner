@@ -29,6 +29,8 @@ describe("V-11 Phase 3 operator documentation", () => {
       "PROGRESS_MISSING",
       "PROGRESS_CONFLICT",
       "phase `unknown`",
+      "lastAccepted",
+      "never a display fallback",
       "AgentResultV1",
       "requiredFinalValidation",
       "no-clobber",

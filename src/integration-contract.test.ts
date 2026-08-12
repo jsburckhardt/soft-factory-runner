@@ -234,6 +234,48 @@ describe("V-5/V-7 RPIV progress schema, transition, and atomic publication", () 
       classifyProgress({ text, snapshot, observedAt: now }).classification,
     ).toBe(expected),
   );
+  it.each([
+    [null, "PROGRESS_MISSING"],
+    ["", "PROGRESS_EMPTY"],
+    ["{", "PROGRESS_INVALID"],
+    [JSON.stringify({ schemaVersion: 1 }), "PROGRESS_REQUIRED_FIELD_MISSING"],
+    [
+      JSON.stringify({ ...status(), schemaVersion: 2 }),
+      "PROGRESS_VERSION_UNSUPPORTED",
+    ],
+    [JSON.stringify(status({ runId: "other" })), "PROGRESS_IDENTITY_MISMATCH"],
+    [
+      JSON.stringify(status({ updatedAt: "2026-08-12T07:59:59.000Z" })),
+      "PROGRESS_STALE",
+    ],
+    [JSON.stringify(status({ sequence: 1 })), "PROGRESS_REGRESSED"],
+    [
+      JSON.stringify(status({ sequence: 4, phase: "implement" })),
+      "PROGRESS_CONFLICT",
+    ],
+    [
+      JSON.stringify(status({ sequence: 3, phase: "implement" })),
+      "PROGRESS_LATE",
+    ],
+  ] as const)(
+    "reports unknown phase for unusable %p current progress classified as %s after an accepted phase",
+    (text, expected) => {
+      const acceptedProgress = status({ sequence: 2, phase: "plan" });
+      const accepted: RunSnapshotV4 = {
+        ...snapshot,
+        state: expected === "PROGRESS_LATE" ? "completed" : snapshot.state,
+        progress: acceptedProgress,
+      };
+      expect(
+        classifyProgress({ text, snapshot: accepted, observedAt: now }),
+      ).toMatchObject({
+        classification: expected,
+        phase: "unknown",
+        lastAccepted: acceptedProgress,
+      });
+    },
+  );
+
   it("classifies valid, repeated, conflicting, regressed, and late observations without replacing accepted facts", () => {
     const valid = classifyProgress({
       text: JSON.stringify(status()),
@@ -253,8 +295,11 @@ describe("V-5/V-7 RPIV progress schema, transition, and atomic publication", () 
         text: JSON.stringify(accepted.progress),
         snapshot: accepted,
         observedAt: now,
-      }).classification,
-    ).toBe("PROGRESS_REPEATED");
+      }),
+    ).toMatchObject({
+      classification: "PROGRESS_REPEATED",
+      phase: "plan",
+    });
     expect(
       classifyProgress({
         text: JSON.stringify(status({ sequence: 2, phase: "research" })),

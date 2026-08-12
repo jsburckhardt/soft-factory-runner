@@ -1031,6 +1031,85 @@ describe("deterministic issue-to-RPIV fixture", () => {
 });
 
 describe("Issue 19 corrected helper integration", () => {
+  it("V-6/AC-8/AC-13 reports missing current progress as unknown after accepting plan", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    await service.run(3, "/tmp/start");
+    await service.publishRpivProgress(3, "/tmp/start", "research", "running");
+    await service.publishRpivProgress(3, "/tmp/start", "plan", "running");
+    const accepted = readSnapshot(f.files);
+    expect(accepted.progress).toMatchObject({ phase: "plan", sequence: 2 });
+
+    const progressPath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/rpiv-status.json";
+    f.files.values.delete(progressPath);
+
+    const statusJson = await runCli(
+      ["status", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    const statusFacts = JSON.parse(statusJson.stdout) as {
+      readonly persisted: { readonly state: string };
+      readonly reconciliation: {
+        readonly observations: {
+          readonly progress: {
+            readonly code: string;
+            readonly facts: {
+              readonly classification: string;
+              readonly phase: string;
+              readonly lastAccepted: { readonly phase: string } | null;
+            };
+          };
+        };
+      };
+    };
+    expect(statusFacts).toMatchObject({
+      persisted: { state: "running_rpiv" },
+      reconciliation: {
+        observations: {
+          progress: {
+            code: "PROGRESS_MISSING",
+            facts: {
+              classification: "PROGRESS_MISSING",
+              phase: "unknown",
+              lastAccepted: { phase: "plan" },
+            },
+          },
+        },
+      },
+    });
+
+    const listJson = await runCli(["list", "--json"], "/tmp/start", f.ports);
+    const listFacts = JSON.parse(listJson.stdout) as {
+      readonly facts: readonly {
+        readonly issueNumber: number;
+        readonly state: string;
+        readonly rpivPhase: string;
+        readonly progressClassification: string;
+      }[];
+    };
+    expect(listFacts.facts).toContainEqual(
+      expect.objectContaining({
+        issueNumber: 3,
+        state: "running_rpiv",
+        rpivPhase: "unknown",
+        progressClassification: "PROGRESS_MISSING",
+      }),
+    );
+
+    const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
+    expect(statusHuman.stdout).toContain("Persisted state: running_rpiv");
+    expect(statusHuman.stdout).toMatch(
+      /progress=absent:PROGRESS_MISSING:.*phase.*unknown/,
+    );
+    const listHuman = await runCli(["list"], "/tmp/start", f.ports);
+    expect(listHuman.stdout).toMatch(/rpivPhase.*unknown/);
+    expect(listHuman.stdout).toMatch(
+      /progressClassification.*PROGRESS_MISSING/,
+    );
+  });
+
   it("enforces forward progress, trusted PR binding, helper exits, and unchanged ownership", async () => {
     const f = fixture();
     await new IssueRunService(f.ports).run(3, "/tmp/start");

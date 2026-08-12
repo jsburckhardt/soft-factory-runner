@@ -559,10 +559,11 @@ function progressObservation(
   return {
     classification,
     phase:
-      lastAccepted?.phase ??
-      (classification === "PROGRESS_VALID" && observed !== null
+      observed !== null &&
+      (classification === "PROGRESS_VALID" ||
+        classification === "PROGRESS_REPEATED")
         ? observed.phase
-        : "unknown"),
+        : "unknown",
     observed,
     lastAccepted,
   };
