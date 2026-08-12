@@ -64,3 +64,27 @@ Passed all applicable categories against the committed behavior:
 ## Result
 
 All AC-1 through AC-13 passed. Issue #17 was updated and PR #18 was created. Only this verification summary and the generated verifier retro record are included in the verifier-only commit.
+
+
+## Accepted Follow-up Publication - August 12, 2026
+
+- Work item directory preserved: `project/work-items/17-configure-environment-variables-for-runner-launched-copilot-processes`.
+- Accepted handoff: local `copilot-fix` at `212db454a8f5d1066fbd146bc6628e76b87ec9fc`; exact branch, SHA, and clean tree were verified before publication.
+- Publication branch: `szabta89:docs/17-otel-prd-invocation` (non-force push; `szabta89:copilot-fix` was not modified).
+- Pull request: https://github.com/jsburckhardt/soft-factory-runner/pull/22
+- Issue #17 remained closed; no issue edit or reopen operation was performed. PR #21 remained untouched.
+
+### Acceptance and Documentation
+
+- AC-1 through AC-13: Passed independently; the existing evidence table above remains applicable.
+- AC-5 follow-up: PRD section 27 contains the exact generic invocation exactly once and preserves the complete concrete Runner command.
+- AC-13 follow-up: Independent `just verify` passed after a single repository-identity environment retry; 19 suites, 248 tests, lint, format, typecheck, coverage, build, and diff check passed.
+- Application documentation review: Passed. The PRD follow-up matches committed behavior; no README, API, configuration, usage, migration, architecture, operational, or deployment behavior changed.
+
+### Validation and Retro Harvest
+
+- Root justfile exposes `verify-focused` and `verify`.
+- The first independent `just verify` attempt failed because the contributor fork remote made the smoke fixture repository identity ambiguous. The exact fork URL was restored after temporarily retaining only `origin` for the gate; the single retry passed.
+- Restored relevant verifier-owned retros: `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-publication-conflict.md`, `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-rerun.md`, and `.harness/records/retro/2026-08-12/017-issue-17-rpiv-verifier-push-failure.md`.
+- Newly drained retros: `.harness/records/retro/2026-08-12/016-issue-17-rpiv-verifier-publication-resume.md` and `.harness/records/retro/2026-08-12/018-issue-17-rpiv-verifier-summary-retry.md`; each buffer was cleared only after schema-1.2 read-back confirmed the exact observation.
+- Final harvest: `status: ok`, schema `harness.retro-insights/v1`, exact plan scope, 11 records, 36 entries, 4 agents, 0 malformed records, no unsupported versions, and 0 pending buffer entries.
