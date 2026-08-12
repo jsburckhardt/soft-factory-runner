@@ -40,6 +40,24 @@ rpiv:
   prompt: "Deliver issue #{issue}"
 ```
 
+### Copilot environment during new and resumed launches
+
+`copilot.environment` is the sole Copilot child-variable mapping. Names match `[A-Za-z_][A-Za-z0-9_]*`; values are string scalars, and `""` is an explicit empty string. For example:
+
+```yaml
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.example.invalid"
+    OPTIONAL_EMPTY: ""
+```
+
+Absent `copilot`, absent `environment`, and an empty environment mapping preserve the existing allowed child environment. Runner reads current configuration for each new or resumed launch and captures one immutable per-launch map. Concurrent issue launches therefore keep separate configured values and separate `project.name`/`issue.id` resource attributes even when the file changes between reads. A configuration rejection occurs before launch intent and Copilot spawn; after correcting the file, invoke the eligible launch or resume path again for a fresh read. No hidden retry occurs.
+
+Merge precedence is allowlisted inherited values, configured values, then Runner-owned `OTEL_RESOURCE_ATTRIBUTES` for the current issue. Values are literal under `shell: false`; `$VAR`, command substitutions, backticks, quotes, spaces, semicolons, and URL metacharacters are not evaluated or expanded. Configured entries are Copilot-only and never reach Git, `gh`, tmux, workers, Doctor, generic subprocesses, or ambient Runner state.
+
+Duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, malformed lines, and bad indentation return value-free `CONFIG_INVALID` field/reason diagnostics with no value included. Runner does not persist or render configured names or values in snapshots, events, launch intents, attempt logs, or human/JSON output. This additive option requires no change to existing configurations when overrides are unwanted; no migration applies to snapshots, events, results, APIs, data, or deployment.
+
 `execution.max_concurrent_runs` is a strict positive safe integer. It defaults to `1`; zero, negative, fractional, exponent, empty, and unsafe-integer values fail before issue ownership. Each active issue exclusively creates the lowest available `.soft-factory/concurrency/slots/<slot>.lock` after its issue lock and before snapshot, branch, worktree, tmux, or process creation.
 
 Unknown leases consume capacity. An occupied, malformed, unknown, or stale lease consumes capacity. Reducing the configured limit below an occupied slot blocks new admission until exact inactive ownership can release that lease. At capacity, `CONCURRENCY_LIMIT_REACHED` names only the explicitly requested issue, removes only its just-created matching issue lock, creates no downstream resource, and does not queue, rank, query for, or automatically select another issue. Distinct active issues use distinct issue locks, branches, worktrees, tmux windows/panes, run snapshots, event histories, and log directories; only the repository tmux session is shared.

@@ -4,10 +4,13 @@ import type {
   RepositoryFacts,
   TmuxIdentity,
 } from "./domain";
+import { parseConfiguration } from "./config";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
+import { copilotChildEnvironment } from "./live";
+import { renderError } from "./render";
 import type {
   FilePort,
   GitHubPort,
@@ -93,6 +96,7 @@ class RecordingGit implements GitPort {
   public remoteFailure: RunnerError | null = null;
   public branchPresent = false;
   public registered = false;
+  private readonly registeredWorktrees = new Map<string, string>();
   public facts: RepositoryFacts;
   public worktreePath: string | null = null;
   public constructor(
@@ -121,16 +125,22 @@ class RecordingGit implements GitPort {
     this.trace.push("git:branch-observe");
     return this.branchPresent;
   }
-  public async registeredWorktreeExists(): Promise<boolean> {
+  public async registeredWorktreeExists(
+    _root: string,
+    worktreePath: string,
+  ): Promise<boolean> {
     this.trace.push("git:worktree-observe");
-    return this.registered;
+    return this.registered || this.registeredWorktrees.has(worktreePath);
   }
   public async observeWorktree(_root: string, worktreePath: string) {
+    const branch = this.registeredWorktrees.get(worktreePath);
+    const registered = this.registered || branch !== undefined;
     return {
       pathExists: this.files.values.has(worktreePath),
-      registered: this.registered,
-      branch: this.registered ? "feat/3-phase-1-run-one-issue" : null,
-      headSha: this.registered ? sha : null,
+      registered,
+      branch:
+        branch ?? (this.registered ? "feat/3-phase-1-run-one-issue" : null),
+      headSha: registered ? sha : null,
       staged: false,
       unstaged: false,
       untracked: false,
@@ -176,12 +186,13 @@ class RecordingGit implements GitPort {
     branch: string,
   ): Promise<void> {
     this.trace.push(`git:add-worktree:${worktree}:${branch}`);
-    this.registered = true;
+    this.registeredWorktrees.set(worktree, branch);
     this.worktreePath = worktree;
     this.files.values.set(worktree, "directory");
   }
   public async removeWorktree(_root: string, worktree: string): Promise<void> {
     this.registered = false;
+    this.registeredWorktrees.delete(worktree);
     this.files.values.delete(worktree);
     this.trace.push(`git:remove-worktree:${worktree}`);
   }
@@ -199,7 +210,7 @@ class RecordingGitHub implements GitHubPort {
     issueNumber: number,
   ): Promise<IssueFacts | null> {
     this.trace.push(`github:issue:${repository}:${issueNumber}`);
-    return this.issue;
+    return this.issue === null ? null : { ...this.issue, number: issueNumber };
   }
   public async loadPullRequest(_repository: string, pullRequestNumber: number) {
     this.trace.push(`github:pr:${pullRequestNumber}`);
@@ -250,8 +261,8 @@ class RecordingTmux implements TmuxPort {
     this.created = {
       sessionName: input.sessionName,
       windowName: input.windowName,
-      windowId: "@3",
-      paneId: "%3",
+      windowId: "@" + input.windowName,
+      paneId: "%" + input.windowName,
       cwd: input.cwd,
     };
     return this.created;
@@ -260,8 +271,8 @@ class RecordingTmux implements TmuxPort {
     this.trace.push(`tmux:observe:${target.paneId}`);
     return this.observedOverride === undefined ? target : this.observedOverride;
   }
-  public async panePid(): Promise<number> {
-    return 300;
+  public async panePid(target: TmuxIdentity): Promise<number> {
+    return 297 + Number(target.windowName);
   }
   public async setRemainOnExit(): Promise<void> {
     this.trace.push("tmux:remain");
@@ -286,8 +297,15 @@ class RecordingProcess implements ProcessPort {
   public readonly trace: string[];
   public exitCode = 0;
   public launches = 0;
-  public observed: ProcessIdentityV1 | null = null;
-  public workerObserved: ProcessIdentityV1 | null = null;
+  public launchGate: ((launchNumber: number) => Promise<void>) | null = null;
+  public readonly launchInputs: Array<{
+    readonly executable: "copilot";
+    readonly args: readonly string[];
+    readonly cwd: string;
+    readonly environment: Readonly<Record<string, string>>;
+  }> = [];
+  private readonly observedProcesses = new Map<number, ProcessIdentityV1>();
+  private readonly observedWorkers = new Map<number, ProcessIdentityV1>();
   public constructor(trace: string[]) {
     this.trace = trace;
   }
@@ -301,14 +319,30 @@ class RecordingProcess implements ProcessPort {
     readonly launchedAt: string;
   }) {
     this.launches += 1;
+    const launchNumber = this.launches;
+    this.launchInputs.push({
+      executable: input.executable,
+      args: input.args,
+      cwd: input.cwd,
+      environment: input.environment,
+    });
     this.trace.push(
-      `process:${input.executable}:${input.args.join(" ")}:${input.cwd}:${input.environment.OTEL_RESOURCE_ATTRIBUTES}`,
+      "process:" +
+        input.executable +
+        ":" +
+        input.args.join(" ") +
+        ":" +
+        input.cwd +
+        ":" +
+        input.environment.OTEL_RESOURCE_ATTRIBUTES,
     );
+    if (this.launchGate !== null) await this.launchGate(launchNumber);
+    const pid = 400 + launchNumber;
     const identity: ProcessIdentityV1 = {
       schemaVersion: 1,
-      pid: 301,
-      processGroupId: 301,
-      startToken: "100",
+      pid,
+      processGroupId: pid,
+      startToken: "copilot-" + launchNumber,
       executable: "copilot",
       args: input.args,
       cwd: input.cwd,
@@ -320,11 +354,11 @@ class RecordingProcess implements ProcessPort {
         panePid: input.panePid,
       },
     };
-    this.observed = identity;
+    this.observedProcesses.set(pid, identity);
     return {
       identity,
       wait: async () => {
-        this.observed = null;
+        this.observedProcesses.delete(pid);
         return { exitCode: this.exitCode };
       },
     };
@@ -334,38 +368,40 @@ class RecordingProcess implements ProcessPort {
     paneLineage: ProcessIdentityV1["paneLineage"],
     launchedAt: string,
   ) {
-    const identity = {
-      schemaVersion: 1 as const,
+    const issueNumber = Number(paneLineage.paneId.replace("%", ""));
+    const identity: ProcessIdentityV1 = {
+      schemaVersion: 1,
       pid,
       processGroupId: pid,
-      startToken: "worker",
+      startToken: "worker-" + issueNumber,
       executable: "/usr/bin/soft-factory",
-      args: ["internal", "run-agent", "--issue", "3"],
+      args: ["internal", "run-agent", "--issue", String(issueNumber)],
       cwd: paneLineage.sessionName,
       launchedAt,
       paneLineage,
     };
-    this.workerObserved = identity;
+    this.observedWorkers.set(pid, identity);
     return identity;
   }
   public async observe(identity: ProcessIdentityV1) {
-    if (this.observed?.pid === identity.pid) return this.observed;
-    return this.workerObserved?.pid === identity.pid
-      ? this.workerObserved
-      : null;
+    return (
+      this.observedProcesses.get(identity.pid) ??
+      this.observedWorkers.get(identity.pid) ??
+      null
+    );
   }
   public async findLaunchCandidates() {
-    return this.observed === null ? [] : [this.observed];
+    return [...this.observedProcesses.values()];
   }
-  public async signalGroup(): Promise<void> {
+  public async signalGroup(identity: ProcessIdentityV1): Promise<void> {
     this.trace.push("process:signal");
+    this.observedProcesses.delete(identity.pid);
   }
-  public async waitForExit(): Promise<boolean> {
-    this.observed = null;
+  public async waitForExit(identity: ProcessIdentityV1): Promise<boolean> {
+    this.observedProcesses.delete(identity.pid);
     return true;
   }
 }
-
 function validIssue(overrides: Partial<IssueFacts> = {}): IssueFacts {
   return {
     number: 3,
@@ -591,6 +627,369 @@ describe("deterministic issue-to-RPIV fixture", () => {
       copilot: { exitCode: 9 },
       error: { code: "EXTERNAL_COMMAND_FAILED" },
     });
+  });
+
+  it.each([
+    ["absent mapping", null],
+    ["empty mapping", "copilot:\n  environment:\n"],
+  ])("V-3 preserves baseline launch for %s", async (_name, configuration) => {
+    const f = fixture();
+    if (configuration !== null)
+      f.files.values.set(
+        "/tmp/soft-factory-fixture/.soft-factory/config.yml",
+        configuration,
+      );
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+    expect(f.processes.launchInputs[0]).toMatchObject({
+      executable: "copilot",
+      args: [
+        "--yolo",
+        "--name",
+        "issue-3",
+        "--agent",
+        "rpiv",
+        "--prompt",
+        "Deliver issue #3",
+      ],
+      environment: {
+        OTEL_RESOURCE_ATTRIBUTES:
+          "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
+      },
+    });
+    expect(Object.keys(f.processes.launchInputs[0].environment)).toEqual([
+      "OTEL_RESOURCE_ATTRIBUTES",
+    ]);
+  });
+
+  it("V-3 passes configured names with the unchanged Copilot command", async () => {
+    const f = fixture();
+    f.files.values.set(
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml",
+      "copilot:\n" +
+        "  environment:\n" +
+        '    COPILOT_OTEL_ENABLED: "enabled"\n' +
+        '    COPILOT_OTEL_EXPORTER_TYPE: "otlp"\n' +
+        '    OTEL_EXPORTER_OTLP_ENDPOINT: "https://example.invalid"\n' +
+        '    OTEL_SERVICE_NAME: "runner-test"\n' +
+        '    OTEL_RESOURCE_ATTRIBUTES: "configured-collision"\n' +
+        '    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "disabled"\n' +
+        '    OPTIONAL_EMPTY: ""\n',
+    );
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+
+    expect(f.processes.launchInputs).toHaveLength(1);
+    const launch = f.processes.launchInputs[0];
+    expect(launch.executable).toBe("copilot");
+    expect(launch.args).toEqual([
+      "--yolo",
+      "--name",
+      "issue-3",
+      "--agent",
+      "rpiv",
+      "--prompt",
+      "Deliver issue #3",
+    ]);
+    expect(Object.keys(launch.environment).sort()).toEqual([
+      "COPILOT_OTEL_ENABLED",
+      "COPILOT_OTEL_EXPORTER_TYPE",
+      "OPTIONAL_EMPTY",
+      "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
+      "OTEL_RESOURCE_ATTRIBUTES",
+      "OTEL_SERVICE_NAME",
+    ]);
+    expect(launch.environment.OPTIONAL_EMPTY).toBe("");
+    expect(launch.environment.OTEL_RESOURCE_ATTRIBUTES).toBe(
+      "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
+    );
+    expect(Object.isFrozen(launch.environment)).toBe(true);
+  });
+
+  it("V-4 applies inherited, configured, and Runner-owned precedence literally", () => {
+    const literal =
+      "$UNCHANGED $(not-run) \x60still-not-run\x60; spaces & quotes";
+    const explicit = Object.freeze({
+      PATH: literal,
+      CUSTOM_LITERAL: literal,
+      OTEL_RESOURCE_ATTRIBUTES: "project.name=owner-repo,issue.id=issue-3",
+    });
+    const child = copilotChildEnvironment(explicit, {
+      PATH: "inherited-path",
+      GH_TOKEN: "inherited-token",
+      OTEL_RESOURCE_ATTRIBUTES: "inherited-attributes",
+      UNRELATED_AMBIENT: "not-allowed",
+    });
+    expect(child.PATH).toBe(literal);
+    expect(child.CUSTOM_LITERAL).toBe(literal);
+    expect(child.OTEL_RESOURCE_ATTRIBUTES).toBe(
+      "project.name=owner-repo,issue.id=issue-3",
+    );
+    expect(child.GH_TOKEN).toBe("inherited-token");
+    expect(child.UNRELATED_AMBIENT).toBeUndefined();
+    expect(Object.isFrozen(child)).toBe(true);
+  });
+
+  it("V-5 keeps configured variables Copilot-only and out of persistence", async () => {
+    const f = fixture();
+    const variableName = "COPILOT_ONLY_TEST_NAME";
+    const privateValue = "fixture-private-copilot-only-value";
+    const configurationPath =
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml";
+    f.files.values.set(
+      configurationPath,
+      "copilot:\n  environment:\n    " +
+        variableName +
+        ': "' +
+        privateValue +
+        '"\n',
+    );
+    const ambientBefore = process.env[variableName];
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    await new IssueRunService(f.ports).runWorker(3, "/tmp/start");
+
+    expect(f.processes.launchInputs[0].environment[variableName]).toBe(
+      privateValue,
+    );
+    expect(process.env[variableName]).toBe(ambientBefore);
+    const nonCopilotTrace = f.trace.filter(
+      (entry) => !entry.startsWith("process:copilot:"),
+    );
+    expect(nonCopilotTrace.join("\n")).not.toContain(variableName);
+    expect(nonCopilotTrace.join("\n")).not.toContain(privateValue);
+    const durable = [...f.files.values.entries()]
+      .filter(([filePath]) => filePath !== configurationPath)
+      .map(([, content]) => content)
+      .join("\n");
+    expect(durable).not.toContain(variableName);
+    expect(durable).not.toContain(privateValue);
+  });
+
+  it("V-6 rejects an invalid launch then reads corrected configuration fresh", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    const configurationPath =
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml";
+    const rejectedValue = "fixture-private-rejected-value";
+    const correctedValue = "fixture-private-corrected-value";
+    await service.run(3, "/tmp/start");
+    f.files.values.set(
+      configurationPath,
+      'copilot:\n  environment:\n    CORRECTION_NAME: "' +
+        rejectedValue +
+        '"\n    CORRECTION_NAME: "duplicate"\n',
+    );
+
+    let rejection: RunnerError | null = null;
+    try {
+      await service.runWorker(3, "/tmp/start");
+    } catch (cause: unknown) {
+      if (!(cause instanceof RunnerError)) throw cause;
+      rejection = cause;
+    }
+    expect(rejection).not.toBeNull();
+    expect(rejection?.code).toBe("CONFIG_INVALID");
+    expect(f.processes.launches).toBe(0);
+    const rejectedSnapshot = readSnapshot(f.files);
+    expect(rejectedSnapshot.launchIntent).toBeNull();
+    expect(rejectedSnapshot.copilot).toBeNull();
+    expect(renderError(rejection as RunnerError, false)).not.toContain(
+      rejectedValue,
+    );
+    expect(renderError(rejection as RunnerError, true)).not.toContain(
+      rejectedValue,
+    );
+
+    f.files.values.set(
+      configurationPath,
+      'copilot:\n  environment:\n    CORRECTION_NAME: "' +
+        correctedValue +
+        '"\n',
+    );
+    await service.runWorker(3, "/tmp/start");
+    expect(f.processes.launches).toBe(1);
+    expect(f.processes.launchInputs[0].environment.CORRECTION_NAME).toBe(
+      correctedValue,
+    );
+    const retained = [...f.files.values.entries()]
+      .filter(([filePath]) => filePath !== configurationPath)
+      .map(([, content]) => content)
+      .join("\n");
+    expect(retained).not.toContain(rejectedValue);
+    expect(retained).not.toContain(correctedValue);
+  });
+
+  it("V-7 isolates two barrier-controlled distinct-issue launch snapshots", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    const configurationPath =
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml";
+    const variableName = "CONCURRENT_PRIVATE_NAME";
+    const firstValue = "fixture-private-concurrent-a";
+    const secondValue = "fixture-private-concurrent-b";
+    const config = (value: string) =>
+      "execution:\n  max_concurrent_runs: 2\ncopilot:\n  environment:\n    " +
+      variableName +
+      ': "' +
+      value +
+      '"\n';
+
+    f.files.values.set(configurationPath, config(firstValue));
+    await service.run(3, "/tmp/start");
+    await service.run(4, "/tmp/start");
+
+    let releaseLaunches: (() => void) | null = null;
+    const held = new Promise<void>((resolve) => {
+      releaseLaunches = resolve;
+    });
+    const arrivalResolvers: Array<() => void> = [];
+    const arrivals = [
+      new Promise<void>((resolve) => arrivalResolvers.push(resolve)),
+      new Promise<void>((resolve) => arrivalResolvers.push(resolve)),
+    ];
+    f.processes.launchGate = async (launchNumber) => {
+      arrivalResolvers[launchNumber - 1]();
+      await held;
+    };
+
+    const firstWorker = service.runWorker(3, "/tmp/start");
+    await arrivals[0];
+    f.files.values.set(configurationPath, config(secondValue));
+    const secondWorker = service.runWorker(4, "/tmp/start");
+    await arrivals[1];
+    releaseLaunches?.();
+    await Promise.all([firstWorker, secondWorker]);
+
+    expect(f.processes.launchInputs).toHaveLength(2);
+    const firstEnvironment = f.processes.launchInputs[0].environment;
+    const secondEnvironment = f.processes.launchInputs[1].environment;
+    expect(firstEnvironment[variableName]).toBe(firstValue);
+    expect(firstEnvironment[variableName]).not.toBe(secondValue);
+    expect(secondEnvironment[variableName]).toBe(secondValue);
+    expect(secondEnvironment[variableName]).not.toBe(firstValue);
+    expect(firstEnvironment.OTEL_RESOURCE_ATTRIBUTES).toBe(
+      "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
+    );
+    expect(secondEnvironment.OTEL_RESOURCE_ATTRIBUTES).toBe(
+      "project.name=jsburckhardt-soft-factory-runner,issue.id=issue-4",
+    );
+    expect(Object.isFrozen(firstEnvironment)).toBe(true);
+    expect(Object.isFrozen(secondEnvironment)).toBe(true);
+
+    f.files.values.set(configurationPath, config("later-source-change"));
+    expect(firstEnvironment[variableName]).toBe(firstValue);
+    expect(secondEnvironment[variableName]).toBe(secondValue);
+    const retained = [...f.files.values.entries()]
+      .filter(([filePath]) => filePath !== configurationPath)
+      .map(([, content]) => content)
+      .join("\n");
+    expect(retained).not.toContain(variableName);
+    expect(retained).not.toContain(firstValue);
+    expect(retained).not.toContain(secondValue);
+  });
+
+  it("V-8 scans the complete named scenario ledger and Runner artifacts", async () => {
+    const f = fixture();
+    const configurationPath =
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml";
+    const successfulValue = "fixture-private-scan-success";
+    const rejectedValue = "fixture-private-scan-rejected";
+    f.files.values.set(
+      configurationPath,
+      'copilot:\n  environment:\n    SCAN_PRIVATE_NAME: "' +
+        successfulValue +
+        '"\n',
+    );
+    const run = await runCli(
+      ["run", "--issue", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    const worker = await runCli(
+      ["internal", "run-agent", "--issue", "3"],
+      "/tmp/start",
+      f.ports,
+    );
+    const status = await runCli(
+      ["status", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    expect(f.processes.launchInputs[0].environment.SCAN_PRIVATE_NAME).toBe(
+      successfulValue,
+    );
+
+    let rejectedError: RunnerError | null = null;
+    try {
+      parseConfiguration(
+        'copilot:\n  environment:\n    SCAN_PRIVATE_NAME: "' +
+          rejectedValue +
+          '"\n    SCAN_PRIVATE_NAME: "duplicate"\n',
+      );
+    } catch (cause: unknown) {
+      if (!(cause instanceof RunnerError)) throw cause;
+      rejectedError = cause;
+    }
+    expect(rejectedError).not.toBeNull();
+
+    const scenarioNames = [
+      "absent mapping",
+      "empty mapping",
+      "valid strings",
+      "explicit empty string",
+      "inherited-configured collision",
+      "Runner-owned collision",
+      "duplicate name",
+      "invalid name",
+      "non-string scalar",
+      "nested value",
+      "alias",
+      "anchor",
+      "merge key",
+      "unsupported key",
+      "malformed syntax",
+      "literal metacharacters",
+      "configuration correction",
+      "two distinct concurrent issues",
+    ];
+    const ledger = scenarioNames.map((scenario) => ({
+      scenario,
+      variableName: "redacted-name-only",
+      result: "passed",
+    }));
+    expect(ledger).toHaveLength(18);
+
+    const categories: Readonly<Record<string, readonly string[]>> = {
+      humanOutput: [
+        worker.stdout,
+        renderError(rejectedError as RunnerError, false),
+      ],
+      jsonOutput: [
+        run.stdout,
+        status.stdout,
+        renderError(rejectedError as RunnerError, true),
+      ],
+      errors: [
+        (rejectedError as RunnerError).message,
+        (rejectedError as RunnerError).remediation,
+        JSON.stringify((rejectedError as RunnerError).details),
+      ],
+      snapshots: [...f.files.values.entries()]
+        .filter(([filePath]) => filePath.includes("/.soft-factory/runs/"))
+        .map(([, content]) => content),
+      events: [...f.files.values.entries()]
+        .filter(([filePath]) => filePath.includes("/.soft-factory/events/"))
+        .map(([, content]) => content),
+      retainedAttemptLogs: [...f.files.values.entries()]
+        .filter(([filePath]) => filePath.includes("/.soft-factory/logs/"))
+        .map(([, content]) => content),
+      scenarioLedger: [JSON.stringify(ledger)],
+    };
+    for (const surfaces of Object.values(categories))
+      for (const surface of surfaces)
+        for (const sentinel of [successfulValue, rejectedValue])
+          expect(surface).not.toContain(sentinel);
   });
 });
 

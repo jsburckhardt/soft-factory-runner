@@ -406,6 +406,10 @@ export class IssueRunService {
       normalizedName: normalizeRepositoryName(snapshot.repository),
     };
     const resourceAttributes = otelResourceAttributes(identity, issueNumber);
+    const environment = composeCopilotLaunchEnvironment(
+      configuration.copilotEnvironment,
+      resourceAttributes,
+    );
     const args = [
       "--yolo",
       "--name",
@@ -451,7 +455,7 @@ export class IssueRunService {
         executable: "copilot",
         args,
         cwd: snapshot.worktreePath,
-        environment: { OTEL_RESOURCE_ATTRIBUTES: resourceAttributes },
+        environment,
         pane: tmuxTarget,
         panePid,
         launchedAt: this.ports.clock.now(),
@@ -1619,6 +1623,16 @@ export class IssueRunService {
         { details: { branchExists, pathExists, registered } },
       );
   }
+}
+
+export function composeCopilotLaunchEnvironment(
+  configured: Readonly<Record<string, string>>,
+  resourceAttributes: string,
+): Readonly<Record<string, string>> {
+  return Object.freeze({
+    ...configured,
+    OTEL_RESOURCE_ATTRIBUTES: resourceAttributes,
+  });
 }
 
 function canMigrateLegacy(

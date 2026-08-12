@@ -13,6 +13,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260811-prototype-three-recovery-concurrency | Prototype Three Recovery and Explicit Concurrency | Accepted | 2026-08-11 |
 | ADR-260812-repository-doctor-readiness | Repository Doctor Readiness Architecture | Accepted | 2026-08-12 |
 | ADR-260812-official-asset-distribution-installation | Official Asset Distribution and Installation | Accepted | 2026-08-12 |
+| ADR-260812-copilot-child-environment | Copilot Child Environment Configuration | Accepted | 2026-08-12 |
 
 ## Core-Components
 
@@ -37,6 +38,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260811-owned-resource-cleanup | Owned Resource Cleanup | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260812-repository-doctor-contract | Repository Doctor Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-official-asset-installation-contract | Official Asset Installation Contract | Adopted | 2026-08-12 |
+| CORE-COMPONENT-260812-copilot-child-environment-contract | Copilot Child Environment Contract | Adopted | 2026-08-12 |
 
 ## Decisions
 
@@ -136,3 +138,11 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 90 | Require manifest digest proof before replacing differing installed assets | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
 | 91 | Delegate official Operator lifecycle operations to Runner commands | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
 | 92 | Treat complete Doctor JSON as authoritative Assessor readiness evidence | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
+| 93 | Use `copilot.environment` for configured Copilot child variables | ADR-260812-copilot-child-environment | 2026-08-12 |
+| 94 | Apply configured values after inherited values and Runner telemetry last | ADR-260812-copilot-child-environment | 2026-08-12 |
+| 95 | Keep configured Copilot environment values out of durable Runner records | ADR-260812-copilot-child-environment | 2026-08-12 |
+| 96 | Validate Copilot environment names and string values before every launch | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
+| 97 | Pass literal immutable environment maps only through `spawnCopilot` | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
+| 98 | Isolate configured Copilot environments from other subprocesses and concurrent issues | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
+| 99 | Prohibit configured values in Runner errors, output, persistence, and logs | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
+| 100 | Compose Copilot child environments under the dedicated launch contract | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-12 |

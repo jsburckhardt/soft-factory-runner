@@ -91,9 +91,17 @@ rpiv:
   prompt: "Deliver issue #{issue}"
 execution:
   max_concurrent_runs: 1
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    OPTIONAL_EMPTY: ""
 ```
 
-`repository.remote`, `repository.base_branch`, branch mappings, prompt, and concurrency retain their existing behavior. The roots default to `.trees` and `.soft-factory`, but `protocol_version` has no inferred default for Doctor. Existing configuration files must add `protocol_version: 1`; unknown scalar keys and unknown empty mapping keys are rejected at every supported mapping level. Known empty `repository`, `rpiv`, `execution`, and `branch_types` mappings retain documented defaults. This is a configuration compatibility migration, not a data migration.
+`repository.remote`, `repository.base_branch`, branch mappings, prompt, and concurrency retain their existing behavior. The roots default to `.trees` and `.soft-factory`, but `protocol_version` has no inferred default for Doctor. Existing configuration files must add `protocol_version: 1`; unknown scalar keys and unknown empty mapping keys are rejected at every supported mapping level. Known empty `repository`, `rpiv`, `execution`, `branch_types`, `copilot`, and `copilot.environment` mappings retain documented defaults. This is a configuration compatibility migration, not a data migration.
+
+Doctor uses the same strict `copilot.environment` parser as issue execution. Names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, including explicit empty `""`. An absent mapping or empty environment mapping adds no overrides. Duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, malformed lines, and bad indentation fail `compatibility.configuration` with field/reason diagnostics with no value included.
+
+Doctor validates only compatibility: it never launches Copilot or passes configured entries to its own `git`, `gh`, tmux, Node, Copilot usability, or generic probes. At issue launch, Runner reads the current file fresh, applies allowlisted inherited values, then configuration, then Runner-owned current-issue `OTEL_RESOURCE_ATTRIBUTES`, and transports strings literally with `shell: false`. Configured names and values are not persisted or rendered. Correct the file and rerun Doctor or the eligible launch explicitly; there is no cache or hidden retry. This additive mapping changes no Doctor result schema, run snapshot, API, data, or deployment contract and has no migration requirement when absent.
 
 Both roots must be normalized repository-relative paths, distinct and non-overlapping, contained lexically and physically by the primary worktree, and separate from the Git common directory. Absolute paths, traversal, empty segments, files, symlink escape, and Git metadata collisions fail.
 

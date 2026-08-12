@@ -27,7 +27,7 @@ This component applies to `run`, `status`, `attach`, the internal RPIV worker, r
 - Persist a schema-versioned atomic snapshot and append schema-versioned lifecycle events for every persisted transition. The snapshot includes owner/run IDs, repository identity, issue, state, branch type/name, worktree, tmux identities, Copilot launch facts, and fetched-base proof.
 - Limit Prototype 1 states to preparation states, `running_rpiv`, and safe `failed`, `blocked`, or `interrupted` outcomes. Record Copilot exit zero as `interrupted` pending later completion proof and non-zero exit as `failed`; never report `completed` in this phase.
 - Build the tmux issue window rooted at the isolated worktree and launch the internal worker there so RPIV output remains visible. The worker launches Copilot with argument arrays including exact `--name issue-<number>`, `--agent rpiv`, and the configured prompt.
-- Set each Copilot child environment value exactly to `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project>,issue.id=issue-<number>`. Normalize owner/repository by lowercasing, replacing each non-alphanumeric run with one hyphen, and trimming hyphens.
+- Compose every Copilot child environment under `CORE-COMPONENT-260812-copilot-child-environment-contract`, with Runner-generated `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project>,issue.id=issue-<number>` applied last. Normalize owner/repository by lowercasing, replacing each non-alphanumeric run with one hyphen, and trimming hyphens.
 - Have `status <issue>` return persisted state and separately bounded observed tmux facts. Have `attach <issue>` accept only the issue number, load the owned snapshot, verify the recorded window still matches observation, and attach by recorded session/window identity; ambiguity blocks.
 - Bound each GitHub or tmux readiness/observation call to 15 seconds, each fetch or remote-HEAD call to 30 seconds, and GitHub list traversal to 10 pages of 100 records. Timeout, truncation, malformed output, or incomplete proof produces a stable actionable typed failure.
 - Compose orchestration through typed Git, GitHub, tmux, process, filesystem, clock, and ID interfaces. Tests may inject deterministic adapters only through application composition, never through production environment backdoors.
@@ -80,3 +80,4 @@ copilot --name issue-3 --agent rpiv ...
 
 - [ADR-260811-prototype-one-run-orchestration](../ADR/ADR-260811-prototype-one-run-orchestration.md)
 - [ADR-260810-typescript-node-cli](../ADR/ADR-260810-typescript-node-cli.md)
+- [ADR-260812-copilot-child-environment](../ADR/ADR-260812-copilot-child-environment.md)
