@@ -1,0 +1,26 @@
+.harness/records/retro/2026-08-12/009-issue-7-rpiv-verifier.md
+  s_57093a4fa3eb22::t_753930fe93c3f1 12,71-84,89
+  s_57093a4fa3eb22::t_a302c40bcd8565 43-56
+  s_57093a4fa3eb22::t_3c076ef17c40f0 1-6,9,14-16,24,85-86,88
+  s_57093a4fa3eb22::t_74b922800c51c7 57-70
+  s_57093a4fa3eb22::t_2675587a7e2303 13
+  s_57093a4fa3eb22::t_2bf97204374015 7-8,10-11,17-23,25-42,87
+project/work-items/7-phase-5-install-and-operate-official-agent-assets/verify/summary.md
+  s_57093a4fa3eb22::t_0c2128d2bbca94 1-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d8a9711236ba58b995df4f96f42ddb61ef37871f",
+  "prompts": {},
+  "sessions": {
+    "s_57093a4fa3eb22": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_crMwPbiWHhMXzqAGWC49LMRn",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
