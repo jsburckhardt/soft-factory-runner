@@ -1099,6 +1099,14 @@ OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" 
   copilot --yolo --name "issue-123" --agent rpiv -p "Deliver issue #123"
 ```
 
+For generic observability launch guidance, use this one-line telemetry-enabled form:
+
+```bash
+OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo
+```
+
+The complete production invocation above retains the required name, agent, and prompt arguments.
+
 Runner MUST set `OTEL_RESOURCE_ATTRIBUTES` for each Copilot process using the
 resolved repository name and issue number:
 
