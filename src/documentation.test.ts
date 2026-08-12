@@ -5,6 +5,7 @@ import path from "node:path";
 const root = path.resolve(__dirname, "..");
 const read = (relative: string) =>
   fs.readFileSync(path.join(root, relative), "utf8");
+const prd = read("PRD.md");
 const readme = read("README.md");
 const docsIndex = read("docs/README.md");
 const issueRun = read("docs/phase-1-issue-run.md");
@@ -288,6 +289,17 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
 
 describe("V-9 Copilot child environment documentation", () => {
   const guides = [readme, issueRun, operations, doctorGuide];
+
+  it("keeps the generic and concrete PRD Copilot invocations explicit", () => {
+    const genericInvocation = `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`;
+    expect(
+      prd.split("\n").filter((line) => line === genericInvocation),
+    ).toHaveLength(1);
+    expect(prd).toContain(
+      `OTEL_RESOURCE_ATTRIBUTES="project.name=jsburckhardt-example,issue.id=issue-123" \\
+  copilot --yolo --name "issue-123" --agent rpiv -p "Deliver issue #123"`,
+    );
+  });
 
   it("documents the mapping, example, grammar, explicit empty strings, and defaults", () => {
     for (const guide of guides) {

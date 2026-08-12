@@ -4,6 +4,10 @@
 
 Tasks T-1 through T-5 are implemented in dependency order and marked complete in the validated task breakdown. This record supplies redacted evidence for Verify; it does not claim final verification or acceptance.
 
+### Verify-return follow-up
+
+Follow-up task T-6 is complete after recovery of the removed implementation checkout. PRD section 27 now adds exactly one generic one-line invocation while preserving the complete concrete Runner command, and `src/documentation.test.ts` holds both forms stable. T-1 through T-5 evidence below is retained as historical implementation evidence; no Issue #17 runtime code or behavior changed.
+
 ## Acceptance evidence
 
 | AC | Evidence |
@@ -12,7 +16,7 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 | AC-2 | `src/orchestration.test.ts` V-3 records the five planned telemetry variable names plus explicit-empty transport at `spawnCopilot`; executable, cwd, and the exact `--yolo --name issue-3 --agent rpiv --prompt Deliver issue #3` array are unchanged. |
 | AC-3 | V-3 proves Runner-owned resource attributes replace a configured collision; V-4 proves configured entries replace allowlisted inherited collisions and preserves current issue attributes. |
 | AC-4 | V-1 proves absent, blank, empty `copilot`, and empty `environment` defaults; V-3 compares absent and empty launch controls and finds only the pre-existing generated resource attribute. |
-| AC-5 | README, issue-run, recovery, Doctor, and docs-index guidance is updated and held consistent by `src/documentation.test.ts` V-9. |
+| AC-5 | README, issue-run, recovery, Doctor, and docs-index guidance is updated and held consistent by `src/documentation.test.ts` V-9. Follow-up V-11 proves PRD section 27 contains exactly one generic one-line invocation and preserves the complete concrete Runner command. |
 | AC-6 | V-2 rejects duplicate and invalid names, non-string and nested values, aliases, anchors, merge keys, unsupported keys, malformed lines, and indentation failures as `CONFIG_INVALID` before spawn. Assertions cover field, reason, and value-free message/remediation/details/human/JSON forms. |
 | AC-7 | `LiveProcessPort` still uses argument-array spawn with `shell: false`. V-4 compares literal variable references, command-substitution syntax, backticks, spaces, quotes, semicolons, and URL metacharacters without expansion. |
 | AC-8 | The fresh environment map is passed only to `ProcessPort.spawnCopilot`. V-5 verifies ambient state is unchanged, non-Copilot operation traces contain no configured name/value, and durable records contain no configured map. |
@@ -20,7 +24,7 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 | AC-10 | V-7 uses a barrier around two distinct issue launches. Captured maps are frozen, disjoint, unchanged after a later source edit, and carry issue-3 and issue-4 attributes respectively. |
 | AC-11 | V-1 through V-8 execute deterministic parser, launch, precedence, isolation, correction, concurrency, and confidentiality scenarios through injected memory adapters without live Copilot, credentials, telemetry, or network access. |
 | AC-12 | V-2 and V-8 compare unique values only in test-local child-boundary memory. V-5 through V-8 scan errors, human/JSON output, snapshots, event JSONL, retained-log categories, and scenario evidence with zero matches outside the boundary/config fixture. |
-| AC-13 | Final focused and full harness envelopes returned `status: ok`, correct scopes/delegated commands, and exit code 0. Direct `just verify-focused` and `just verify` also exited 0. |
+| AC-13 | Final focused and full harness envelopes returned `status: ok`, correct scopes/delegated commands, and exit code 0. Direct `just verify-focused` and `just verify` also exited 0. The T-6 follow-up reran both direct recipes and both harness delegates successfully with 19 suites and 248 tests. |
 
 ## Named validation scenarios
 
@@ -36,6 +40,7 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 | V-8 | Passed | Ledger covers absent, empty, valid, explicit-empty, both collision classes, every invalid class, literal metacharacters, correction, and concurrent issues. Human output, JSON output, errors, snapshots, events, retained attempt logs, and ledger categories each had zero value matches. |
 | V-9 | Passed | Four named documentation assertions cover mapping/defaults, grammar/example, literal/precedence behavior, invalid classes/value-free diagnostics, fresh correction/confidentiality, and migration/API/deployment impact. |
 | V-10 | Passed | `harness checks --focused --json`, direct `just verify-focused`, `harness checks --json`, and direct `just verify` all completed successfully. |
+| V-11 | Passed | PRD section 27 contains the exact generic invocation on one line exactly once, and the complete concrete Runner command remains unchanged. |
 
 ## Validation results
 
@@ -45,6 +50,16 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 - Final full harness: `status: ok`, scope `full`, delegated command `just verify`, exit 0; lint, formatting, types, tests, coverage, build, and diff check passed.
 - Final direct full: `just verify` exit 0; 19 suites and 247 tests passed; lint, formatting, typecheck, build, and diff check passed.
 - Coverage: statements 87.67%, branches 82.32%, functions 93.99%, lines 89.44%; every metric exceeds 80%.
+
+## Follow-up validation results
+
+- Focused documentation regression: `just verify-focused src/documentation.test.ts` exited 0; 1 suite and 20 tests passed.
+- Final direct focused: `just verify-focused` exited 0; 19 suites and 248 tests passed; `git diff --check` passed.
+- Final focused harness: `status: ok`, scope `focused`, delegated command `just verify-focused`, exit code 0; 19 suites and 248 tests passed.
+- Final direct full: `just verify` exited 0 after the formatting correction; lint, formatting, typecheck, 19 suites/248 tests, coverage, build, and diff check passed.
+- Final full harness: `status: ok`, scope `full`, delegated command `just verify`, exit code 0.
+- Coverage remained statements 87.67%, branches 82.32%, functions 93.99%, and lines 89.44%.
+- Validation used a canonical macOS temporary-directory path so Git worktree observations compared canonical paths; this changed no repository file or product behavior.
 
 ## Confidentiality evidence
 
@@ -66,6 +81,7 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 | Operations/recovery | Recovery guidance documents fresh reads, rejected correction, concurrent snapshot isolation, no hidden retry, Copilot-only scope, and confidentiality. |
 | Deployment | Runner remains a short-lived local CLI with no daemon, service, container, or deployment procedure change; no deployment update beyond the explicit no-impact note is required. |
 | Documentation index | `docs/README.md` indexes the shared Copilot child configuration contract. |
+| PRD execution contract | `PRD.md` section 27 adds exactly `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo` as one line while retaining the existing concrete Runner invocation. |
 | Consistency proof | `src/documentation.test.ts` V-9 passed all named cross-guide assertions and qualifies the previous generated-telemetry-only wording. |
 
 ## Harness friction drain
@@ -76,6 +92,11 @@ Tasks T-1 through T-5 are implemented in dependency order and marked complete in
 - `rpiv-implementer`: 11 observations persisted and read back in `.harness/records/retro/2026-08-12/012-issue-17-rpiv-implementer.md`, then 11 cleared.
 - Read-back checks confirmed schema 1.2, matching agent and plan ID, every pending fingerprint, and `disposition: kept`. Final JSON list envelopes for all four agents returned `status: ok`, zero observations, and exit code 0.
 - Harness Doctor remained degraded only for machine-level capture/collector readiness; every repository-owned layer was healthy. The commit path uses `harness commit` and its attribution outcome is reported at handoff.
+
+### Verify-return follow-up drain
+
+- Coordinator `rpiv`, `rpiv-research`, and `rpiv-planner` each had zero pending observations.
+- `rpiv-implementer` had five concrete observations. All five were persisted with schema 1.2, matching plan/agent identity, fingerprints, and `disposition: kept` in `.harness/records/retro/2026-08-12/014-issue-17-rpiv-implementer-follow-up.md`, read back, then cleared with a successful JSON envelope reporting `cleared: 5`.
 
 ## Architecture and plan conformance
 
