@@ -968,11 +968,13 @@ export class IssueRunService {
         report,
         "Restore the exact issue lock before reacquiring capacity.",
       );
+    const resumedAt = this.ports.clock.now();
+    const nextAttempt = persisted.attempt + 1;
     const admission = await claimConcurrencySlot({
       store,
       owner,
       maxConcurrentRuns: configuration.maxConcurrentRuns,
-      acquiredAt: this.ports.clock.now(),
+      acquiredAt: resumedAt,
       rollbackOwnerOnFailure: false,
     });
     const resumed = await this.persistTransition(
@@ -980,8 +982,18 @@ export class IssueRunService {
       persisted,
       {
         state: "running_rpiv",
-        attempt: persisted.attempt + 1,
+        attempt: nextAttempt,
         admission: admission.lease,
+        integrationLaunch: integrationLaunch({
+          runId: persisted.runId,
+          attempt: nextAttempt,
+          issueNumber: persisted.issueNumber,
+          branch: persisted.branch,
+          worktreePath: persisted.worktreePath,
+          startedAt: resumedAt,
+          requiredFinalValidation: persisted.requiredFinalValidation,
+        }),
+        progress: null,
         launchIntent: null,
         workerProcess: null,
         rpivProcess: null,

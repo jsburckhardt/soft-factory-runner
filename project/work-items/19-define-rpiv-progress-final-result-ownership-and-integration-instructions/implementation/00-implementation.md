@@ -4,6 +4,28 @@
 
 Implemented dependency-ordered tasks T-1 through T-8 on branch `feat/19-rpiv-progress-and-instructions`. This record provides implementation evidence only; final acceptance remains owned by Verify.
 
+## Verify rejection correction after `b321812`
+
+- **AC-3:** `validateDeclaredRecipe` now rejects a missing root `justfile` for both default `just verify` and configured recipes. Direct parser and new-run orchestration tests prove `CONFIG_INVALID` before lock, lease, snapshot, event, worktree, tmux, process, or other owned-resource mutation.
+- **AC-8 / AC-12 / AC-13 / AC-17 / AC-18:** Completed reconciliation now excludes `progress` from its non-GitHub ownership problem set, matching the existing exclusion in all other report paths. An integrated Research-to-terminal-to-`completed` flow proves a current byte-equivalent terminal artifact remains visible as `PROGRESS_REPEATED` while status/list preserve `completed`, `inactive`, `MERGE_PENDING`, and cleanup-safe actions. A completed-state cross-product proves identical persisted completion, activity, decision, safe actions, diagnostics, remediation, and cleanup eligibility for valid, repeated, missing, empty, malformed, incomplete, unsupported, identity-mismatched, stale, regressed, conflicting, and late progress.
+- **AC-11 / AC-18:** V4 parsing now cross-checks `IntegrationLaunchV1` run ID, attempt, issue, branch, exact worktree progress/result paths, and required final validation against the containing snapshot. The seven-row mismatch table fails with `STATE_INVALID` and byte-identical state/no action; integrated progress/result helper tests prove forged paths are never used. Resume now atomically refreshes the attempt-bound launch and clears prior-attempt progress, so valid resumed V4 state remains strictly parseable.
+- **Documentation correction:** `CORE-COMPONENT-260811-run-reconciliation-control.md` now names `RunSnapshotV4`, supported v1-v4 reads, eligible v2/v3-to-v4 migration, and v3/v4 event replay. Existing Decision 105 was corrected in place with the same artifact identity/date. `docs/phase-1-issue-run.md` now requires committed and pushed verification-summary/verifier-retro records plus independent final PR-head confirmation before result publication. README, recovery operations, and the integration guide document missing-justfile failure, strict V4 launch binding, and classification-wide progress neutrality. Documentation assertions reject the stale V3 wording and publication order.
+
+### Correction changed files
+
+- Source: `src/config.ts`, `src/orchestrator.ts`, `src/persistence.ts`, `src/reconciliation.ts`.
+- Tests: `src/documentation.test.ts`, `src/integration-contract.test.ts`, `src/integration.test.ts`, `src/orchestration.test.ts`, `src/reconciliation.test.ts`, `src/recovery-control.test.ts`, `src/recovery-persistence.test.ts`.
+- Documentation/contracts: `README.md`, `docs/phase-1-issue-run.md`, `docs/phase-3-recovery-operations.md`, `docs/rpiv-integration-contract.md`, `project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md`, `project/architecture/ADR/DECISION-LOG.md`.
+- Durable friction: `.harness/records/retro/2026-08-12/019-issue-19-rpiv-implementer-verify-rejection-correction.md`.
+
+### Correction validation evidence
+
+- Targeted direct gates: final-validation/parser plus orchestration (2 suites / 66 tests), V4 persistence/helpers (2 / 57), progress reconciliation/status/list (2 / 62), complete corrected matrix (5 / 122), live/new-run fixture and persistence matrix (4 / 97), resume binding (2 / 57), and documentation assertions (1 / 21) all exited 0.
+- Focused Harness: final `harness checks --focused --json` envelope `status: ok`, `scope: focused`, delegated `just verify-focused`, exit 0; 21 suites / 318 tests. Earlier retries exposed and then cleared typed-guard, fixture-justfile, and resume-binding failures recorded in the retro.
+- Focused direct: final `just verify-focused` exit 0; 21 suites / 318 tests and `git diff --check` passed.
+- Full Harness: final `harness checks --json` envelope `status: ok`, `scope: full`, delegated `just verify`, exit 0 after recorded lint/format retries; lint, format, types, 21 suites / 318 tests, coverage, build, and diff hygiene passed.
+- Full direct: final `just verify` exit 0 with 87.96% statements, 83.21% branches, 94.30% functions, and 89.61% lines.
+
 ## Resumed Verify correction — current progress ownership
 
 - Corrected `progressObservation` so persisted `lastAccepted` remains inspectable comparison history but is never used as the displayed phase when the current progress artifact is missing or unusable.
@@ -34,23 +56,23 @@ Implemented dependency-ordered tasks T-1 through T-8 on branch `feat/19-rpiv-pro
 
 - **AC-1:** `src/integration.ts` defines the complete versioned contract and human renderer; `src/integration-contract.test.ts` proves path, atomicity, phase, result, snapshot, legacy, and no-success-without-result facts.
 - **AC-2:** `parseCommand` accepts only `instructions [--json]`; deterministic repeated rendering and parsed JSON equality pass in the integration-contract suite, while unsupported syntax retains `CLI_INVALID` / exit 2 semantics.
-- **AC-3:** `src/config.ts` accepts one declared argument-free root recipe, defaults absence to `just verify`, rejects empty/focused/shell/undeclared values, and `IssueRunService.run` creates no owner until configuration and root justfile validation complete. New snapshots contain one `requiredFinalValidation`.
+- **AC-3:** `src/config.ts` accepts one declared argument-free root recipe, defaults absence to `just verify`, rejects empty/focused/shell/undeclared values, and now rejects a missing root `justfile` for default and configured forms. Parser and orchestration tests prove byte-identical files plus no lock, lease, snapshot, event, worktree, tmux, or process mutation before `CONFIG_INVALID`. New snapshots contain one `requiredFinalValidation`.
 - **AC-4:** `reconcileCompletion` compares only `requiredFinalValidation`. Metamorphic tests pass with focused evidence absent, passed, failed, or unrelated.
 - **AC-5:** The corrected Verifier contract orders acceptance -> snapshotted validation -> PR creation/update -> verification summary/verifier-retro commit and push -> independent PR/final-head confirmation -> no-clobber publication. Strict results bind issue, branch, final head, independently observed PR number, outcome, AC evidence, final-validation evidence, supplementary diagnostics, and completion time.
 - **AC-6:** Internal publish/validate helpers independently query one open PR for the owned branch and final head, reject candidate `prNumber` mismatch, and return nonzero typed errors on missing, invalid, mismatch, write failure, or collision. Coordinator guidance invokes local validation before zero exit; immutable bytes are preserved.
 - **AC-7:** `publishProgress` invokes `classifyProgress` before mutation, accepts only exact forward phase transitions, serializes competing helpers, and atomically writes strict identity-bound progress. Canonical coordinator guidance attempts terminal failed publication before every nonzero return/exception while preserving the original error and surfacing publication failure.
-- **AC-8:** `ReconciliationObservationsV1.progress`, `renderReport`, status schema 3, and list records expose phase/classification separately. The resumed correction makes missing or unusable current progress phase `unknown` even when persisted `lastAccepted` retains `plan`; direct human/JSON status and list regression coverage preserves operational `running_rpiv`, and authorizing report calculations explicitly exclude progress.
+- **AC-8:** `ReconciliationObservationsV1.progress`, `renderReport`, status schema 3, and list records expose phase/classification separately. Missing or unusable current progress is `unknown`, while a present byte-equivalent accepted artifact displays its phase as `PROGRESS_REPEATED`. Integrated terminal-progress-to-completed human/JSON status/list coverage proves operational completion, activity, decision code, and safe actions remain unchanged.
 - **AC-9:** Canonical RPIV agents and all packaged official assets direct discovery to `soft-factory instructions --json`. Operator/Assessor/Skill remain Runner delegates; updated catalog digests and npm package/install tests passed.
 - **AC-10:** V4 active/resume paths parse other runtime configuration with the persisted final-validation override, so changed, invalid, empty, nested, focused, or undeclared current values cannot block or alter the run. Existing-state `run` reconciles before any current config parse; later new runs alone parse and snapshot current validation.
-- **AC-11:** `migrateLegacySnapshot` drops legacy arrays and installs sole `just verify` without configuration lookup. Recovery tests set invalid current final-validation config and still normalize supported v3 to sole `just verify`; v1 remains non-completable without acceptance migration and malformed/unsupported state fails safe.
-- **AC-12:** Helper publication now rejects exact repeats, skips, same-phase advances, regressions, conflicts, stale/identity-invalid facts, and post-terminal updates with stable nonzero codes before mutation. Tests prove the prior artifact, persisted accepted fact, immutable result, operational state, and ownership remain unchanged.
-- **AC-13:** The strict parser/classifier implements missing, empty, malformed, incomplete, unsupported, identity mismatch, stale, regressed, repeated, conflict, late, and valid codes. Missing, empty, malformed, incomplete, unsupported, mismatched, stale, regressed, conflicting, and late current artifacts report phase `unknown` without falling back to persisted `lastAccepted`; a currently present byte-equivalent accepted artifact remains usable and reports its phase as `PROGRESS_REPEATED`.
+- **AC-11:** `migrateLegacySnapshot` drops legacy arrays and installs sole `just verify` without configuration lookup. Strict V4 parsing additionally cross-checks launch run ID, attempt, issue, branch, exact owned paths, and final validation; seven contradictory records fail `STATE_INVALID` without mutation, helpers reject forged paths before use, and resumed attempts refresh the bound launch. v1 remains non-completable without acceptance migration and malformed/unsupported state fails safe.
+- **AC-12:** Helper publication rejects exact repeats, skips, same-phase advances, regressions, conflicts, stale/identity-invalid facts, and post-terminal updates before mutation. Completed reconciliation also excludes every progress observation from authorization; the cross-product proves completion, activity, decision, safe actions, cleanup eligibility, diagnostics, and remediation are invariant across every classification.
+- **AC-13:** The strict parser/classifier implements missing, empty, malformed, incomplete, unsupported, identity mismatch, stale, regressed, repeated, conflict, late, and valid codes. Every unusable current artifact reports phase `unknown` without falling back to `lastAccepted`; a present byte-equivalent accepted artifact reports its own phase as `PROGRESS_REPEATED`, and neither shape authorizes any process or state action.
 - **AC-14:** Strict result parsing rejects missing/empty/malformed/incomplete/unsupported forms; bound validation rejects issue/branch/head/PR/AC/final-validation mismatches. Existing completion/recovery tests retain noncompleted safe outcomes.
 - **AC-15:** Real temporary-directory tests run simultaneous mutable readers/writers and competing immutable publishers. Readers see only complete old/new identity documents, AgentResultV1 has one no-clobber winner, and injected faults at temporary-create, temporary-sync, pre-publish, publish, and directory-sync boundaries expose only absence or complete prior/new bytes with no temporary residue.
 - **AC-16:** Integration facts carry no Copilot environment mapping. Existing sentinel tests plus integration/documentation scans cover instructions, progress, result, status/list, snapshots, events, errors, and logs while preserving issue/run/branch ownership.
-- **AC-17:** The 290-test repository-local suite adds credential-free CLI helper publication/validation, trusted PR mismatch, exact final-head agent ordering, active/legacy invalid-config recovery, terminal failed progress, transition rejection, current-artifact-only phase reporting, write faults, real filesystem concurrency, and unchanged ownership.
-- **AC-18:** Negative controls now concretely cover invalid current config during active/new/legacy paths, candidate PR mismatch, helper write failure, concurrent progress calls, repeated/regressed/skipped/late transitions, all five atomic fault steps, one-winner result races, complete-reader corpora, temporary cleanup, and unchanged ownership/result bytes.
-- **AC-19:** Fresh Harness full checks and direct `just verify` exited 0. Coverage: statements 87.80%, branches 83.03%, functions 94.29%, lines 89.44%.
+- **AC-17:** The 318-test repository-local suite adds credential-free CLI helper publication/validation, trusted PR mismatch, exact final-head agent ordering, active/legacy invalid-config recovery, terminal failed progress, transition rejection, current-artifact-only phase reporting, write faults, real filesystem concurrency, and unchanged ownership.
+- **AC-18:** Negative controls cover missing root justfiles with zero ownership mutation; seven V4 launch contradictions and forged helper paths with unchanged bytes/no action; completed valid/repeated/missing/every-unusable progress invariance; invalid active/new/legacy config; helper write faults; concurrent progress; transition rejection; all atomic fault steps; and unchanged ownership/result bytes.
+- **AC-19:** Fresh Harness full checks and direct `just verify` exited 0. Coverage: statements 87.96%, branches 83.21%, functions 94.30%, lines 89.61%.
 
 ## Validation evidence (V-1 through V-12)
 
@@ -59,12 +81,12 @@ Implemented dependency-ordered tasks T-1 through T-8 on branch `feat/19-rpiv-pro
 - **V-3:** Focused-neutral metamorphic completion tests passed.
 - **V-4:** Strict result binding now uses independently observed PR-by-branch facts; candidate mismatch, helper exits/write faults, final-summary push ordering, final-head confirmation, idempotence/collision, and coordinator gate assertions passed.
 - **V-5:** Progress schema and classification matrix passed.
-- **V-6:** Human and JSON status/list now directly prove `running_rpiv` plus a persisted accepted `plan` fact plus a missing current artifact yields `PROGRESS_MISSING` and phase `unknown`; the unusable-artifact classification table proves the same no-fallback invariant for empty, malformed, incomplete, unsupported, identity-mismatched, stale, regressed, conflicting, and late current artifacts.
+- **V-6:** Human/JSON status/list prove missing current progress is `unknown` despite `lastAccepted`, and integrated terminal progress observed after `completed` remains diagnostic `PROGRESS_REPEATED` while completion, activity, decision, and safe actions remain stable. The completed cross-product covers valid, repeated, missing, and every unusable class.
 - **V-7:** Real concurrent reader/writer and publisher races plus every injected live-adapter publication fault step passed; complete old/new bytes, one immutable winner, no clobber, and temporary cleanup were asserted.
-- **V-8:** v1-v4 parsing/migration, event replay, active v3 normalization, and recovery boundaries passed.
+- **V-8:** v1-v4 parsing/migration, seven strict V4 launch-binding mismatches, forged-path helper refusal, refreshed resumed-attempt binding, event replay, active v3 normalization, and recovery boundaries passed.
 - **V-9:** Copilot sentinel redaction and documentation scans passed.
 - **V-10:** Canonical/official delegation, SHA-256 catalog, npm package, clean/repeated install, and no-bypass checks passed.
-- **V-11:** Credential-free integration suites passed: 21 suites, 290 tests.
+- **V-11:** Credential-free integration suites passed: 21 suites, 318 tests.
 - **V-12:** `harness checks --json` and direct `just verify` passed; `git diff --check` passed.
 
 ## Architecture adherence
@@ -89,10 +111,10 @@ Implementation follows ADR-260812-rpiv-integration-completion-contract and CORE-
 
 ## Focused and full results
 
-- Focused harness: fresh `harness checks --focused --json` status `ok`, scope `focused`, delegated `just verify-focused`, exit 0; 21 suites / 290 tests.
-- Focused direct: fresh `just verify-focused` exit 0; 21 suites / 290 tests. Targeted `just verify-focused src/integration-contract.test.ts src/orchestration.test.ts src/documentation.test.ts` also exited 0; 3 suites / 82 tests.
-- Full harness: after the recorded format-check retry, fresh `harness checks --json` status `ok`, scope `full`, delegated `just verify`, exit 0; 21 suites / 290 tests.
-- Full direct: fresh `just verify` exit 0; lint, format, types, 21 suites / 290 tests, coverage, build, and diff hygiene passed. Coverage is 87.80% statements, 83.03% branches, 94.29% functions, and 89.44% lines.
+- Focused harness: fresh `harness checks --focused --json` status `ok`, scope `focused`, delegated `just verify-focused`, exit 0; 21 suites / 318 tests.
+- Focused direct: fresh `just verify-focused` exit 0; 21 suites / 318 tests. Targeted `just verify-focused src/integration-contract.test.ts src/recovery-persistence.test.ts src/reconciliation.test.ts src/orchestration.test.ts src/documentation.test.ts` also exited 0; 5 suites / 122 tests.
+- Full harness: after the recorded lint and format-check retries, fresh `harness checks --json` status `ok`, scope `full`, delegated `just verify`, exit 0; 21 suites / 318 tests.
+- Full direct: fresh `just verify` exit 0; lint, format, types, 21 suites / 318 tests, coverage, build, and diff hygiene passed. Coverage is 87.96% statements, 83.21% branches, 94.30% functions, and 89.61% lines.
 
 ## Friction records
 
@@ -103,3 +125,5 @@ Implementation follows ADR-260812-rpiv-integration-completion-contract and CORE-
 - `.harness/records/retro/2026-08-12/017-issue-19-rpiv-resume-correction.md` — scaffolded by Harness; read back with schema 1.2, exact issue plan and `rpiv` agent, and coordinator COORD-001, DL-001, and COORD-002 before clear reported 3.
 - `.harness/records/retro/2026-08-12/017-issue-19-rpiv-implementer-resume-correction.md` — scaffolded by Harness; read back with schema 1.2, exact issue plan and `rpiv-implementer` agent, and DL-001..DL-004 before clear reported 4. Post-clear listings for coordinator, Research, Plan, and Implement were all empty.
 - `.harness/records/retro/2026-08-12/018-issue-19-rpiv-implementer-evidence-correction.md` — scaffolded by Harness; read back with schema 1.2, exact issue plan and `rpiv-implementer` agent, and the post-drain DL-001 evidence-edit retry before clear reported 1.
+
+- `.harness/records/retro/2026-08-12/019-issue-19-rpiv-implementer-verify-rejection-correction.md` — scaffolded by Harness; read back with schema 1.2, exact work-item plan ID and `rpiv-implementer` agent, and DL-001..DL-008 before clear reported `cleared: 8`. Coordinator, Research, Plan, and Implement post-drain listings were all empty; verifier-owned observations were not listed or drained.

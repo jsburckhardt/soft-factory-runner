@@ -623,6 +623,16 @@ describe("V-3 exact process preservation and adoption", () => {
       state: "running_rpiv",
       attempt: 2,
       admission: { slot: 1, issueNumber: 5 },
+      integrationLaunch: {
+        runId: "run-5",
+        attempt: 2,
+        issueNumber: 5,
+        branch,
+        progressPath: path.join(worktree, ".soft-factory", "rpiv-status.json"),
+        resultPath: path.join(worktree, ".soft-factory", "agent-result.json"),
+        requiredFinalValidation: { command: "just verify" },
+      },
+      progress: null,
     });
     expect(f.tmux.trace).toContain("restart");
     expect(await f.store.readOwner(5)).not.toBeNull();

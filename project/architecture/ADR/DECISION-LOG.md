@@ -152,7 +152,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 102 | Treat RPIV progress as non-authorizing recovery evidence | ADR-260811-prototype-three-recovery-concurrency | 2026-08-12 |
 | 103 | Require Verify to publish the bound final result after pull-request creation | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-12 |
 | 104 | Require one snapshotted final-validation binding and ignore focused validation for completion | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-12 |
-| 105 | Expose progress separately without granting recovery or cleanup actions | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-12 |
+| 105 | Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-12 |
 | 106 | Use `rpiv.final_validation` for one argument-free root justfile recipe | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
 | 107 | Default absent final-validation configuration to `just verify` | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
 | 108 | Persist one final validation unchanged through execution and recovery | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |

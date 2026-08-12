@@ -149,6 +149,17 @@ const binding = {
 };
 
 describe("V-1/V-2 integration instructions and final-validation configuration", () => {
+  it.each([
+    ["default", null],
+    ["configured", "rpiv:\n  final_validation: just release_check\n"],
+  ])(
+    "rejects %s validation when the root justfile is missing",
+    (_name, text) => {
+      expect(() => parseConfiguration(text, null)).toThrow(
+        "cannot be proved without the root justfile",
+      );
+    },
+  );
   it("accepts default and declared custom recipes and rejects unsafe or empty values", () => {
     expect(parseConfiguration(null, justfile).finalValidation.command).toBe(
       "just verify",

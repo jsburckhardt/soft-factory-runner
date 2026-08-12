@@ -59,11 +59,11 @@ interface ParsedScalar {
 
 export function parseConfiguration(
   text: string | null,
-  rootJustfile: string | null = null,
+  rootJustfile: string | null | undefined = undefined,
   persistedFinalValidation?: RequiredFinalValidationV1,
 ): RunConfiguration {
   if (text === null || text.trim() === "") {
-    if (persistedFinalValidation === undefined)
+    if (persistedFinalValidation === undefined && rootJustfile !== undefined)
       validateDeclaredRecipe(DEFAULT_FINAL_VALIDATION.command, rootJustfile);
     return persistedFinalValidation === undefined
       ? DEFAULT_CONFIGURATION
@@ -376,7 +376,7 @@ export function parseFinalValidation(
   scalar:
     | { readonly raw: string; readonly value: string; readonly quoted: boolean }
     | undefined,
-  rootJustfile: string | null,
+  rootJustfile: string | null | undefined,
 ): RequiredFinalValidationV1 {
   const command = scalar?.value ?? DEFAULT_FINAL_VALIDATION.command;
   if (scalar !== undefined && (!isStringScalar(scalar) || scalar.value === ""))
@@ -395,7 +395,7 @@ export function parseFinalValidation(
       "rpiv.final_validation",
       "focused validation is implementation feedback and cannot control completion",
     );
-  validateDeclaredRecipe(command, rootJustfile);
+  if (rootJustfile !== undefined) validateDeclaredRecipe(command, rootJustfile);
   return Object.freeze({ command });
 }
 
@@ -404,10 +404,9 @@ function validateDeclaredRecipe(
   rootJustfile: string | null,
 ): void {
   if (rootJustfile === null) {
-    if (command === DEFAULT_FINAL_VALIDATION.command) return;
     throw invalidConfiguration(
       "rpiv.final_validation",
-      "configured recipe cannot be proved without the root justfile",
+      "final-validation recipe cannot be proved without the root justfile",
     );
   }
   const recipe = command.slice("just ".length);

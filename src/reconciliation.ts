@@ -427,6 +427,7 @@ function buildCompletedReport(
   const nonGitHubProblems = Object.entries(observations).filter(
     ([boundary, observation]) =>
       boundary !== "github" &&
+      boundary !== "progress" &&
       (observation.state === "unknown" || observation.state === "mismatch"),
   );
   const explicitReady = canExplicitCleanup(persisted, observations);

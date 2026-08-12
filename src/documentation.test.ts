@@ -12,6 +12,10 @@ const operations = read("docs/phase-3-recovery-operations.md");
 const doctorGuide = read("docs/phase-4-repository-doctor.md");
 const assetGuide = read("docs/phase-5-official-assets.md");
 const integrationGuide = read("docs/rpiv-integration-contract.md");
+const runReconciliationContract = read(
+  "project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md",
+);
+const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
@@ -44,9 +48,16 @@ describe("V-11 Phase 3 operator documentation", () => {
       "classifies before writing",
       "Candidate `prNumber` is never trusted",
       "verification summary and verifier retro commits",
+      "missing root `justfile`",
+      "strictly cross-checks launch run ID",
+      "Every progress classification",
     ])
       expect(integrationGuide).toContain(phrase);
     expect(readme).toContain("just run instructions --json");
+    expect(readme).toContain("missing root file fails before ownership");
+    expect(operations).toContain(
+      "no progress classification changes completion, activity, decision code, safe actions, cleanup eligibility, ownership, recovery, or process control",
+    );
     expect(docsIndex).toContain(
       "RPIV integration, progress, and completion handoff",
     );
@@ -79,6 +90,32 @@ describe("V-11 Phase 3 operator documentation", () => {
     expect(issueRun).not.toContain(
       "exactly one passed `just verify-focused` and `just verify`",
     );
+  });
+
+  it("guards corrected v4 architecture and final publication ordering against stale contracts", () => {
+    for (const phrase of [
+      "Persist new runs as `RunSnapshotV4`",
+      "snapshot versions 1 through 4",
+      "explicit version 4 reconciliation transition",
+      "a complete resulting `RunSnapshotV3` or `RunSnapshotV4`",
+      "strictly snapshot-bound `IntegrationLaunchV1`",
+    ])
+      expect(runReconciliationContract).toContain(phrase);
+    expect(runReconciliationContract).not.toContain(
+      "Persist new runs as `RunSnapshotV3`",
+    );
+    expect(runReconciliationContract).not.toContain(
+      "Read valid snapshot versions 1 through 3",
+    );
+    expect(decisionLog).toContain(
+      "Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions",
+    );
+    for (const phrase of [
+      "commits and pushes the required verification summary and verifier retro records",
+      "independently confirms that the pull request points at the resulting final head",
+      "Only after that confirmation",
+    ])
+      expect(issueRun).toContain(phrase);
   });
 
   it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {

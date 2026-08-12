@@ -2,7 +2,9 @@ import path from "node:path";
 import { parseAgentResult } from "./completion";
 import type {
   ConcurrencyLeaseV1,
+  IntegrationLaunchV1,
   OwnerRecordV1,
+  RequiredFinalValidationV1,
   RunSnapshot,
   RunSnapshotV3,
   RunSnapshotV4,
@@ -421,7 +423,7 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
   if (value.schemaVersion === 3) return true;
   return (
     isRequiredFinalValidation(value.requiredFinalValidation) &&
-    isIntegrationLaunch(value.integrationLaunch) &&
+    isBoundIntegrationLaunch(value.integrationLaunch, value) &&
     (value.progress === null || isRpivStatus(value.progress))
   );
 }
@@ -530,7 +532,9 @@ function isRequiredValidations(value: unknown): boolean {
     )
   );
 }
-function isRequiredFinalValidation(value: unknown): boolean {
+function isRequiredFinalValidation(
+  value: unknown,
+): value is RequiredFinalValidationV1 {
   return (
     isRecord(value) &&
     Object.keys(value).length === 1 &&
@@ -539,7 +543,34 @@ function isRequiredFinalValidation(value: unknown): boolean {
     value.command !== "just verify-focused"
   );
 }
-function isIntegrationLaunch(value: unknown): boolean {
+function isBoundIntegrationLaunch(
+  value: unknown,
+  snapshot: Readonly<Record<string, unknown>>,
+): boolean {
+  const snapshotFinalValidation = snapshot.requiredFinalValidation;
+  if (
+    !isIntegrationLaunch(value) ||
+    typeof snapshot.runId !== "string" ||
+    !isPositiveInteger(snapshot.attempt) ||
+    !isPositiveInteger(snapshot.issueNumber) ||
+    typeof snapshot.branch !== "string" ||
+    typeof snapshot.worktreePath !== "string" ||
+    !isRequiredFinalValidation(snapshotFinalValidation)
+  )
+    return false;
+  return (
+    value.runId === snapshot.runId &&
+    value.attempt === snapshot.attempt &&
+    value.issueNumber === snapshot.issueNumber &&
+    value.branch === snapshot.branch &&
+    value.progressPath ===
+      path.join(snapshot.worktreePath, ".soft-factory", "rpiv-status.json") &&
+    value.resultPath ===
+      path.join(snapshot.worktreePath, ".soft-factory", "agent-result.json") &&
+    value.requiredFinalValidation.command === snapshotFinalValidation.command
+  );
+}
+function isIntegrationLaunch(value: unknown): value is IntegrationLaunchV1 {
   return (
     isRecord(value) &&
     value.schemaVersion === 1 &&

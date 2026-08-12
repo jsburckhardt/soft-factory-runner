@@ -70,7 +70,7 @@ After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, 
 
 ## RPIV result artifact
 
-After acceptance, the snapshotted final validation, final-head push, and pull-request creation, the Verifier publishes only this immutable owned path through the injected Runner helper:
+After acceptance, the snapshotted final validation, final-head push, and pull-request creation, the Verifier commits and pushes the required verification summary and verifier retro records, then independently confirms that the pull request points at the resulting final head. Only after that confirmation does the Verifier publish this immutable owned path through the injected Runner helper:
 
 ```text
 <owned-worktree>/.soft-factory/agent-result.json

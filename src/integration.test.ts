@@ -39,6 +39,13 @@ const issue: IssueFacts = {
   complete: true,
 };
 
+async function writeRootJustfile(root: string): Promise<void> {
+  await fs.writeFile(
+    path.join(root, "justfile"),
+    "verify-focused:\n\ttrue\nverify:\n\ttrue\n",
+  );
+}
+
 class DiskFiles implements FilePort {
   private temporaryCounter = 0;
   public async readText(filePath: string): Promise<string | null> {
@@ -401,6 +408,7 @@ describe("live GitHub proof parsing", () => {
       const root = await fs.mkdtemp(
         path.join(os.tmpdir(), "soft-factory-live-github-"),
       );
+      await writeRootJustfile(root);
       const bin = path.join(root, "bin");
       await fs.mkdir(bin);
       await writeFakeGitHubCli(bin, {
@@ -684,6 +692,7 @@ describe("real filesystem and Git integration", () => {
   it("uses exclusive-create ownership so barrier-released starts create one resource set", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-lock-"));
     try {
+      await writeRootJustfile(root);
       const files = new DiskFiles();
       const github = new BarrierGitHub();
       const repository = new CountingGit(root);
@@ -744,6 +753,7 @@ describe("real filesystem and Git integration", () => {
         path.join(os.tmpdir(), "soft-factory-distinct-"),
       );
       try {
+        await writeRootJustfile(root);
         const files = new DiskFiles();
         await files.atomicWrite(
           path.join(root, ".soft-factory", "config.yml"),

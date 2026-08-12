@@ -417,6 +417,9 @@ class RecordingProcess implements ProcessPort {
   public async findLaunchCandidates() {
     return [...this.observedProcesses.values()];
   }
+  public completeWorkers(): void {
+    this.observedWorkers.clear();
+  }
   public async signalGroup(identity: ProcessIdentityV1): Promise<void> {
     this.trace.push("process:signal");
     this.observedProcesses.delete(identity.pid);
@@ -471,6 +474,10 @@ function fixture(
     },
     ids: { nextOwnerId: () => `owner-${++id}`, nextRunId: () => `run-${++id}` },
   };
+  files.values.set(
+    "/tmp/soft-factory-fixture/justfile",
+    "verify-focused:\n\ttrue\nverify:\n\ttrue\nrelease_check:\n\ttrue\n",
+  );
   files.values.set(
     "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json",
     JSON.stringify({
@@ -1031,6 +1038,173 @@ describe("deterministic issue-to-RPIV fixture", () => {
 });
 
 describe("Issue 19 corrected helper integration", () => {
+  it.each([
+    ["default validation", null],
+    [
+      "configured validation",
+      "rpiv:\n  final_validation: just release_check\n",
+    ],
+  ])(
+    "AC-3 rejects missing root justfile before ownership for %s",
+    async (_name, configuration) => {
+      const f = fixture();
+      const root = "/tmp/soft-factory-fixture";
+      f.files.values.delete(root + "/justfile");
+      if (configuration !== null)
+        f.files.values.set(root + "/.soft-factory/config.yml", configuration);
+      const before = new Map(f.files.values);
+
+      await expect(
+        new IssueRunService(f.ports).run(3, "/tmp/start"),
+      ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+
+      expect(f.files.values).toEqual(before);
+      expect(
+        [...f.files.values.keys()].filter((entry) =>
+          /\.soft-factory\/(?:locks|runs|events|concurrency)\//.test(entry),
+        ),
+      ).toEqual([]);
+      expect(
+        f.trace.some((entry) =>
+          /^(?:lock:create|event:append|snapshot:write|git:fetch|git:create-|tmux:create|process:)/.test(
+            entry,
+          ),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    [
+      "progressPath",
+      "/tmp/forged-rpiv-status.json",
+      [
+        "internal",
+        "publish-progress",
+        "--issue",
+        "3",
+        "--phase",
+        "research",
+        "--status",
+        "running",
+      ],
+    ],
+    [
+      "resultPath",
+      "/tmp/forged-agent-result.json",
+      ["internal", "validate-result", "--issue", "3"],
+    ],
+  ] as const)(
+    "AC-11/AC-18 refuses a forged v4 %s before helper path use",
+    async (field, forgedPath, args) => {
+      const f = fixture();
+      await new IssueRunService(f.ports).run(3, "/tmp/start");
+      const snapshotPath =
+        "/tmp/soft-factory-fixture/.soft-factory/runs/3.json";
+      const persisted = JSON.parse(
+        f.files.values.get(snapshotPath) as string,
+      ) as {
+        integrationLaunch: Record<string, unknown>;
+      };
+      persisted.integrationLaunch[field] = forgedPath;
+      f.files.values.set(snapshotPath, JSON.stringify(persisted));
+      const before = new Map(f.files.values);
+
+      const outcome = await runCli(
+        [...args],
+        "/tmp/soft-factory-fixture/.trees/3",
+        f.ports,
+      );
+
+      expect(outcome.exitCode).toBe(3);
+      expect(outcome.stderr).toContain("STATE_INVALID");
+      expect(f.files.values).toEqual(before);
+      expect(f.files.values.has(forgedPath)).toBe(false);
+    },
+  );
+
+  it("AC-8/AC-12/AC-17 keeps repeated terminal progress diagnostic after completed status and list", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    await service.run(3, "/tmp/start");
+    for (const [phase, status] of [
+      ["research", "running"],
+      ["plan", "running"],
+      ["implement", "running"],
+      ["verify", "running"],
+      ["terminal", "succeeded"],
+    ] as const)
+      await service.publishRpivProgress(3, "/tmp/start", phase, status);
+    await expect(service.runWorker(3, "/tmp/start")).resolves.toMatchObject({
+      state: "completed",
+      progress: { phase: "terminal", status: "succeeded" },
+    });
+    f.processes.completeWorkers();
+
+    const statusJson = await runCli(
+      ["status", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    const statusFacts = JSON.parse(statusJson.stdout) as {
+      persisted: { state: string };
+      reconciliation: {
+        activity: string;
+        decisionCode: string;
+        safeActions: readonly string[];
+        observations: {
+          progress: {
+            state: string;
+            code: string;
+            facts: { classification: string; phase: string };
+          };
+        };
+      };
+    };
+    expect(statusFacts).toMatchObject({
+      persisted: { state: "completed" },
+      reconciliation: {
+        activity: "inactive",
+        decisionCode: "MERGE_PENDING",
+        safeActions: ["attach", "explicit_clean"],
+        observations: {
+          progress: {
+            state: "mismatch",
+            code: "PROGRESS_REPEATED",
+            facts: {
+              classification: "PROGRESS_REPEATED",
+              phase: "terminal",
+            },
+          },
+        },
+      },
+    });
+
+    const listJson = await runCli(["list", "--json"], "/tmp/start", f.ports);
+    const listFacts = JSON.parse(listJson.stdout) as {
+      facts: readonly Record<string, unknown>[];
+    };
+    expect(listFacts.facts).toContainEqual({
+      issueNumber: 3,
+      state: "completed",
+      code: "MERGE_PENDING",
+      rpivPhase: "terminal",
+      progressClassification: "PROGRESS_REPEATED",
+    });
+
+    const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
+    expect(statusHuman.stdout).toContain("Persisted state: completed");
+    expect(statusHuman.stdout).toMatch(
+      /progress=mismatch:PROGRESS_REPEATED:.*phase.*terminal/,
+    );
+    const listHuman = await runCli(["list"], "/tmp/start", f.ports);
+    expect(listHuman.stdout).toMatch(/state.*completed/);
+    expect(listHuman.stdout).toMatch(/rpivPhase.*terminal/);
+    expect(listHuman.stdout).toMatch(
+      /progressClassification.*PROGRESS_REPEATED/,
+    );
+  });
+
   it("V-6/AC-8/AC-13 reports missing current progress as unknown after accepting plan", async () => {
     const f = fixture();
     const service = new IssueRunService(f.ports);

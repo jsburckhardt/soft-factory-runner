@@ -2,10 +2,12 @@ import type {
   RunSnapshotV1,
   RunSnapshotV2,
   RunSnapshotV3,
+  RunSnapshotV4,
   TransitionEventV2,
 } from "./domain";
 import { REQUIRED_VALIDATIONS } from "./domain";
 import { RunnerError } from "./errors";
+import { integrationLaunch } from "./integration";
 import { replayHistory, RunStore } from "./persistence";
 import type { FilePort } from "./ports";
 
@@ -94,6 +96,27 @@ function v3(revision = 1): RunSnapshotV3 {
     finalization: null,
   };
 }
+function v4(revision = 1): RunSnapshotV4 {
+  const { requiredValidations: legacyValidations, ...versionThree } =
+    v3(revision);
+  void legacyValidations;
+  const requiredFinalValidation = { command: "just verify" };
+  return {
+    ...versionThree,
+    schemaVersion: 4,
+    requiredFinalValidation,
+    integrationLaunch: integrationLaunch({
+      runId: versionThree.runId,
+      attempt: versionThree.attempt,
+      issueNumber: versionThree.issueNumber,
+      branch: versionThree.branch,
+      worktreePath: versionThree.worktreePath,
+      startedAt: versionThree.updatedAt,
+      requiredFinalValidation,
+    }),
+    progress: null,
+  };
+}
 function event(
   snapshot: RunSnapshotV3,
   prior = snapshot.revision - 1,
@@ -111,6 +134,94 @@ function event(
 }
 
 describe("V-1 revisioned persistence and replay", () => {
+  it("round trips a strictly bound v4 snapshot", async () => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    files.values.set(store.snapshotPath(5), JSON.stringify(v4()));
+    await expect(store.load(5)).resolves.toEqual(v4());
+    expect(files.trace).toEqual([]);
+  });
+
+  it.each([
+    [
+      "run ID",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, runId: "forged-run" },
+      }),
+    ],
+    [
+      "attempt",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, attempt: 2 },
+      }),
+    ],
+    [
+      "issue number",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, issueNumber: 6 },
+      }),
+    ],
+    [
+      "branch",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          branch: "feat/forged",
+        },
+      }),
+    ],
+    [
+      "progress path",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          progressPath: "/tmp/forged-rpiv-status.json",
+        },
+      }),
+    ],
+    [
+      "result path",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          resultPath: "/tmp/forged-agent-result.json",
+        },
+      }),
+    ],
+    [
+      "required final validation",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          requiredFinalValidation: { command: "just release_check" },
+        },
+      }),
+    ],
+  ] as const)(
+    "rejects a v4 launch whose %s contradicts its snapshot without mutation",
+    async (_name, mutate) => {
+      const files = new FaultFiles();
+      const store = new RunStore(root, files, clock);
+      const contradictory = mutate(v4());
+      files.values.set(store.snapshotPath(5), JSON.stringify(contradictory));
+      const before = new Map(files.values);
+
+      await expect(store.load(5)).rejects.toMatchObject({
+        code: "STATE_INVALID",
+      });
+
+      expect(files.values).toEqual(before);
+      expect(files.trace).toEqual([]);
+    },
+  );
+
   it("round trips v3 and appends its complete v2 event before snapshot replacement", async () => {
     const files = new FaultFiles();
     const store = new RunStore(root, files, clock);
