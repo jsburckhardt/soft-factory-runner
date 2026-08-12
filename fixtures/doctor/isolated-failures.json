@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "variants": [
+    {
+      "name": "fail-repository-git-membership",
+      "failedId": "repository.git-membership"
+    },
+    {
+      "name": "fail-repository-primary-worktree",
+      "failedId": "repository.primary-worktree"
+    },
+    {
+      "name": "fail-repository-git-common-directory",
+      "failedId": "repository.git-common-directory"
+    },
+    {
+      "name": "fail-repository-github-identity",
+      "failedId": "repository.github-identity"
+    },
+    {
+      "name": "fail-repository-default-branch",
+      "failedId": "repository.default-branch"
+    },
+    {
+      "name": "fail-command-git",
+      "failedId": "command.git"
+    },
+    {
+      "name": "fail-command-gh",
+      "failedId": "command.gh"
+    },
+    {
+      "name": "fail-command-tmux",
+      "failedId": "command.tmux"
+    },
+    {
+      "name": "fail-command-node",
+      "failedId": "command.node"
+    },
+    {
+      "name": "fail-command-copilot",
+      "failedId": "command.copilot"
+    },
+    {
+      "name": "fail-authentication-github-cli",
+      "failedId": "authentication.github-cli"
+    },
+    {
+      "name": "fail-authentication-copilot-cli",
+      "failedId": "authentication.copilot-cli"
+    },
+    {
+      "name": "fail-compatibility-rpiv-agent",
+      "failedId": "compatibility.rpiv-agent"
+    },
+    {
+      "name": "fail-compatibility-runner-protocol",
+      "failedId": "compatibility.runner-protocol"
+    },
+    {
+      "name": "fail-compatibility-configuration",
+      "failedId": "compatibility.configuration"
+    },
+    {
+      "name": "fail-compatibility-worktree-root",
+      "failedId": "compatibility.worktree-root"
+    },
+    {
+      "name": "fail-compatibility-state-root-writable",
+      "failedId": "compatibility.state-root-writable"
+    },
+    {
+      "name": "fail-compatibility-trees-ignored",
+      "failedId": "compatibility.trees-ignored"
+    },
+    {
+      "name": "fail-compatibility-runtime-state-ignored",
+      "failedId": "compatibility.runtime-state-ignored"
+    },
+    {
+      "name": "fail-compatibility-result-contract",
+      "failedId": "compatibility.result-contract"
+    },
+    {
+      "name": "fail-runtime-trees-ownership",
+      "failedId": "runtime.trees-ownership"
+    },
+    {
+      "name": "fail-runtime-state-readable",
+      "failedId": "runtime.state-readable"
+    },
+    {
+      "name": "fail-runtime-locks-interpretable",
+      "failedId": "runtime.locks-interpretable"
+    },
+    {
+      "name": "fail-runtime-required-paths-creatable",
+      "failedId": "runtime.required-paths-creatable"
+    }
+  ]
+}

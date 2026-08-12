@@ -24,6 +24,8 @@ The root `justfile` is command authority. `just setup` and `just build` do not g
 
 ```text
 just run --help
+just run doctor
+just run doctor --json
 just run run --issue 5 --json
 just run reconcile 5 --json
 just run resume 5 --json
@@ -34,6 +36,23 @@ just run status 5 --json
 just run attach 5
 just run logs 5 --json
 ```
+
+## Repository readiness Doctor
+
+Run `just run doctor` for complete human repository-readiness diagnostics or `just run doctor --json` for schema-version-1 automation output. Doctor reports exactly 24 ordered blocking prerequisites and exits `0` with `STATUS: READY` only when all pass; a complete blocked report exits `3` with `STATUS: NOT READY`, messages, and remediations. It is repository-only: it does not query, select, prioritize, or assess an issue. Product Doctor is distinct from ambient `harness doctor`, which diagnoses the engineering surface.
+
+A Doctor-ready `.soft-factory/config.yml` declares protocol and safe repository roots. Existing configuration files must migrate to these fields; unknown keys at every supported mapping level—including unknown empty mappings—plus absolute/traversing/overlapping roots and unsupported protocol values fail readiness:
+
+```yaml
+protocol_version: 1
+repository:
+  worktree_root: .trees
+  state_root: .soft-factory
+execution:
+  max_concurrent_runs: 2
+```
+
+The canonical `.github/agents/rpiv.agent.md` must declare `runner_protocol: 1` and `result_contract: agent-result-v1`. See [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) for all check IDs, schema, fixtures, timing, path safety, operations, and troubleshooting.
 
 Every product run names one explicit positive issue number. Runner never queries for, queues, ranks, or selects a next issue. `run` creates new state only; existing state returns `RUN_EXISTS` and must be inspected with reconciliation or control commands. Human and JSON output derive from the same state, outcome code, reconciliation observation states/codes/facts, safe actions, control facts, and remediation; human control output includes the same shared report carried by JSON.
 
@@ -46,6 +65,10 @@ A matching live RPIV process is identified by PID, process group, OS start token
 Configure repository-wide explicit-run capacity in `.soft-factory/config.yml`:
 
 ```yaml
+protocol_version: 1
+repository:
+  worktree_root: .trees
+  state_root: .soft-factory
 execution:
   max_concurrent_runs: 2
 ```
@@ -62,6 +85,7 @@ See [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md)
 
 - [`PRD.md`](PRD.md) — product requirements and staged MVP evolution
 - [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) — issue readiness, ownership, fetched base, AgentResultV1, and completion proof
+- [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) — repository readiness checks, schema, configuration migration, fixtures, timing, and troubleshooting
 - [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md) — CLI, configuration, recovery, concurrency, stop, logs, cleanup, migration, operations, and deployment
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — RPIV contribution workflow
 - [`.harness/engineering-harness.md`](.harness/engineering-harness.md) — deterministic harness governance

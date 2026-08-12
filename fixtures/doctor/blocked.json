@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "ready": false,
+  "repository": {
+    "github": null,
+    "defaultBranch": null
+  },
+  "checks": [
+    {
+      "id": "repository.git-membership",
+      "status": "failed",
+      "blocking": true,
+      "message": "Git repository membership cannot be checked.",
+      "remediation": "Install Git and run Doctor inside the target repository."
+    },
+    {
+      "id": "repository.primary-worktree",
+      "status": "failed",
+      "blocking": true,
+      "message": "Git is unavailable, so this repository fact cannot be observed.",
+      "remediation": "Install Git and rerun Doctor from the repository."
+    },
+    {
+      "id": "repository.git-common-directory",
+      "status": "failed",
+      "blocking": true,
+      "message": "Git is unavailable, so this repository fact cannot be observed.",
+      "remediation": "Install Git and rerun Doctor from the repository."
+    },
+    {
+      "id": "repository.github-identity",
+      "status": "failed",
+      "blocking": true,
+      "message": "Git is unavailable, so this repository fact cannot be observed.",
+      "remediation": "Install Git and rerun Doctor from the repository."
+    },
+    {
+      "id": "repository.default-branch",
+      "status": "failed",
+      "blocking": true,
+      "message": "Git is unavailable, so this repository fact cannot be observed.",
+      "remediation": "Install Git and rerun Doctor from the repository."
+    },
+    {
+      "id": "command.git",
+      "status": "failed",
+      "blocking": true,
+      "message": "git is not an executable on PATH.",
+      "remediation": "Install git and add its executable directory to PATH."
+    },
+    {
+      "id": "command.gh",
+      "status": "failed",
+      "blocking": true,
+      "message": "gh is not an executable on PATH.",
+      "remediation": "Install gh and add its executable directory to PATH."
+    },
+    {
+      "id": "command.tmux",
+      "status": "failed",
+      "blocking": true,
+      "message": "tmux is not an executable on PATH.",
+      "remediation": "Install tmux and add its executable directory to PATH."
+    },
+    {
+      "id": "command.node",
+      "status": "failed",
+      "blocking": true,
+      "message": "node is not an executable on PATH.",
+      "remediation": "Install node and add its executable directory to PATH."
+    },
+    {
+      "id": "command.copilot",
+      "status": "failed",
+      "blocking": true,
+      "message": "copilot is not an executable on PATH.",
+      "remediation": "Install copilot and add its executable directory to PATH."
+    },
+    {
+      "id": "authentication.github-cli",
+      "status": "failed",
+      "blocking": true,
+      "message": "GitHub CLI authentication cannot be checked without gh and a GitHub host.",
+      "remediation": "Install gh, configure one GitHub remote, and authenticate."
+    },
+    {
+      "id": "authentication.copilot-cli",
+      "status": "failed",
+      "blocking": true,
+      "message": "Copilot CLI usability cannot be checked because copilot is unavailable.",
+      "remediation": "Install the Copilot CLI and add it to PATH."
+    },
+    {
+      "id": "compatibility.rpiv-agent",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "compatibility.runner-protocol",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "compatibility.configuration",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "compatibility.worktree-root",
+      "status": "failed",
+      "blocking": true,
+      "message": "Worktree root cannot be observed.",
+      "remediation": "Repair repository discovery."
+    },
+    {
+      "id": "compatibility.state-root-writable",
+      "status": "failed",
+      "blocking": true,
+      "message": "State root cannot be observed.",
+      "remediation": "Repair repository discovery."
+    },
+    {
+      "id": "compatibility.trees-ignored",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "compatibility.runtime-state-ignored",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "compatibility.result-contract",
+      "status": "failed",
+      "blocking": true,
+      "message": "Compatibility cannot be observed without the primary worktree.",
+      "remediation": "Repair repository discovery and rerun Doctor."
+    },
+    {
+      "id": "runtime.trees-ownership",
+      "status": "failed",
+      "blocking": true,
+      "message": "Runtime safety cannot be observed until repository and configured roots are valid.",
+      "remediation": "Repair repository discovery and configured roots, then rerun Doctor."
+    },
+    {
+      "id": "runtime.state-readable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Runtime safety cannot be observed until repository and configured roots are valid.",
+      "remediation": "Repair repository discovery and configured roots, then rerun Doctor."
+    },
+    {
+      "id": "runtime.locks-interpretable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Runtime safety cannot be observed until repository and configured roots are valid.",
+      "remediation": "Repair repository discovery and configured roots, then rerun Doctor."
+    },
+    {
+      "id": "runtime.required-paths-creatable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Runtime safety cannot be observed until repository and configured roots are valid.",
+      "remediation": "Repair repository discovery and configured roots, then rerun Doctor."
+    }
+  ]
+}

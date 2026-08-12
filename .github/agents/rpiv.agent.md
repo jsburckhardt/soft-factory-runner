@@ -1,5 +1,7 @@
 ---
 name: rpiv
+runner_protocol: 1
+result_contract: agent-result-v1
 description: "Orchestrate the complete RPIV pipeline for a GitHub issue by creating the feature branch, enforcing stage contracts, routing verification failures, and delivering a pull request."
 tools:
   - search/codebase

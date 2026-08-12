@@ -142,3 +142,8 @@ harness checks --json
 ```
 
 Repository fixtures use temporary roots, exclusive file creation, fixed clocks/IDs, fake `gh`/tmux/process adapters, and no ambient credentials, Copilot, or tmux resources. They repeat interruption and three-explicit-issue capacity races, assert no duplicate launch or owner, verify disjoint resource identities, exercise graceful/escalated/still-active stop ordering, inject snapshot failure after every cleanup step, retry from durable same-owner progress, refuse unrelated replacements, and prove cleanup retention/refusal.
+
+
+## Repository readiness preflight
+
+Before issue execution, run `just run doctor` or `just run doctor --json` to inspect all repository-scoped prerequisites without selecting an issue or mutating owned run resources. A NOT READY report exits 3 and keeps all 24 checks visible. See [Phase 4 repository Doctor](phase-4-repository-doctor.md). This product command is distinct from ambient `harness doctor`, which inspects the development harness rather than Runner repository compatibility.

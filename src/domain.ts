@@ -373,8 +373,11 @@ export interface StatusFacts {
 }
 
 export interface RunConfiguration {
+  readonly protocolVersion: number | null;
   readonly remote: string | null;
   readonly baseBranch: string | null;
+  readonly worktreeRoot: string;
+  readonly stateRoot: string;
   readonly labelTypes: Readonly<Record<string, string>>;
   readonly promptTemplate: string;
   readonly maxConcurrentRuns: number;
