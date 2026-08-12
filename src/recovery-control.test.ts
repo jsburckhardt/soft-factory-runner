@@ -76,6 +76,11 @@ const result: AgentResultV1 = {
     command,
     status: "passed",
   })),
+  requiredFinalValidation: {
+    command: "just verify",
+    status: "passed",
+    evidence: ["test:just-verify"],
+  },
   completedAt: "2026-08-11T13:10:00.000Z",
 };
 
@@ -477,7 +482,7 @@ describe("V-1 explicit legacy migration", () => {
     );
     const report = await new IssueRunService(f.ports).reconcile(5, root);
     expect(report.persisted).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       revision: 1,
       state: "interrupted",
     });

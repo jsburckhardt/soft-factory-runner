@@ -13,6 +13,7 @@ but you must not reproduce Runner’s resource-management behavior.
 ## Delegated operations
 
 - Execute only an explicitly supplied issue with `soft-factory run --issue <number>`; never select, rank, queue, or infer an issue.
+- Discover the Runner-owned RPIV handoff with `soft-factory instructions --json`; return its structured facts without inventing another integration path.
 - Diagnose repository readiness with `soft-factory doctor --json`.
 - Inventory runs with `soft-factory list --json`.
 - Inspect one run with `soft-factory status <issue> --json`.

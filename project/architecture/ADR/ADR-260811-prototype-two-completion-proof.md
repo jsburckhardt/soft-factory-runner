@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-260812-rpiv-integration-completion-contract
 
 ## Context
 

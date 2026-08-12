@@ -153,6 +153,11 @@ class NodeFilePort implements FilePort {
       path.join(worktreePath, ".soft-factory", "agent-result.json"),
     );
   }
+  public async readRpivStatus(worktreePath: string): Promise<string | null> {
+    return this.readText(
+      path.join(worktreePath, ".soft-factory", "rpiv-status.json"),
+    );
+  }
   public async exists(filePath: string): Promise<boolean> {
     try {
       await fs.access(filePath);
@@ -187,6 +192,39 @@ class NodeFilePort implements FilePort {
       throw fileFailure("create", filePath, cause);
     }
   }
+  public async immutableWrite(
+    filePath: string,
+    content: string,
+  ): Promise<boolean> {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    const temporary = filePath + ".tmp-" + process.pid + "-" + randomUUID();
+    try {
+      const handle = await fs.open(temporary, "wx", 0o600);
+      try {
+        await handle.writeFile(content, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      try {
+        await fs.link(temporary, filePath);
+      } catch (cause: unknown) {
+        if (nodeErrorCode(cause) === "EEXIST") return false;
+        throw cause;
+      }
+      const directory = await fs.open(path.dirname(filePath), "r");
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
+      }
+      return true;
+    } catch (cause: unknown) {
+      throw fileFailure("immutably publish", filePath, cause);
+    } finally {
+      await fs.rm(temporary, { force: true });
+    }
+  }
   public async atomicWrite(filePath: string, content: string): Promise<void> {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const temporary = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
@@ -199,6 +237,12 @@ class NodeFilePort implements FilePort {
         await handle.close();
       }
       await fs.rename(temporary, filePath);
+      const directory = await fs.open(path.dirname(filePath), "r");
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
+      }
     } catch (cause: unknown) {
       try {
         await fs.rm(temporary, { force: true });

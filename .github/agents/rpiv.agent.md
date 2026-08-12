@@ -29,6 +29,11 @@ agents:
 You MUST read AGENTS.md before starting.
 You MUST read project/architecture/ADR/DECISION-LOG.md before starting.
 You MUST inspect existing documentation under docs/ and project/ before dispatching any stage.
+You MUST invoke `soft-factory instructions --json` before Research and treat its IntegrationContractV1 as the Runner-owned RPIV contract.
+You MUST publish bound `rpiv-status.json` progress through the injected Runner helper at every Research, Plan, Implement, Verify, failed, and terminal transition.
+You MUST NOT write Runner snapshots or infer operational state from RPIV progress.
+You MUST invoke the injected local AgentResultV1 validator after Verify returns and MUST exit nonzero when the artifact is absent, invalid, or binding-mismatched.
+You MUST exit zero only after that local validator succeeds; Runner remains authoritative for post-exit Git/GitHub completion reconciliation.
 You MUST use `harness instructions` and `.harness/engineering-harness.md` as the deterministic autonomous-development orientation surface when present.
 You MUST evaluate harness JSON envelopes and exit codes, while preserving direct root justfile validation at RPIV boundaries.
 You MUST capture orchestration, dispatch, and handoff friction when it occurs with `harness observe` using agent identity rpiv.
@@ -167,26 +172,89 @@ PR_URL: ""
 <processes>
 <process id="rpiv-router" name="Drive the RPIV pipeline">
 RUN `init-pipeline`
+RUN `load-runner-instructions`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=VERIFY_RESULT, error_message="Pipeline initialization failed", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage="input"
 RUN `prepare-feature-branch`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=VERIFY_RESULT, error_message="Feature branch preparation failed", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage="input"
+RUN `publish-research-progress`
 RUN `dispatch-research`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=RESEARCH_RESULT, error_message="Research failed", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage="research"
+RUN `publish-plan-progress`
 RUN `dispatch-plan`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=PLAN_RESULT, error_message="Plan failed", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage="plan"
+RUN `publish-implement-progress`
 RUN `dispatch-implement`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=IMPLEMENT_RESULT, error_message="Implement failed", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage="implement"
+RUN `publish-verify-progress`
 RUN `dispatch-verify`
 IF PIPELINE_STATUS = "error":
   RUN `route-verification-failure`
 IF PIPELINE_STATUS = "error":
   RETURN: format="PIPELINE_ERROR", details=VERIFY_RESULT, error_message="Verification failed after correction", failed_stage=CURRENT_STAGE, issue_number=ISSUE_NUMBER, return_stage=FAILURE_OWNER
+RUN `validate-final-agent-result`
+IF PIPELINE_STATUS = "error":
+  RETURN: format="PIPELINE_ERROR", details=VERIFY_RESULT, error_message="Final AgentResultV1 validation failed", failed_stage="verify", issue_number=ISSUE_NUMBER, return_stage="verify"
+RUN `publish-terminal-progress`
 RETURN: format="COMPLETION_REPORT", branch_name=BRANCH_NAME, commit_sha=IMPLEMENT_HANDOFF.commit_sha, issue_number=ISSUE_NUMBER, pr_url=PR_URL, stage_results=STAGE_RESULTS
+</process>
+
+<process id="publish-research-progress" name="Publish research phase start">
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_PROGRESS_COMMAND --phase research --status running>"
+CAPTURE RESEARCH_PROGRESS from `execute/runInTerminal`
+IF RESEARCH_PROGRESS is nonzero:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+</process>
+
+<process id="publish-plan-progress" name="Publish plan phase start">
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_PROGRESS_COMMAND --phase plan --status running>"
+CAPTURE PLAN_PROGRESS from `execute/runInTerminal`
+IF PLAN_PROGRESS is nonzero:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+</process>
+
+<process id="publish-implement-progress" name="Publish implement phase start">
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_PROGRESS_COMMAND --phase implement --status running>"
+CAPTURE IMPLEMENT_PROGRESS from `execute/runInTerminal`
+IF IMPLEMENT_PROGRESS is nonzero:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+</process>
+
+<process id="publish-verify-progress" name="Publish verify phase start">
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_PROGRESS_COMMAND --phase verify --status running>"
+CAPTURE VERIFY_PROGRESS from `execute/runInTerminal`
+IF VERIFY_PROGRESS is nonzero:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+</process>
+
+<process id="publish-terminal-progress" name="Publish successful terminal RPIV outcome">
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_PROGRESS_COMMAND --phase terminal --status succeeded>"
+CAPTURE TERMINAL_PROGRESS from `execute/runInTerminal`
+IF TERMINAL_PROGRESS is nonzero:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+  SET VERIFY_RESULT := "Terminal progress publication failed; exit nonzero without altering the immutable result." (from "Agent Inference")
+</process>
+
+<process id="load-runner-instructions" name="Load Runner-owned RPIV integration contract">
+USE `execute/runInTerminal` where: command="soft-factory instructions --json"
+CAPTURE INTEGRATION_CONTRACT from `execute/runInTerminal`
+SET CONTRACT_VALID := <VALID> (from "Agent Inference" using INTEGRATION_CONTRACT; require exit zero and IntegrationContractV1 schema version 1)
+IF CONTRACT_VALID is false:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+  SET VERIFY_RESULT := "Runner integration instructions are unavailable or invalid; publish failed progress and exit nonzero." (from "Agent Inference")
+</process>
+
+<process id="validate-final-agent-result" name="Validate immutable result before zero exit">
+USE `execute/runInTerminal` where: command="<INJECTED_VALIDATE_RESULT_COMMAND>"
+CAPTURE LOCAL_RESULT_VALIDATION from `execute/runInTerminal`
+SET RESULT_VALID := <VALID> (from "Agent Inference" using LOCAL_RESULT_VALIDATION; require exit zero and exact injected run, attempt, issue, branch, final head, pull request, acceptance, and snapshotted-final-validation binding)
+IF RESULT_VALID is false:
+  SET PIPELINE_STATUS := "error" (from "Agent Inference")
+  SET VERIFY_RESULT := "Final AgentResultV1 is absent or invalid; preserve any existing immutable artifact, publish failed progress, and exit nonzero." (from "Agent Inference")
 </process>
 
 <process id="init-pipeline" name="Load issue and validate pipeline input">

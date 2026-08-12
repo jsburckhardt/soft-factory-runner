@@ -27,6 +27,11 @@ const validResult: AgentResultV1 = {
     command,
     status: "passed",
   })),
+  requiredFinalValidation: {
+    command: "just verify",
+    status: "passed",
+    evidence: ["test:just-verify"],
+  },
   completedAt: "2026-08-11T12:00:00.000Z",
 };
 
@@ -117,7 +122,7 @@ function reconciliation(
     baseBranch: "main",
     remote: "origin",
     requiredAcceptanceCriteria: required,
-    requiredValidations: REQUIRED_VALIDATIONS,
+    requiredFinalValidation: { command: "just verify" },
     result: validResult,
     git: {
       localHeadSha: sha,
@@ -421,57 +426,40 @@ describe("pure completion reconciliation", () => {
       },
       "AC_AC-1_MISMATCH",
     ],
-    [
-      "validation missing",
-      { result: { ...validResult, validations: [validResult.validations[1]] } },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "validation duplicate",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            validResult.validations[0],
-            validResult.validations[0],
-            validResult.validations[1],
-          ],
-        },
-      },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "validation failed",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            { command: "just verify-focused", status: "failed" },
-            validResult.validations[1],
-          ],
-        },
-      },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "full validation failed",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            validResult.validations[0],
-            { command: "just verify", status: "failed" },
-          ],
-        },
-      },
-      "VALIDATION_FULL_MISMATCH",
-    ],
   ])("rejects isolated %s contradiction", (_name, override, code) => {
     const result = reconciliation(
       override as Partial<Parameters<typeof reconcileCompletion>[0]>,
     );
     expect(result.state).toBe("failed");
     expect(result.code).toBe(code);
+  });
+  it.each([
+    [[]],
+    [[{ command: "just verify-focused", status: "passed" as const }]],
+    [[{ command: "just verify-focused", status: "failed" as const }]],
+    [[{ command: "just verify", status: "failed" as const }]],
+  ])(
+    "keeps supplementary validation evidence completion-neutral",
+    (validations) => {
+      const result = reconciliation({
+        result: { ...validResult, validations },
+      });
+      expect(result.state).toBe("completed");
+      expect(result.code).toBe("COMPLETION_PROVED");
+    },
+  );
+  it("rejects a mismatched required final-validation binding", () => {
+    const result = reconciliation({
+      result: {
+        ...validResult,
+        requiredFinalValidation: {
+          command: "just custom",
+          status: "passed",
+          evidence: ["proof"],
+        },
+      },
+    });
+    expect(result.code).toBe("RESULT_FINAL_VALIDATION_MISMATCH");
   });
   it("classifies incomplete proof and named non-success outcomes", () => {
     expect(reconciliation({ git: null }).state).toBe("interrupted");

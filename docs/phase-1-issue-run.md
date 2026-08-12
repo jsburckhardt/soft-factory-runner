@@ -34,6 +34,7 @@ branch_types:
   feature: feat
 rpiv:
   prompt: "Deliver issue #{issue}"
+  final_validation: just verify
 ```
 
 ### Copilot-only launch environment
@@ -51,7 +52,7 @@ copilot:
     OPTIONAL_EMPTY: ""
 ```
 
-Environment names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, with `""` preserving an explicit empty string. Quote text that YAML would otherwise interpret as a boolean, number, or null. Runner passes each string literally through the Copilot argument-array spawn with `shell: false`, without shell evaluation, command substitution, or implicit variable expansion. The executable and argument order remain `copilot --yolo --name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`.
+Environment names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, with `""` preserving an explicit empty string. Quote text that YAML would otherwise interpret as a boolean, number, or null. Runner passes each string literally through the Copilot argument-array spawn with `shell: false`, without shell evaluation, command substitution, or implicit variable expansion. The executable and argument order remain shell-free; Runner appends the redacted `IntegrationLaunchV1` binding to the RPIV prompt.
 
 Every new or resumed launch parses the then-current file into a fresh immutable map before launch intent or spawn. Existing allowlisted inherited entries are applied first, configured entries second, and Runner-owned `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project-name>,issue.id=issue-<number>` last. Therefore configuration overrides inherited collisions while current-issue resource attributes always win. Absent `copilot`, absent `environment`, and an empty environment mapping all add no entries.
 
@@ -69,7 +70,7 @@ After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, 
 
 ## RPIV result artifact
 
-After implementation and validation, RPIV writes only this owned path:
+After acceptance, the snapshotted final validation, final-head push, and pull-request creation, the Verifier publishes only this immutable owned path through the injected Runner helper:
 
 ```text
 <owned-worktree>/.soft-factory/agent-result.json
@@ -89,9 +90,13 @@ The strict `AgentResultV1` schema is:
     { "id": "AC-1", "status": "verified", "evidence": ["test:completion"] }
   ],
   "validations": [
-    { "command": "just verify-focused", "status": "passed" },
-    { "command": "just verify", "status": "passed" }
+    { "command": "just verify-focused", "status": "passed" }
   ],
+  "requiredFinalValidation": {
+    "command": "just verify",
+    "status": "passed",
+    "evidence": ["validation transcript"]
+  },
   "completedAt": "2026-08-11T12:00:00.000Z"
 }
 ```
@@ -105,7 +110,7 @@ A nonzero Copilot exit becomes `failed` and cannot be overridden by an artifact.
 - worktree `HEAD` and the selected remote issue-branch SHA from one authoritative `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` query;
 - the reported pull request by number, including open state, expected base, head branch, head SHA, and closing-issue links;
 - every Runner-owned required acceptance ID as `verified` with evidence;
-- exactly one passed `just verify-focused` and `just verify` result.
+- one passed evidence-bound `requiredFinalValidation` matching the run snapshot. Supplementary focused evidence is completion-neutral.
 
 `completed` requires the complete conjunction: result issue and branch match the owned run; result SHA equals local HEAD, remote branch SHA, and PR head SHA; the open PR number/base/head match and closes the issue; all required acceptance and validation proof passes. Additional producer claims cannot replace a required fact.
 
@@ -115,9 +120,9 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 ## Persistence and status
 
-Legacy Phase 2 runs use atomic `RunSnapshotV2` files; new Phase 3 runs use revisioned `RunSnapshotV3` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
+Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV4` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
-Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Phase 3 v3 transitions preserve the same completion conjunction.
+Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Supported v1-v3 inputs normalize to sole `just verify` and never consult later configuration; malformed persistence fails safe.
 
 The explicit terminal states are:
 
@@ -138,7 +143,7 @@ Human and `--json` status derive from the same snapshot and reconciliation facts
 | `RESULT_MISSING`, `RESULT_INVALID`, `RESULT_VERSION_UNSUPPORTED` | Owned result proof is absent or invalid | Emit one strict schema-version-1 artifact. |
 | `COMPLETION_PROOF_INCOMPLETE` | Git or GitHub completion facts are unavailable or malformed | Restore the named observation and start a new bounded attempt. |
 | `RESULT_*_MISMATCH`, `PR_*_MISMATCH` | Identity, branch, SHA, or PR evidence contradicts the run | Reconcile the exact expected and observed facts. |
-| `AC_*_MISMATCH`, `VALIDATION_*_MISMATCH` | Required acceptance or root validation proof failed | Correct evidence and rerun RPIV validation. |
+| `AC_*_MISMATCH`, `RESULT_FINAL_VALIDATION_MISMATCH` | Required acceptance or root validation proof failed | Correct evidence and rerun RPIV validation. |
 | `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH` | Attach target is absent or contradictory | Preserve resources and inspect status. |
 | `EXTERNAL_COMMAND_FAILED` | Git, tmux, filesystem, or Copilot failed | Use redacted diagnostics to repair the tool. |
 
@@ -159,4 +164,6 @@ harness checks --json
 
 Restart reconciliation, deterministic resume, bounded stop, guarded cleanup, retained logs, merged-source-head automatic cleanup, and atomic explicit-issue concurrency are now delivered through the shared v3 recovery contract. They preserve the fetched-base and completion conjunction described above. Tmux presence, Copilot exit status, and RPIV prose remain insufficient completion evidence.
 
-Use [`phase-3-recovery-operations.md`](phase-3-recovery-operations.md) for the full command grammar, `execution.max_concurrent_runs`, process identity, schema-v1/v2 migration, stop bounds, cleanup refusal categories, automatic trigger, and retained-resource behavior.
+Use [`phase-3-recovery-operations.md`](phase-3-recovery-operations.md) for the full command grammar, separately observed RPIV progress, `execution.max_concurrent_runs`, process identity, schema-v1/v2 migration, stop bounds, cleanup refusal categories, automatic trigger, and retained-resource behavior.
+
+For the authoritative integration command, progress classifications, no-clobber result publication, coordinator gate, v4 migration, API applicability, and deployment boundaries, see [the RPIV integration guide](rpiv-integration-contract.md).

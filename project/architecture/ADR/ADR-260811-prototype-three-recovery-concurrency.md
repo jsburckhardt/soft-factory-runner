@@ -34,7 +34,7 @@ Parse `execution.max_concurrent_runs` as a strict positive safe integer and defa
 
 Treat the immutable pull-request source head as the merged head: GitHub must report the expected PR as `MERGED` with nonempty merge time, expected head branch, and source `headSha` equal to the commit already verified for the completed run. The merge-commit SHA is retained as informational because merge and squash strategies may change it, and remote branch existence is not required after merge. A completed run is eligible for automatic cleanup on the next reconciliation-capable command only after these merge facts and all lock, snapshot, process, tmux, Git registration, branch, worktree path, HEAD, cleanliness, and ownership facts reconcile.
 
-Automatic merged cleanup removes only the clean owned worktree registration and directory, releases any exact stale slot, and releases the exact issue lock last; it retains tmux and durable evidence. Explicit `clean` may also remove the exact terminal tmux window after transcript capture. Destructive steps persist intent and per-resource progress before and after each operation so retries accept absence only when a prior successful owned step records it. Neither mode removes the local branch. Active, dirty, unknown, mismatched, incomplete, or ambiguous facts refuse cleanup. A closed-unmerged PR or incomplete merge proof preserves resources and persists an actionable blocked cleanup result without rewriting a previously proved completed run state.
+Automatic merged cleanup removes only the clean owned worktree registration and directory, releases any exact stale slot, and releases the exact issue lock last; it retains tmux and durable evidence. Explicit `clean` may also remove the exact terminal tmux window after transcript capture. Destructive steps persist intent and per-resource progress before and after each operation so retries accept absence only when a prior successful owned step records it. Neither mode removes the local branch. Active, dirty, unknown, mismatched, incomplete, or ambiguous facts refuse cleanup. Observe RPIV progress under CORE-COMPONENT-260812-rpiv-integration-handoff only as non-authorizing diagnostics; progress never changes completion or cleanup proof. A closed-unmerged PR or incomplete merge proof preserves resources and persists an actionable blocked cleanup result without rewriting a previously proved completed run state.
 
 ## Alternatives
 
@@ -64,7 +64,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 - Process observation needs platform-specific typed adapters for start tokens, process groups, and lineage.
 
 ### Neutral
-- Existing completion conjunctions and five terminal run states remain unchanged.
+- The five terminal run states remain unchanged; final-validation proof follows ADR-260812-rpiv-integration-completion-contract.
 - Local issue branches, snapshots, events, logs, and terminal tmux evidence remain after automatic cleanup.
 - Runner remains a short-lived CLI; automatic cleanup occurs on the next reconciliation-capable invocation, not in a daemon.
 
@@ -75,6 +75,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 ## References
 
 - [Soft Factory Runner PRD](../../../PRD.md)
+- [RPIV Integration and Completion Contract](ADR-260812-rpiv-integration-completion-contract.md)
 - [Prototype Two Completion Proof](ADR-260811-prototype-two-completion-proof.md)
 - [Persistence and Recovery](../core-components/CORE-COMPONENT-260810-persistence-recovery.md)
 - [Issue and Worktree Locking](../core-components/CORE-COMPONENT-260810-issue-worktree-locking.md)

@@ -26,13 +26,14 @@ This component applies to snapshot and event recovery, lock and resource observa
 - Require an exact tmux identity for attach. Return retained redacted attempt transcripts from logs and include a bounded live pane capture only when the target still matches.
 - Stop only an exact matching RPIV process group. Send `SIGTERM`, wait no more than 10 seconds, send `SIGKILL` only if still active, and wait no more than 5 further seconds. Persist cancelled state and stop facts, preserve worktree and tmux, and block signaling on ambiguity.
 - Configure issue panes to remain after process exit. Capture redacted tmux history before and after stop and before tmux cleanup into `.soft-factory/logs/<issue>/<attempt>.log`, cap each transcript at 2 MiB with explicit truncation, and retain logs, snapshots, and events after cleanup.
-- Preserve the existing completion-proof conjunction and terminal state meanings. Store control or cleanup blockage separately when the run was already proved completed.
+- Preserve terminal state meanings and the single snapshotted final-validation proof governed by ADR-260812-rpiv-integration-completion-contract. Store control or cleanup blockage separately when the run was already proved completed.
+- Observe RPIV progress with its strict classification, last-accepted fact, and phase, but exclude progress from activity, safe-action, result, completion, recovery, signaling, and cleanup authorization.
 
 ### Interfaces
 - `RunSnapshotV3` extends existing ownership and completion facts with `revision`, `attempt`, `admission`, `launchIntent`, `workerProcess`, `rpivProcess`, `stop`, `cleanup`, `logs`, and merged-pull-request reconciliation facts.
 - `TransitionEventV2` contains schema version, run and issue identity, prior and resulting revisions, transition reason, timestamp, and complete resulting `RunSnapshotV3`.
 - `ProcessIdentityV1` contains PID, process-group ID, OS start token, resolved executable, exact args, cwd, launch time, and pane lineage.
-- `ReconciliationReportV1` contains persisted revision, normalized observations for every boundary, decision code, active classification, safe actions, and redacted diagnostics.
+- `ReconciliationReportV1` contains persisted revision, normalized observations for every boundary including non-authorizing progress, decision code, active classification, safe actions, and redacted diagnostics.
 - Process adapters expose spawn identity, process and process-tree observation, bounded wait, and exact process-group signaling. Tmux adapters expose identity observation, bounded pane capture, remain-on-exit setup, attach, and window removal.
 - File and store adapters expose strict enumeration, lock reads, event reads, atomic writes, compare-and-delete, retained-log reads/writes, and version validation.
 
@@ -42,6 +43,7 @@ This component applies to snapshot and event recovery, lock and resource observa
 - Reinvoking recovery while the recorded RPIV process remains active performs zero process launches.
 - A stopped run retains both its owned worktree and inspectable terminal transcript.
 - Observation failures produce stable actionable non-success outcomes and never become inferred absence.
+- Missing or unusable progress reports phase unknown without changing operational state or safe actions.
 
 ## Rationale
 
@@ -83,4 +85,5 @@ How is compliance with this component verified?
 ## Related ADRs
 
 - [ADR-260811-prototype-three-recovery-concurrency](../ADR/ADR-260811-prototype-three-recovery-concurrency.md)
+- [ADR-260812-rpiv-integration-completion-contract](../ADR/ADR-260812-rpiv-integration-completion-contract.md)
 - [ADR-260811-prototype-two-completion-proof](../ADR/ADR-260811-prototype-two-completion-proof.md)

@@ -11,10 +11,48 @@ const issueRun = read("docs/phase-1-issue-run.md");
 const operations = read("docs/phase-3-recovery-operations.md");
 const doctorGuide = read("docs/phase-4-repository-doctor.md");
 const assetGuide = read("docs/phase-5-official-assets.md");
+const integrationGuide = read("docs/rpiv-integration-contract.md");
+const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
 
 describe("V-11 Phase 3 operator documentation", () => {
+  it("documents executable RPIV integration, migration, safety, and no API/deployment service", () => {
+    for (const phrase of [
+      "IntegrationContractV1",
+      "rpiv.final_validation",
+      "just <recipe>",
+      "RunSnapshotV4",
+      "sole `just verify`",
+      "just verify-focused",
+      "RpivStatusV1",
+      "PROGRESS_MISSING",
+      "PROGRESS_CONFLICT",
+      "phase `unknown`",
+      "AgentResultV1",
+      "requiredFinalValidation",
+      "no-clobber",
+      "pull request is created",
+      "coordinator",
+      "No valid final artifact",
+      "Copilot environment names and values",
+      "no network API",
+      "no elapsed-age timeout",
+    ])
+      expect(integrationGuide).toContain(phrase);
+    expect(readme).toContain("just run instructions --json");
+    expect(docsIndex).toContain(
+      "RPIV integration, progress, and completion handoff",
+    );
+    expect(rpivAgent).toContain("soft-factory instructions --json");
+    expect(rpivAgent).toContain("injected local AgentResultV1 validator");
+    expect(verifierAgent).toContain("publish strict AgentResultV1 only after");
+    expect(verifierAgent).toContain("injected no-clobber Runner helper");
+    expect(issueRun).not.toContain(
+      "exactly one passed `just verify-focused` and `just verify`",
+    );
+  });
+
   it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {
     for (const command of [
       "run --issue <positive-integer> [--json]",
@@ -67,7 +105,7 @@ describe("V-11 Phase 3 operator documentation", () => {
 
   it("documents recovery, exact process identity, resume decisions, and migration", () => {
     for (const phrase of [
-      "RunSnapshotV3",
+      "RunSnapshotV4",
       "TransitionEventV2",
       "complete, contiguous",
       "STATE_HISTORY_INVALID",
@@ -83,9 +121,9 @@ describe("V-11 Phase 3 operator documentation", () => {
       "RESUME_REFUSED",
       "RunSnapshotV1",
       "RunSnapshotV2",
-      "never silently treated as v3",
+      "never silently treated as v4",
       "concurrency slot lease",
-      "strictly parsed result artifact identity and content",
+      "strictly parsed result artifact identity, content",
       "permission-denied process metadata",
     ])
       expect(operations).toContain(phrase);
@@ -433,7 +471,6 @@ describe("V-9 Phase 5 official asset documentation", () => {
       "dist/",
       "assets/official/",
       "npm pack --dry-run --json",
-      "changes no `.soft-factory/config.yml` option or default",
       "no configuration migration",
       "no network API contract",
       "API specification",
@@ -466,6 +503,7 @@ describe("V-9 Phase 5 official asset documentation", () => {
       "soft-factory install skill soft-factory",
       "soft-factory install --recommended",
       "soft-factory doctor [--json]",
+      "soft-factory instructions [--json]",
       "soft-factory run --issue <number> [--json]",
     ])
       expect(help.stdout).toContain(command);

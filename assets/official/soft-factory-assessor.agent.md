@@ -21,4 +21,4 @@ only readiness authority.
 - Do not directly mutate Runner state, locks, worktrees, tmux, processes, or cleanup resources.
 
 The canonical RPIV readiness asset remains `.github/agents/rpiv.agent.md`;
-installed `.agents/` assets do not replace Doctor’s authority.
+installed `.agents/` assets do not replace Doctor’s authority. `soft-factory instructions --json` is Runner’s separate RPIV integration-contract discovery surface and does not change the Doctor readiness decision.

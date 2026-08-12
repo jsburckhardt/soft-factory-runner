@@ -4,6 +4,8 @@ Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolate
 
 ## Guides
 
+- [RPIV integration, progress, and completion handoff](rpiv-integration-contract.md) — deterministic instructions, `rpiv.final_validation`, RunSnapshotV4 compatibility, progress/result schemas, atomic publication, coordinator gate, status/list, redaction, migration, API applicability, and local deployment.
+
 - [Phase 5 official asset installation and operations](phase-5-official-assets.md) — exact commands and destinations, strict manifest v1, package metadata and integrity, idempotency, collision and rollback safety, agent/Doctor authority, npm packaging, migration, and local deployment.
 
 - [Phase 4 repository Doctor](phase-4-repository-doctor.md) — all 24 blocking repository-readiness checks, schema-v1 human/JSON semantics, configuration and metadata, safe probes, deterministic fixtures, timing, and troubleshooting.
@@ -21,6 +23,7 @@ just --list
 just run --help
 just run install --recommended
 just run doctor [--json]
+just run instructions [--json]
 just verify-focused
 just verify
 ```

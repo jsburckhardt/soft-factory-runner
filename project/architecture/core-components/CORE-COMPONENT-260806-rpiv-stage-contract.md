@@ -30,15 +30,16 @@ This contract applies to the RPIV coordinator, all four RPIV stage agents, their
 - Implement MUST record documentation evidence or a concrete no-impact rationale.
 - Verify MUST inspect the exact implementation commit and independently verify affected application documentation.
 - Verify MUST return missing, stale, inaccurate, or inconclusive application documentation to Implement.
-- Verify MUST decide acceptance, update GitHub, push, and create the pull request.
+- Verify MUST decide acceptance, run the snapshotted final validation, update GitHub, push, create the pull request, and publish the strict immutable AgentResultV1 through the Runner-provided helper.
 - Implement and Verify MUST use root `justfile` recipes for validation by default.
 - Implement MUST run `just verify-focused` while building and `just verify` before handoff by default.
-- Verify MUST rerun `just verify` independently by default.
+- Verify MUST rerun the run-snapshotted final validation independently; `just verify` is the default and focused validation never controls completion.
 - Verify MUST return code or test defects to Implement.
 - Verify MUST return plan, architecture, scope, or acceptance coverage defects to Plan.
 
 ### Interfaces
 - Plan hands Implement the acceptance catalog, tasks, test plan, ADRs, and core-components.
+- Runner hands RPIV one injected run binding; Verify publishes its bound result after PR creation and the coordinator validates it before a zero exit.
 - Implement writes task completion, validation results, and `AC-*` evidence to `project/work-items/<ISSUE_NUMBER>-<SHORT_DESCRIPTION>/implementation/00-implementation.md`.
 - Implement hands Verify the branch, commit SHA, clean-tree proof, `AC-*` evidence, documentation evidence, and validation results.
 - Every action plan, task breakdown, test plan, implementation note, verification summary, and pull request carries stable `AC-*` IDs.
@@ -82,4 +83,4 @@ Behavior change -> Documentation requirement -> Committed documentation -> Verif
 
 ## Related ADRs
 
-- None.
+- [ADR-260812-rpiv-integration-completion-contract](../ADR/ADR-260812-rpiv-integration-completion-contract.md)

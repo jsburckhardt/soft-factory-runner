@@ -21,9 +21,11 @@ export interface IdPort {
 export interface FilePort {
   readText(path: string): Promise<string | null>;
   readAgentResult(worktreePath: string): Promise<string | null>;
+  readRpivStatus?(worktreePath: string): Promise<string | null>;
   exists(path: string): Promise<boolean>;
   list(path: string): Promise<readonly string[]>;
   exclusiveCreate(path: string, content: string): Promise<boolean>;
+  immutableWrite?(path: string, content: string): Promise<boolean>;
   atomicWrite(path: string, content: string): Promise<void>;
   append(path: string, content: string): Promise<void>;
   compareAndDelete(path: string, expectedContent: string): Promise<boolean>;

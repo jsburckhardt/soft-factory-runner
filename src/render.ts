@@ -10,7 +10,10 @@ import type { RunnerError } from "./errors";
 export function renderRun(snapshot: RunSnapshot, json: boolean): string {
   if (json)
     return `${JSON.stringify({ schemaVersion: 1, run: snapshot }, null, 2)}\n`;
-  const revision = snapshot.schemaVersion === 3 ? ` r${snapshot.revision}` : "";
+  const revision =
+    snapshot.schemaVersion === 3 || snapshot.schemaVersion === 4
+      ? ` r${snapshot.revision}`
+      : "";
   return `Issue #${snapshot.issueNumber}: ${snapshot.state}${revision}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}\n`;
 }
 

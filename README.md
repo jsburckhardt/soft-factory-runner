@@ -26,6 +26,8 @@ The root `justfile` is command authority. `just setup` and `just build` do not g
 just run --help
 just run doctor
 just run doctor --json
+just run instructions
+just run instructions --json
 just run run --issue 5 --json
 just run reconcile 5 --json
 just run resume 5 --json
@@ -36,6 +38,10 @@ just run status 5 --json
 just run attach 5
 just run logs 5 --json
 ```
+
+## RPIV integration contract
+
+`just run instructions [--json]` deterministically reports the Runner-owned progress/result handoff. New runs validate and snapshot one `rpiv.final_validation`, defaulting to `just verify`; focused validation is implementation feedback only. RPIV publishes mutable `.soft-factory/rpiv-status.json`, while Verify publishes immutable no-clobber `.soft-factory/agent-result.json` only after push and PR creation. The coordinator validates that bound result before zero exit. Status/list report phase separately from operational state. See [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) for configuration grammar, schemas, classifications, atomicity, v4/legacy migration, redaction, troubleshooting, API applicability, and local deployment boundaries.
 
 ## Official agent assets
 
@@ -107,7 +113,7 @@ Each new or resumed Copilot launch reads the current file and creates a fresh im
 
 The mapping applies only to Copilot. It never changes Runner, Git, `gh`, tmux, worker, Doctor, or generic subprocess environments. Duplicate or invalid names, non-string or nested values, aliases, anchors, merge keys, unsupported keys, and malformed syntax fail before launch. Diagnostics identify only the field and reason, with no value included. A rejected launch leaves no cached environment; correct the file and explicitly retry to use the new configuration. Runner never writes configured names or values to snapshots, events, launch intents, retained logs, or human/JSON output. External Copilot output remains outside this Runner confidentiality boundary.
 
-This option is additive. Existing files need no migration when no Copilot overrides are wanted. Persisted schemas, Copilot argument order, network APIs, deployment, and runtime state have no migration impact.
+This option is additive. Existing files need no migration when no Copilot overrides are wanted. Copilot argument order remains shell-free and stable while the prompt carries the new redacted launch binding. Copilot environment configuration itself remains additive. RPIV integration adds RunSnapshotV4 and the migration rules documented in the integration guide; it adds no network API or deployment service.
 
 The canonical `.github/agents/rpiv.agent.md` must declare `runner_protocol: 1` and `result_contract: agent-result-v1`. See [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) for all check IDs, schema, fixtures, timing, path safety, operations, and troubleshooting.
 
@@ -115,7 +121,7 @@ Every product run names one explicit positive issue number. Runner never queries
 
 ## Recovery and concurrency
 
-New runs use revisioned `RunSnapshotV3` and replayable `TransitionEventV2` records. Reconciliation separately compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
+New runs use revisioned `RunSnapshotV4` and replayable `TransitionEventV2` records. Reconciliation separately observes mutable RPIV progress and compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
 
 A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
 
@@ -141,6 +147,7 @@ See [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md)
 ## Documentation
 
 - [`PRD.md`](PRD.md) — product requirements and staged MVP evolution
+- [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) — RPIV instructions, final-validation configuration, progress/result schemas, migration, safety, and operations
 - [`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) — official asset commands, manifest, integrity, transactions, authority, packaging, migration, and operations
 - [`docs/phase-1-issue-run.md`](docs/phase-1-issue-run.md) — issue readiness, ownership, fetched base, AgentResultV1, and completion proof
 - [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) — repository readiness checks, schema, configuration migration, fixtures, timing, and troubleshooting

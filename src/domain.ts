@@ -1,4 +1,4 @@
-export const RUN_SNAPSHOT_SCHEMA_VERSION = 3 as const;
+export const RUN_SNAPSHOT_SCHEMA_VERSION = 4 as const;
 export const EVENT_SCHEMA_VERSION = 2 as const;
 export const AGENT_RESULT_SCHEMA_VERSION = 1 as const;
 
@@ -188,12 +188,21 @@ export interface RequiredAcceptanceCriterionV1 {
 }
 
 export interface RequiredValidationV1 {
-  readonly command: "just verify-focused" | "just verify";
+  readonly command: string;
 }
 
+export interface RequiredFinalValidationV1 {
+  readonly command: string;
+}
+
+export const DEFAULT_FINAL_VALIDATION: RequiredFinalValidationV1 =
+  Object.freeze({
+    command: "just verify",
+  });
+
+/** Legacy compatibility export. New v4 runs persist requiredFinalValidation instead. */
 export const REQUIRED_VALIDATIONS: readonly RequiredValidationV1[] = [
-  { command: "just verify-focused" },
-  { command: "just verify" },
+  DEFAULT_FINAL_VALIDATION,
 ];
 
 export type AgentOutcome =
@@ -219,6 +228,11 @@ export interface AgentResultV1 {
   readonly prNumber: number;
   readonly acceptanceCriteria: readonly AgentAcceptanceResultV1[];
   readonly validations: readonly AgentValidationResultV1[];
+  readonly requiredFinalValidation: {
+    readonly command: string;
+    readonly status: "passed";
+    readonly evidence: readonly string[];
+  };
   readonly completedAt: string;
 }
 
@@ -286,7 +300,66 @@ export interface RunSnapshotV3 extends RunSnapshotBase {
   readonly finalization: FinalizationFactsV1 | null;
 }
 
-export type RunSnapshot = RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3;
+export type RpivPhase =
+  "research" | "plan" | "implement" | "verify" | "terminal";
+export type RpivProgressStatus =
+  "running" | "succeeded" | "failed" | "blocked" | "cancelled" | "interrupted";
+export interface RpivStatusV1 {
+  readonly schemaVersion: 1;
+  readonly runId: string;
+  readonly attempt: number;
+  readonly issueNumber: number;
+  readonly branch: string;
+  readonly sequence: number;
+  readonly phase: RpivPhase;
+  readonly status: RpivProgressStatus;
+  readonly updatedAt: string;
+}
+export type ProgressClassification =
+  | "PROGRESS_MISSING"
+  | "PROGRESS_EMPTY"
+  | "PROGRESS_INVALID"
+  | "PROGRESS_REQUIRED_FIELD_MISSING"
+  | "PROGRESS_VERSION_UNSUPPORTED"
+  | "PROGRESS_IDENTITY_MISMATCH"
+  | "PROGRESS_STALE"
+  | "PROGRESS_REGRESSED"
+  | "PROGRESS_REPEATED"
+  | "PROGRESS_CONFLICT"
+  | "PROGRESS_LATE"
+  | "PROGRESS_VALID";
+export interface ProgressObservationV1 {
+  readonly classification: ProgressClassification;
+  readonly phase: RpivPhase | "unknown";
+  readonly observed: RpivStatusV1 | null;
+  readonly lastAccepted: RpivStatusV1 | null;
+}
+export interface IntegrationLaunchV1 {
+  readonly schemaVersion: 1;
+  readonly runId: string;
+  readonly attempt: number;
+  readonly issueNumber: number;
+  readonly branch: string;
+  readonly startedAt: string;
+  readonly progressPath: string;
+  readonly resultPath: string;
+  readonly requiredFinalValidation: RequiredFinalValidationV1;
+  readonly publishProgressCommand: string;
+  readonly publishResultCommand: string;
+  readonly validateResultCommand: string;
+}
+export interface RunSnapshotV4 extends Omit<
+  RunSnapshotV3,
+  "schemaVersion" | "requiredValidations"
+> {
+  readonly schemaVersion: 4;
+  readonly requiredFinalValidation: RequiredFinalValidationV1;
+  readonly integrationLaunch: IntegrationLaunchV1;
+  readonly progress: RpivStatusV1 | null;
+}
+
+export type RunSnapshot =
+  RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3 | RunSnapshotV4;
 
 export interface TransitionEventV1 {
   readonly schemaVersion: 1;
@@ -306,7 +379,7 @@ export interface TransitionEventV2 {
   readonly priorRevision: number;
   readonly resultingRevision: number;
   readonly reason: string;
-  readonly resultingSnapshot: RunSnapshotV3;
+  readonly resultingSnapshot: RunSnapshotV3 | RunSnapshotV4;
 }
 
 export type TransitionEvent = TransitionEventV1 | TransitionEventV2;
@@ -338,6 +411,7 @@ export interface ReconciliationObservationsV1 {
   readonly tmux: ObservationV1<TmuxIdentity>;
   readonly workerProcess: ObservationV1<ProcessIdentityV1>;
   readonly rpivProcess: ObservationV1<ProcessIdentityV1>;
+  readonly progress: ObservationV1<ProgressObservationV1>;
   readonly result: ObservationV1<AgentResultV1>;
   readonly remote: ObservationV1<{ readonly headSha: string | null }>;
   readonly github: ObservationV1<MergedPullRequestFactsV1>;
@@ -365,7 +439,7 @@ export interface ReconciliationReportV1 {
 }
 
 export interface StatusFacts {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
   readonly observed: TmuxIdentity | null;
@@ -382,6 +456,7 @@ export interface RunConfiguration {
   readonly promptTemplate: string;
   readonly maxConcurrentRuns: number;
   readonly copilotEnvironment: Readonly<Record<string, string>>;
+  readonly finalValidation: RequiredFinalValidationV1;
 }
 
 export interface PreparedIssue {

@@ -465,6 +465,11 @@ function fixture(
         { command: "just verify-focused", status: "passed" },
         { command: "just verify", status: "passed" },
       ],
+      requiredFinalValidation: {
+        command: "just verify",
+        status: "passed",
+        evidence: ["fixture:just-verify"],
+      },
       completedAt: "2026-08-11T07:01:00.000Z",
     }),
   );
@@ -544,9 +549,17 @@ describe("deterministic issue-to-RPIV fixture", () => {
     expect(f.trace).toContain(
       "tmux:create:sf-jsburckhardt-soft-factory-runner:3:/tmp/soft-factory-fixture/.trees/3:soft-factory internal run-agent --issue 3",
     );
-    expect(f.trace).toContain(
-      "process:copilot:--yolo --name issue-3 --agent rpiv --prompt Deliver issue #3:/tmp/soft-factory-fixture/.trees/3:project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
-    );
+    expect(
+      f.trace.some(
+        (entry) =>
+          entry.startsWith(
+            "process:copilot:--yolo --name issue-3 --agent rpiv --prompt Deliver issue #3",
+          ) &&
+          entry.endsWith(
+            ":/tmp/soft-factory-fixture/.trees/3:project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
+          ),
+      ),
+    ).toBe(true);
     expect(
       f.trace.some((entry) =>
         entry.includes("/workspaces/soft-factory-runner/.trees/3"),
@@ -650,7 +663,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
         "--agent",
         "rpiv",
         "--prompt",
-        "Deliver issue #3",
+        expect.stringContaining("Deliver issue #3"),
       ],
       environment: {
         OTEL_RESOURCE_ATTRIBUTES:
@@ -689,7 +702,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
       "--agent",
       "rpiv",
       "--prompt",
-      "Deliver issue #3",
+      expect.stringContaining("Deliver issue #3"),
     ]);
     expect(Object.keys(launch.environment).sort()).toEqual([
       "COPILOT_OTEL_ENABLED",

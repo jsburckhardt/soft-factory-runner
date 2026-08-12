@@ -55,6 +55,11 @@ You MUST NOT push or create a pull request when any AC-* ID or validation comman
 You MUST update GitHub acceptance criterion checkboxes only after every AC-* ID passes.
 You MUST push the verified feature branch.
 You MUST create the pull request from the verified feature branch.
+You MUST read the injected run binding and snapshotted final validation without reading or changing Runner snapshots.
+You MUST publish strict AgentResultV1 only after acceptance passes, the snapshotted final validation passes, the final head is pushed, and the pull request is created.
+You MUST include issue, branch, final head, pull request, outcome, every AC evidence item, `requiredFinalValidation` command/status/evidence, supplementary diagnostics, and completion time.
+You MUST publish through the injected no-clobber Runner helper and MUST preserve an existing artifact on every write, schema, identity, or evidence failure.
+You MUST return nonzero to the coordinator when result publication or read-back validation fails.
 You MUST include every AC-* ID, status, and evidence in the pull request.
 You MUST use a Conventional Commit title for the pull request.
 You MUST write <WORK_ITEM_PATH>/verify/summary.md after pull request creation.
@@ -207,6 +212,7 @@ RUN `harvest-rpiv-friction`
 RUN `check-github-auth`
 RUN `push-branch`
 RUN `create-pull-request`
+RUN `publish-agent-result`
 RUN `update-issue-checkboxes`
 RUN `write-verification-summary`
 RUN `verify-clean`
@@ -245,6 +251,15 @@ SET HARVEST_PASSED := <PASSED> (from "Agent Inference" using RETRO_HARVEST, WORK
 SET VALIDATION_RESULTS := VALIDATION_RESULTS + [{id: "rpiv-friction-harvest", passed: HARVEST_PASSED, evidence: RETRO_HARVEST}] (from "Agent Inference")
 IF HARVEST_PASSED is false:
   RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=RETRO_HARVEST, error_message="RPIV friction harvest failed", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
+</process>
+
+<process id="publish-agent-result" name="Publish bound immutable AgentResultV1 after PR creation">
+SET AGENT_RESULT := <RESULT> (from "Agent Inference" using ISSUE_NUMBER, BRANCH_NAME, CURRENT_COMMIT, PR_URL, AC_RESULTS, VALIDATION_RESULTS; strict AgentResultV1 with the injected requiredFinalValidation binding and completion time)
+USE `execute/runInTerminal` where: command="<INJECTED_PUBLISH_RESULT_COMMAND>"
+CAPTURE PUBLICATION_RESULT from `execute/runInTerminal`
+SET PUBLICATION_PASSED := <PASSED> (from "Agent Inference" using PUBLICATION_RESULT; require no-clobber publication, durable read-back, exact identity, and final-validation evidence binding)
+IF PUBLICATION_PASSED is false:
+  RETURN: format="VERIFY_ERROR", ac_results=AC_RESULTS, details=PUBLICATION_RESULT, error_message="Immutable AgentResultV1 publication failed", issue_number=ISSUE_NUMBER, return_stage="verify", validation_results=VALIDATION_RESULTS
 </process>
 
 <process id="load-handoff" name="Load the Plan and Implement handoffs">

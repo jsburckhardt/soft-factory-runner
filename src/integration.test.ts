@@ -1078,6 +1078,11 @@ describe("real filesystem and Git integration", () => {
           { command: "just verify-focused", status: "passed" },
           { command: "just verify", status: "passed" },
         ],
+        requiredFinalValidation: {
+          command: "just verify",
+          status: "passed",
+          evidence: ["fixture:just-verify"],
+        },
         completedAt: "2026-08-11T12:01:00.000Z",
       });
       const stateDirectory = path.join(root, ".soft-factory");

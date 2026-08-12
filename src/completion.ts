@@ -8,7 +8,7 @@ import type {
   CompletionPullRequestFacts,
   CompletionReconciliationV1,
   RequiredAcceptanceCriterionV1,
-  RequiredValidationV1,
+  RequiredFinalValidationV1,
   TerminalState,
 } from "./domain";
 import { RunnerError } from "./errors";
@@ -30,7 +30,7 @@ export interface CompletionInput {
   readonly baseBranch: string;
   readonly remote: string;
   readonly requiredAcceptanceCriteria: readonly RequiredAcceptanceCriterionV1[];
-  readonly requiredValidations: readonly RequiredValidationV1[];
+  readonly requiredFinalValidation: RequiredFinalValidationV1;
   readonly result: AgentResultV1;
   readonly git: CompletionGitFacts | null;
   readonly pullRequest: CompletionPullRequestFacts | null;
@@ -72,6 +72,7 @@ export function parseAgentResult(text: string | null): AgentResultV1 {
       "prNumber",
       "acceptanceCriteria",
       "validations",
+      "requiredFinalValidation",
       "completedAt",
     ])
   )
@@ -86,6 +87,17 @@ export function parseAgentResult(text: string | null): AgentResultV1 {
     !isPositiveInteger(value.prNumber) ||
     !Array.isArray(value.acceptanceCriteria) ||
     !Array.isArray(value.validations) ||
+    !isRecord(value.requiredFinalValidation) ||
+    !hasExactKeys(value.requiredFinalValidation, [
+      "command",
+      "status",
+      "evidence",
+    ]) ||
+    !isNonemptyString(value.requiredFinalValidation.command) ||
+    value.requiredFinalValidation.status !== "passed" ||
+    !Array.isArray(value.requiredFinalValidation.evidence) ||
+    value.requiredFinalValidation.evidence.length === 0 ||
+    !value.requiredFinalValidation.evidence.every(isNonemptyString) ||
     typeof value.completedAt !== "string" ||
     !ISO_TIME.test(value.completedAt) ||
     !Number.isFinite(Date.parse(value.completedAt))
@@ -112,6 +124,11 @@ export function parseAgentResult(text: string | null): AgentResultV1 {
     prNumber: value.prNumber as number,
     acceptanceCriteria,
     validations,
+    requiredFinalValidation: {
+      command: value.requiredFinalValidation.command,
+      status: "passed",
+      evidence: value.requiredFinalValidation.evidence,
+    },
     completedAt: value.completedAt,
   };
 }
@@ -194,18 +211,21 @@ export function reconcileCompletion(
       ),
     );
   }
-  for (const validation of input.requiredValidations) {
-    const matches = input.result.validations.filter(
-      (entry) => entry.command === validation.command,
-    );
-    comparisons.push(
-      comparison(
-        `VALIDATION_${validation.command === "just verify" ? "FULL" : "FOCUSED"}_MISMATCH`,
-        { count: 1, status: "passed" },
-        { count: matches.length, status: matches[0]?.status ?? null },
-      ),
-    );
-  }
+  comparisons.push(
+    comparison(
+      "RESULT_FINAL_VALIDATION_MISMATCH",
+      {
+        command: input.requiredFinalValidation.command,
+        status: "passed",
+        evidence: true,
+      },
+      {
+        command: input.result.requiredFinalValidation.command,
+        status: input.result.requiredFinalValidation.status,
+        evidence: input.result.requiredFinalValidation.evidence.length > 0,
+      },
+    ),
+  );
   const failed = comparisons.find((entry) => !entry.passed);
   return failed === undefined
     ? decision("completed", "COMPLETION_PROVED", comparisons)

@@ -6,15 +6,19 @@ import type {
   ObservationV1,
   OwnerRecordV1,
   ProcessIdentityV1,
+  ProgressObservationV1,
   ReconciliationObservationsV1,
   ReconciliationReportV1,
   RunSnapshot,
+  RunSnapshotV3,
+  RunSnapshotV4,
   TmuxIdentity,
   WorktreeObservationV1,
 } from "./domain";
 import { parseAgentResult } from "./completion";
 import { isRunnerError } from "./errors";
 import { RunStore } from "./persistence";
+import { classifyProgress } from "./integration";
 import type { RunnerPorts } from "./ports";
 
 export async function collectReconciliation(input: {
@@ -31,7 +35,7 @@ export async function collectReconciliation(input: {
     runId: persisted.runId,
     repository: persisted.repository,
     acquiredAt:
-      persisted.schemaVersion === 3 && persisted.admission !== null
+      persisted.schemaVersion === 4 && persisted.admission !== null
         ? persisted.admission.acquiredAt
         : "",
   };
@@ -55,6 +59,7 @@ export async function collectReconciliation(input: {
     tmux,
     workerProcess,
     rpivProcess,
+    progress,
     result,
     remote,
     github,
@@ -66,7 +71,7 @@ export async function collectReconciliation(input: {
         ? match(actual, "LOCK_MATCH")
         : mismatch(actual, "LOCK_MISMATCH");
     }),
-    persisted.schemaVersion !== 3
+    persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4
       ? Promise.resolve(notApplicable<ConcurrencyLeaseV1>("LEASE_NOT_RECORDED"))
       : persisted.admission === null
         ? Promise.resolve(
@@ -117,14 +122,33 @@ export async function collectReconciliation(input: {
             ? match(actual, "TMUX_MATCH")
             : mismatch(actual, "TMUX_MISMATCH");
         }),
-    persisted.schemaVersion !== 3 || persisted.workerProcess === null
+    (persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4) ||
+    persisted.workerProcess === null
       ? Promise.resolve(
           notApplicable<ProcessIdentityV1>("WORKER_PROCESS_NOT_RECORDED"),
         )
       : observeProcess(ports, persisted.workerProcess, "WORKER"),
-    persisted.schemaVersion !== 3 || persisted.rpivProcess === null
+    (persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4) ||
+    persisted.rpivProcess === null
       ? Promise.resolve(absent<ProcessIdentityV1>("RPIV_PROCESS_NOT_RECORDED"))
       : observeProcess(ports, persisted.rpivProcess, "RPIV"),
+    observe(async () => {
+      const facts = classifyProgress({
+        text:
+          ports.files.readRpivStatus === undefined
+            ? await ports.files.readText(
+                persisted.worktreePath + "/.soft-factory/rpiv-status.json",
+              )
+            : await ports.files.readRpivStatus(persisted.worktreePath),
+        snapshot: persisted,
+        observedAt: ports.clock.now(),
+      });
+      if (facts.classification === "PROGRESS_MISSING")
+        return absent<ProgressObservationV1>(facts.classification, facts);
+      if (facts.classification === "PROGRESS_VALID")
+        return match(facts, facts.classification);
+      return mismatch(facts, facts.classification);
+    }),
     observe(async () => {
       const text = await ports.files.readAgentResult(resultPath);
       if (text === null)
@@ -197,6 +221,7 @@ export async function collectReconciliation(input: {
     tmux,
     workerProcess,
     rpivProcess,
+    progress,
     result,
     remote,
     github,
@@ -211,16 +236,19 @@ export function buildReconciliationReport(
     keyof ReconciliationObservationsV1,
     ObservationV1,
   ][];
-  const unknown = entries.filter(
+  const authorizingEntries = entries.filter(
+    ([boundary]) => boundary !== "progress",
+  );
+  const unknown = authorizingEntries.filter(
     ([, observation]) => observation.state === "unknown",
   );
-  const mismatched = entries.filter(
+  const mismatched = authorizingEntries.filter(
     ([, observation]) => observation.state === "mismatch",
   );
   const diagnostics = [...unknown, ...mismatched].map(
     ([boundary, observation]) => boundary + ":" + observation.code,
   );
-  if (persisted.schemaVersion !== 3) {
+  if (persisted.schemaVersion === 1 || persisted.schemaVersion === 2) {
     return report(
       persisted,
       observations,
@@ -392,7 +420,7 @@ export function buildReconciliationReport(
 }
 
 function buildCompletedReport(
-  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  persisted: RunSnapshotV3 | RunSnapshotV4,
   observations: ReconciliationObservationsV1,
   diagnostics: readonly string[],
 ): ReconciliationReportV1 {
@@ -495,7 +523,7 @@ function buildCompletedReport(
 }
 
 function cleanupStepsCompleted(
-  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  persisted: RunSnapshotV3 | RunSnapshotV4,
   steps: readonly CleanupStep[],
 ): boolean {
   const progress = persisted.cleanup;
@@ -508,7 +536,7 @@ function cleanupStepsCompleted(
 }
 
 function canExplicitCleanup(
-  persisted: Extract<RunSnapshot, { readonly schemaVersion: 3 }>,
+  persisted: RunSnapshotV3 | RunSnapshotV4,
   observations: ReconciliationObservationsV1,
 ): boolean {
   const progress = persisted.cleanup;
