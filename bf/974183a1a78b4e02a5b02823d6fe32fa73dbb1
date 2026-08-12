@@ -1,0 +1,22 @@
+project/work-items/19-define-rpiv-progress-final-result-ownership-and-integration-instructions/verify/summary.md
+  s_b6bbe8fb624108::t_956d3eb36a25dd 1-69
+.harness/records/retro/2026-08-12/021-issue-19-rpiv-verifier.md
+  s_b6bbe8fb624108::t_5bdb108cc93038 7-8,10-13,17-264,267,269
+  s_b6bbe8fb624108::t_ae97fb34cab454 1-6,9,14-16,265-266,268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "bf974183a1a78b4e02a5b02823d6fe32fa73dbb1",
+  "prompts": {},
+  "sessions": {
+    "s_b6bbe8fb624108": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_WycBo0A3ob7Qu3jAMwpT6Y6F",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
