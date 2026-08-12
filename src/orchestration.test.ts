@@ -34,6 +34,8 @@ const sha = "a".repeat(40);
 class MemoryFiles implements FilePort {
   public readonly values = new Map<string, string>();
   public readonly trace: string[];
+  public failAtomicWrite = false;
+  public failImmutableWrite = false;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
@@ -70,8 +72,26 @@ class MemoryFiles implements FilePort {
     this.values.set(filePath, content);
     return true;
   }
+  public async immutableWrite(
+    filePath: string,
+    content: string,
+  ): Promise<boolean> {
+    if (this.failImmutableWrite)
+      throw new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        "Injected immutable publication failure.",
+        "Retry after restoring storage.",
+      );
+    return this.exclusiveCreate(filePath, content);
+  }
   public async atomicWrite(filePath: string, content: string): Promise<void> {
     this.trace.push(`snapshot:write:${filePath}`);
+    if (this.failAtomicWrite)
+      throw new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        "Injected atomic publication failure.",
+        "Retry after restoring storage.",
+      );
     this.values.set(filePath, content);
   }
   public async append(filePath: string, content: string): Promise<void> {
@@ -223,6 +243,10 @@ class RecordingGitHub implements GitHubPort {
       closesIssues: [3],
       complete: true,
     };
+  }
+  public async findOpenPullRequest(repository: string, headBranch: string) {
+    this.trace.push(`github:pr-by-head:${repository}:${headBranch}`);
+    return this.loadPullRequest(repository, 13);
   }
   public async loadMergedPullRequest(
     _repository: string,
@@ -393,6 +417,9 @@ class RecordingProcess implements ProcessPort {
   public async findLaunchCandidates() {
     return [...this.observedProcesses.values()];
   }
+  public completeWorkers(): void {
+    this.observedWorkers.clear();
+  }
   public async signalGroup(identity: ProcessIdentityV1): Promise<void> {
     this.trace.push("process:signal");
     this.observedProcesses.delete(identity.pid);
@@ -448,6 +475,10 @@ function fixture(
     ids: { nextOwnerId: () => `owner-${++id}`, nextRunId: () => `run-${++id}` },
   };
   files.values.set(
+    "/tmp/soft-factory-fixture/justfile",
+    "verify-focused:\n\ttrue\nverify:\n\ttrue\nrelease_check:\n\ttrue\n",
+  );
+  files.values.set(
     "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json",
     JSON.stringify({
       schemaVersion: 1,
@@ -465,6 +496,11 @@ function fixture(
         { command: "just verify-focused", status: "passed" },
         { command: "just verify", status: "passed" },
       ],
+      requiredFinalValidation: {
+        command: "just verify",
+        status: "passed",
+        evidence: ["fixture:just-verify"],
+      },
       completedAt: "2026-08-11T07:01:00.000Z",
     }),
   );
@@ -544,9 +580,17 @@ describe("deterministic issue-to-RPIV fixture", () => {
     expect(f.trace).toContain(
       "tmux:create:sf-jsburckhardt-soft-factory-runner:3:/tmp/soft-factory-fixture/.trees/3:soft-factory internal run-agent --issue 3",
     );
-    expect(f.trace).toContain(
-      "process:copilot:--yolo --name issue-3 --agent rpiv --prompt Deliver issue #3:/tmp/soft-factory-fixture/.trees/3:project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
-    );
+    expect(
+      f.trace.some(
+        (entry) =>
+          entry.startsWith(
+            "process:copilot:--yolo --name issue-3 --agent rpiv --prompt Deliver issue #3",
+          ) &&
+          entry.endsWith(
+            ":/tmp/soft-factory-fixture/.trees/3:project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3",
+          ),
+      ),
+    ).toBe(true);
     expect(
       f.trace.some((entry) =>
         entry.includes("/workspaces/soft-factory-runner/.trees/3"),
@@ -650,7 +694,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
         "--agent",
         "rpiv",
         "--prompt",
-        "Deliver issue #3",
+        expect.stringContaining("Deliver issue #3"),
       ],
       environment: {
         OTEL_RESOURCE_ATTRIBUTES:
@@ -689,7 +733,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
       "--agent",
       "rpiv",
       "--prompt",
-      "Deliver issue #3",
+      expect.stringContaining("Deliver issue #3"),
     ]);
     expect(Object.keys(launch.environment).sort()).toEqual([
       "COPILOT_OTEL_ENABLED",
@@ -990,6 +1034,531 @@ describe("deterministic issue-to-RPIV fixture", () => {
       for (const surface of surfaces)
         for (const sentinel of [successfulValue, rejectedValue])
           expect(surface).not.toContain(sentinel);
+  });
+});
+
+describe("Issue 19 corrected helper integration", () => {
+  it.each([
+    ["default validation", null],
+    [
+      "configured validation",
+      "rpiv:\n  final_validation: just release_check\n",
+    ],
+  ])(
+    "AC-3 rejects missing root justfile before ownership for %s",
+    async (_name, configuration) => {
+      const f = fixture();
+      const root = "/tmp/soft-factory-fixture";
+      f.files.values.delete(root + "/justfile");
+      if (configuration !== null)
+        f.files.values.set(root + "/.soft-factory/config.yml", configuration);
+      const before = new Map(f.files.values);
+
+      await expect(
+        new IssueRunService(f.ports).run(3, "/tmp/start"),
+      ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+
+      expect(f.files.values).toEqual(before);
+      expect(
+        [...f.files.values.keys()].filter((entry) =>
+          /\.soft-factory\/(?:locks|runs|events|concurrency)\//.test(entry),
+        ),
+      ).toEqual([]);
+      expect(
+        f.trace.some((entry) =>
+          /^(?:lock:create|event:append|snapshot:write|git:fetch|git:create-|tmux:create|process:)/.test(
+            entry,
+          ),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    [
+      "progressPath",
+      "/tmp/forged-rpiv-status.json",
+      [
+        "internal",
+        "publish-progress",
+        "--issue",
+        "3",
+        "--phase",
+        "research",
+        "--status",
+        "running",
+      ],
+    ],
+    [
+      "resultPath",
+      "/tmp/forged-agent-result.json",
+      ["internal", "validate-result", "--issue", "3"],
+    ],
+  ] as const)(
+    "AC-11/AC-18 refuses a forged v4 %s before helper path use",
+    async (field, forgedPath, args) => {
+      const f = fixture();
+      await new IssueRunService(f.ports).run(3, "/tmp/start");
+      const snapshotPath =
+        "/tmp/soft-factory-fixture/.soft-factory/runs/3.json";
+      const persisted = JSON.parse(
+        f.files.values.get(snapshotPath) as string,
+      ) as {
+        integrationLaunch: Record<string, unknown>;
+      };
+      persisted.integrationLaunch[field] = forgedPath;
+      f.files.values.set(snapshotPath, JSON.stringify(persisted));
+      const before = new Map(f.files.values);
+
+      const outcome = await runCli(
+        [...args],
+        "/tmp/soft-factory-fixture/.trees/3",
+        f.ports,
+      );
+
+      expect(outcome.exitCode).toBe(3);
+      expect(outcome.stderr).toContain("STATE_INVALID");
+      expect(f.files.values).toEqual(before);
+      expect(f.files.values.has(forgedPath)).toBe(false);
+    },
+  );
+
+  it("AC-8/AC-12/AC-17 keeps repeated terminal progress diagnostic after completed status and list", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    await service.run(3, "/tmp/start");
+    for (const [phase, status] of [
+      ["research", "running"],
+      ["plan", "running"],
+      ["implement", "running"],
+      ["verify", "running"],
+      ["terminal", "succeeded"],
+    ] as const)
+      await service.publishRpivProgress(3, "/tmp/start", phase, status);
+    await expect(service.runWorker(3, "/tmp/start")).resolves.toMatchObject({
+      state: "completed",
+      progress: { phase: "terminal", status: "succeeded" },
+    });
+    f.processes.completeWorkers();
+
+    const statusJson = await runCli(
+      ["status", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    const statusFacts = JSON.parse(statusJson.stdout) as {
+      persisted: { state: string };
+      reconciliation: {
+        activity: string;
+        decisionCode: string;
+        safeActions: readonly string[];
+        observations: {
+          progress: {
+            state: string;
+            code: string;
+            facts: { classification: string; phase: string };
+          };
+        };
+      };
+    };
+    expect(statusFacts).toMatchObject({
+      persisted: { state: "completed" },
+      reconciliation: {
+        activity: "inactive",
+        decisionCode: "MERGE_PENDING",
+        safeActions: ["attach", "explicit_clean"],
+        observations: {
+          progress: {
+            state: "mismatch",
+            code: "PROGRESS_REPEATED",
+            facts: {
+              classification: "PROGRESS_REPEATED",
+              phase: "terminal",
+            },
+          },
+        },
+      },
+    });
+
+    const listJson = await runCli(["list", "--json"], "/tmp/start", f.ports);
+    const listFacts = JSON.parse(listJson.stdout) as {
+      facts: readonly Record<string, unknown>[];
+    };
+    expect(listFacts.facts).toContainEqual({
+      issueNumber: 3,
+      state: "completed",
+      code: "MERGE_PENDING",
+      rpivPhase: "terminal",
+      progressClassification: "PROGRESS_REPEATED",
+    });
+
+    const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
+    expect(statusHuman.stdout).toContain("Persisted state: completed");
+    expect(statusHuman.stdout).toMatch(
+      /progress=mismatch:PROGRESS_REPEATED:.*phase.*terminal/,
+    );
+    const listHuman = await runCli(["list"], "/tmp/start", f.ports);
+    expect(listHuman.stdout).toMatch(/state.*completed/);
+    expect(listHuman.stdout).toMatch(/rpivPhase.*terminal/);
+    expect(listHuman.stdout).toMatch(
+      /progressClassification.*PROGRESS_REPEATED/,
+    );
+  });
+
+  it("V-6/AC-8/AC-13 reports missing current progress as unknown after accepting plan", async () => {
+    const f = fixture();
+    const service = new IssueRunService(f.ports);
+    await service.run(3, "/tmp/start");
+    await service.publishRpivProgress(3, "/tmp/start", "research", "running");
+    await service.publishRpivProgress(3, "/tmp/start", "plan", "running");
+    const accepted = readSnapshot(f.files);
+    expect(accepted.progress).toMatchObject({ phase: "plan", sequence: 2 });
+
+    const progressPath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/rpiv-status.json";
+    f.files.values.delete(progressPath);
+
+    const statusJson = await runCli(
+      ["status", "3", "--json"],
+      "/tmp/start",
+      f.ports,
+    );
+    const statusFacts = JSON.parse(statusJson.stdout) as {
+      readonly persisted: { readonly state: string };
+      readonly reconciliation: {
+        readonly observations: {
+          readonly progress: {
+            readonly code: string;
+            readonly facts: {
+              readonly classification: string;
+              readonly phase: string;
+              readonly lastAccepted: { readonly phase: string } | null;
+            };
+          };
+        };
+      };
+    };
+    expect(statusFacts).toMatchObject({
+      persisted: { state: "running_rpiv" },
+      reconciliation: {
+        observations: {
+          progress: {
+            code: "PROGRESS_MISSING",
+            facts: {
+              classification: "PROGRESS_MISSING",
+              phase: "unknown",
+              lastAccepted: { phase: "plan" },
+            },
+          },
+        },
+      },
+    });
+
+    const listJson = await runCli(["list", "--json"], "/tmp/start", f.ports);
+    const listFacts = JSON.parse(listJson.stdout) as {
+      readonly facts: readonly {
+        readonly issueNumber: number;
+        readonly state: string;
+        readonly rpivPhase: string;
+        readonly progressClassification: string;
+      }[];
+    };
+    expect(listFacts.facts).toContainEqual(
+      expect.objectContaining({
+        issueNumber: 3,
+        state: "running_rpiv",
+        rpivPhase: "unknown",
+        progressClassification: "PROGRESS_MISSING",
+      }),
+    );
+
+    const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
+    expect(statusHuman.stdout).toContain("Persisted state: running_rpiv");
+    expect(statusHuman.stdout).toMatch(
+      /progress=absent:PROGRESS_MISSING:.*phase.*unknown/,
+    );
+    const listHuman = await runCli(["list"], "/tmp/start", f.ports);
+    expect(listHuman.stdout).toMatch(/rpivPhase.*unknown/);
+    expect(listHuman.stdout).toMatch(
+      /progressClassification.*PROGRESS_MISSING/,
+    );
+  });
+
+  it("enforces forward progress, trusted PR binding, helper exits, and unchanged ownership", async () => {
+    const f = fixture();
+    await new IssueRunService(f.ports).run(3, "/tmp/start");
+    const before = readSnapshot(f.files);
+    const resultPath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json";
+    const candidatePath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.candidate.json";
+    const candidate = f.files.values.get(resultPath) as string;
+    f.files.values.delete(resultPath);
+    f.files.values.set(candidatePath, candidate);
+
+    expect(
+      (
+        await runCli(
+          [
+            "internal",
+            "publish-progress",
+            "--issue",
+            "3",
+            "--phase",
+            "research",
+            "--status",
+            "running",
+          ],
+          "/tmp/soft-factory-fixture/.trees/3",
+          f.ports,
+        )
+      ).exitCode,
+    ).toBe(0);
+    const repeated = await runCli(
+      [
+        "internal",
+        "publish-progress",
+        "--issue",
+        "3",
+        "--phase",
+        "research",
+        "--status",
+        "running",
+      ],
+      "/tmp/soft-factory-fixture/.trees/3",
+      f.ports,
+    );
+    expect(repeated.exitCode).toBe(3);
+    expect(repeated.stderr).toContain("PROGRESS_REPEATED");
+
+    const planCalls = await Promise.all([
+      new IssueRunService(f.ports).publishRpivProgress(
+        3,
+        "/tmp/start",
+        "plan",
+        "running",
+      ),
+      new IssueRunService(f.ports)
+        .publishRpivProgress(3, "/tmp/start", "plan", "running")
+        .catch((cause: unknown) => cause),
+    ]);
+    expect(
+      planCalls.filter((entry) => entry instanceof RunnerError),
+    ).toHaveLength(1);
+    await expect(
+      new IssueRunService(f.ports).publishRpivProgress(
+        3,
+        "/tmp/start",
+        "verify",
+        "running",
+      ),
+    ).rejects.toMatchObject({ code: "PROGRESS_CONFLICT" });
+    await new IssueRunService(f.ports).publishRpivProgress(
+      3,
+      "/tmp/start",
+      "implement",
+      "running",
+    );
+    await new IssueRunService(f.ports).publishRpivProgress(
+      3,
+      "/tmp/start",
+      "verify",
+      "running",
+    );
+
+    f.files.values.set(
+      candidatePath,
+      JSON.stringify({ ...JSON.parse(candidate), prNumber: 999 }),
+    );
+    const mismatch = await runCli(
+      [
+        "internal",
+        "publish-result",
+        "--issue",
+        "3",
+        "--candidate",
+        ".soft-factory/agent-result.candidate.json",
+      ],
+      "/tmp/soft-factory-fixture/.trees/3",
+      f.ports,
+    );
+    expect(mismatch.exitCode).toBe(3);
+    expect(mismatch.stderr).toContain("RESULT_IDENTITY_MISMATCH");
+    expect(f.files.values.has(resultPath)).toBe(false);
+
+    f.files.values.set(candidatePath, candidate);
+    expect(
+      (
+        await runCli(
+          [
+            "internal",
+            "publish-result",
+            "--issue",
+            "3",
+            "--candidate",
+            ".soft-factory/agent-result.candidate.json",
+          ],
+          "/tmp/soft-factory-fixture/.trees/3",
+          f.ports,
+        )
+      ).exitCode,
+    ).toBe(0);
+    expect(
+      (
+        await runCli(
+          ["internal", "validate-result", "--issue", "3"],
+          "/tmp/soft-factory-fixture/.trees/3",
+          f.ports,
+        )
+      ).exitCode,
+    ).toBe(0);
+    await new IssueRunService(f.ports).publishRpivProgress(
+      3,
+      "/tmp/start",
+      "terminal",
+      "succeeded",
+    );
+    await expect(
+      new IssueRunService(f.ports).publishRpivProgress(
+        3,
+        "/tmp/start",
+        "terminal",
+        "failed",
+      ),
+    ).rejects.toMatchObject({ code: "PROGRESS_LATE" });
+    expect(JSON.parse(f.files.values.get(resultPath) as string)).toEqual(
+      JSON.parse(candidate),
+    );
+    const after = readSnapshot(f.files);
+    for (const key of [
+      "runId",
+      "ownerId",
+      "repository",
+      "issueNumber",
+      "state",
+      "branch",
+      "worktreePath",
+      "tmux",
+      "admission",
+    ])
+      expect(after[key]).toEqual(before[key]);
+  });
+
+  it("publishes failed terminal progress and preserves ownership on injected helper write failures", async () => {
+    const failed = fixture();
+    await new IssueRunService(failed.ports).run(3, "/tmp/start");
+    const ownership = readSnapshot(failed.files);
+    await new IssueRunService(failed.ports).publishRpivProgress(
+      3,
+      "/tmp/start",
+      "research",
+      "running",
+    );
+    await expect(
+      new IssueRunService(failed.ports).publishRpivProgress(
+        3,
+        "/tmp/start",
+        "terminal",
+        "failed",
+      ),
+    ).resolves.toMatchObject({ phase: "terminal", status: "failed" });
+    await expect(
+      new IssueRunService(failed.ports).publishRpivProgress(
+        3,
+        "/tmp/start",
+        "terminal",
+        "failed",
+      ),
+    ).rejects.toMatchObject({ code: "PROGRESS_REPEATED" });
+    const terminalSnapshot = readSnapshot(failed.files);
+    expect(terminalSnapshot.state).toBe(ownership.state);
+    expect(terminalSnapshot.ownerId).toBe(ownership.ownerId);
+
+    const progressFault = fixture();
+    await new IssueRunService(progressFault.ports).run(3, "/tmp/start");
+    const beforeProgressFault = readSnapshot(progressFault.files);
+    progressFault.files.failAtomicWrite = true;
+    const progressFailure = await runCli(
+      [
+        "internal",
+        "publish-progress",
+        "--issue",
+        "3",
+        "--phase",
+        "research",
+        "--status",
+        "running",
+      ],
+      "/tmp/start",
+      progressFault.ports,
+    );
+    expect(progressFailure.exitCode).toBe(3);
+    expect(readSnapshot(progressFault.files)).toEqual(beforeProgressFault);
+    expect(
+      [...progressFault.files.values.keys()].some((entry) =>
+        entry.endsWith("rpiv-status.json.lock"),
+      ),
+    ).toBe(false);
+
+    const resultFault = fixture();
+    await new IssueRunService(resultFault.ports).run(3, "/tmp/start");
+    const resultPath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json";
+    const candidatePath =
+      "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.candidate.json";
+    resultFault.files.values.set(
+      candidatePath,
+      resultFault.files.values.get(resultPath) as string,
+    );
+    resultFault.files.values.delete(resultPath);
+    const beforeResultFault = readSnapshot(resultFault.files);
+    resultFault.files.failImmutableWrite = true;
+    const resultFailure = await runCli(
+      [
+        "internal",
+        "publish-result",
+        "--issue",
+        "3",
+        "--candidate",
+        ".soft-factory/agent-result.candidate.json",
+      ],
+      "/tmp/start",
+      resultFault.ports,
+    );
+    expect(resultFailure.exitCode).toBe(3);
+    expect(resultFault.files.values.has(resultPath)).toBe(false);
+    expect(readSnapshot(resultFault.files)).toEqual(beforeResultFault);
+  });
+
+  it("ignores changed or invalid current final validation for active state but rejects it for a new run", async () => {
+    const active = fixture();
+    await new IssueRunService(active.ports).run(3, "/tmp/start");
+    active.files.values.set(
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml",
+      "rpiv:\n  final_validation: [invalid current value]\n",
+    );
+    await expect(
+      new IssueRunService(active.ports).runWorker(3, "/tmp/start"),
+    ).resolves.toMatchObject({
+      state: "completed",
+      requiredFinalValidation: { command: "just verify" },
+    });
+
+    const fresh = fixture();
+    fresh.files.values.set(
+      "/tmp/soft-factory-fixture/.soft-factory/config.yml",
+      "rpiv:\n  final_validation: [invalid current value]\n",
+    );
+    await expect(
+      new IssueRunService(fresh.ports).run(3, "/tmp/start"),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+    expect(
+      [...fresh.files.values.keys()].some(
+        (entry) =>
+          entry.includes("/.soft-factory/locks/") ||
+          entry.includes("/.soft-factory/runs/"),
+      ),
+    ).toBe(false);
   });
 });
 

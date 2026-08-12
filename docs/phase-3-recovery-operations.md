@@ -12,6 +12,7 @@ just run --help
 
 | Command | Purpose | JSON | Success and non-success |
 | --- | --- | --- | --- |
+| `just run instructions [--json]` | Read deterministic IntegrationContractV1 without mutation | yes | Valid repository/configuration is 0; syntax is 2; invalid configuration is nonzero. |
 | `just run run --issue <positive-integer> [--json]` | Create one new explicitly requested run | yes | New run is 0; `RUN_EXISTS`, ownership, or capacity refusal is nonzero. |
 | `just run reconcile <positive-integer> [--json]` | Replay history and produce the shared report | yes | Safe report is 0; blocked contradiction/unknown is nonzero. |
 | `just run resume <positive-integer> [--json]` | Apply the resume decision table | yes | Continued/no-op is 0; refused terminal or ambiguous state is nonzero. |
@@ -38,6 +39,7 @@ branch_types:
   feature: feat
 rpiv:
   prompt: "Deliver issue #{issue}"
+  final_validation: just verify
 ```
 
 ### Copilot environment during new and resumed launches
@@ -58,13 +60,13 @@ Merge precedence is allowlisted inherited values, configured values, then Runner
 
 Duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, malformed lines, and bad indentation return value-free `CONFIG_INVALID` field/reason diagnostics with no value included. Runner does not persist or render configured names or values in snapshots, events, launch intents, attempt logs, or human/JSON output. This additive option requires no change to existing configurations when overrides are unwanted; no migration applies to snapshots, events, results, APIs, data, or deployment.
 
-`execution.max_concurrent_runs` is a strict positive safe integer. It defaults to `1`; zero, negative, fractional, exponent, empty, and unsafe-integer values fail before issue ownership. Each active issue exclusively creates the lowest available `.soft-factory/concurrency/slots/<slot>.lock` after its issue lock and before snapshot, branch, worktree, tmux, or process creation.
+`rpiv.final_validation` is absent-by-default `just verify` or one declared argument-free root `just <recipe>` other than focused validation. A missing root `justfile` prevents declaration proof for both the default and configured forms. It is validated and snapshotted before ownership; current configuration—including an invalid, empty, focused, changed, or undeclared current final-validation value—cannot block or alter an active, recovered, or normalized legacy run; supported legacy uses sole `just verify`. `execution.max_concurrent_runs` is a strict positive safe integer. It defaults to `1`; zero, negative, fractional, exponent, empty, and unsafe-integer values fail before issue ownership. Each active issue exclusively creates the lowest available `.soft-factory/concurrency/slots/<slot>.lock` after its issue lock and before snapshot, branch, worktree, tmux, or process creation.
 
 Unknown leases consume capacity. An occupied, malformed, unknown, or stale lease consumes capacity. Reducing the configured limit below an occupied slot blocks new admission until exact inactive ownership can release that lease. At capacity, `CONCURRENCY_LIMIT_REACHED` names only the explicitly requested issue, removes only its just-created matching issue lock, creates no downstream resource, and does not queue, rank, query for, or automatically select another issue. Distinct active issues use distinct issue locks, branches, worktrees, tmux windows/panes, run snapshots, event histories, and log directories; only the repository tmux session is shared.
 
 ## Reconciliation and persisted history
 
-New transitions use `RunSnapshotV3` and `TransitionEventV2`. A v3 snapshot records monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
+New transitions use `RunSnapshotV4` and `TransitionEventV2`. A v4 snapshot records one final-validation requirement plus monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
 
 On load, only a complete, contiguous, issue/run-identity-matching v2 chain may advance an event-ahead snapshot. Malformed, truncated, duplicate-conflicting, wrong-run, noncontiguous, and legacy-v1-ahead histories return `STATE_HISTORY_INVALID` without inferred mutation. Repetition over unchanged bytes returns the same normalized result.
 
@@ -77,9 +79,10 @@ Every report keeps persisted facts separate from exactly one bounded observation
 5. tmux session/window/pane/cwd;
 6. worker process identity;
 7. RPIV process identity;
-8. strictly parsed result artifact identity and content;
-9. authoritative remote branch state; and
-10. GitHub pull-request and immutable source-head facts.
+8. mutable RPIV progress phase and classification (non-authorizing);
+9. strictly parsed result artifact identity, content, and snapshotted final-validation binding;
+10. authoritative remote branch state; and
+11. GitHub pull-request and immutable source-head facts.
 
 Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, permission-denied process metadata, and unavailable commands are `unknown`, never inferred absence. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
 
@@ -96,7 +99,7 @@ A long-running process matches only when positive PID, process-group ID, OS star
 | `completed` | `COMPLETED_NOOP`. |
 | `failed`, `blocked`, `cancelled`, legacy-unmigratable, unknown, mismatched, or ambiguous | `RESUME_REFUSED`; preserve resources. |
 
-Completion still requires the full Phase 2 `AgentResultV1`, local Git, fresh remote, GitHub PR, acceptance, and root-validation conjunction. Recovery cannot infer completion from process or tmux presence.
+Completion requires strict AgentResultV1, local Git, fresh remote, GitHub PR, acceptance, and the one snapshotted evidence-bound final validation. Focused validation evidence is completion-neutral. Recovery cannot infer completion from process or tmux presence.
 
 ## Stop, terminal evidence, and logs
 
@@ -125,12 +128,12 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 
 ## Migration and upgrade notes
 
-- Valid `RunSnapshotV1` and `RunSnapshotV2` remain readable; unknown versions are rejected.
-- Legacy snapshots do not contain revision, process, lease, stop, cleanup, or log proof. They are never silently treated as v3 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
+- Valid `RunSnapshotV1`, `RunSnapshotV2`, and `RunSnapshotV3` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation`, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
+- Legacy snapshots do not contain the complete v4 integration binding. They are never silently treated as v4 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
 - Existing version-1 events remain append-only history. A v2 event ahead of a legacy snapshot is not replayed because the prior revision cannot be proved.
-- New runs write schema v3 and event v2. No destructive data migration or purge is performed.
+- New runs write schema v4 and event v2 with one immutable final-validation requirement. No destructive data migration or purge is performed.
 - `execution.max_concurrent_runs` defaults to 1, preserving prior single-run behavior. Configure a higher strict value only after inspecting current leases; unsafe reductions block rather than evict.
-- This release adds CLI and configuration behavior but no network API contract. API migration is not applicable.
+- This release adds local CLI/configuration and persisted-schema behavior but no network API contract, server, daemon, database, container, or deployment procedure. API migration is not applicable.
 
 ## Troubleshooting
 
@@ -165,3 +168,7 @@ Repository fixtures use temporary roots, exclusive file creation, fixed clocks/I
 ## Repository readiness preflight
 
 Before issue execution, run `just run doctor` or `just run doctor --json` to inspect all repository-scoped prerequisites without selecting an issue or mutating owned run resources. A NOT READY report exits 3 and keeps all 24 checks visible. See [Phase 4 repository Doctor](phase-4-repository-doctor.md). This product command is distinct from ambient `harness doctor`, which inspects the development harness rather than Runner repository compatibility.
+
+## RPIV progress and final-result operations
+
+Status and list display a separately observed RPIV phase and stable progress classification; unusable current progress is `unknown`, a byte-equivalent accepted current artifact may display its phase as `PROGRESS_REPEATED`, and no progress classification changes completion, activity, decision code, safe actions, cleanup eligibility, ownership, recovery, or process control. Verify publishes immutable AgentResultV1 only after PR creation, and the coordinator validates it before zero exit. See [RPIV integration, progress, and completion handoff](rpiv-integration-contract.md) for exact schemas, atomicity, classifications, helper ownership, redaction, and troubleshooting.

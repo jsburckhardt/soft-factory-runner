@@ -113,7 +113,7 @@ installation never intentionally leaves a partial release.
 ## Operator, Assessor, and Doctor authority
 
 The official Operator delegates explicit execution to
-`soft-factory run --issue <number>` and delegates `doctor`, `list`, `status`,
+`soft-factory run --issue <number>`, discovers integration facts with `soft-factory instructions --json`, and delegates `doctor`, `list`, `status`,
 `attach`, `logs`, `reconcile`, `resume`, `stop`, and `clean` to Runner. It does
 not select issues or directly create worktrees, locks, state, tmux/process
 resources, cleanup, completion decisions, or invariant overrides.
@@ -130,7 +130,7 @@ back to official `.agents/` assets or `.agents/manifest.json`.
 
 ## Migration, configuration, API, and deployment
 
-Phase 5 is additive and changes no `.soft-factory/config.yml` option or default.
+Official-asset installation itself changes no configuration default. Runner now also supports `rpiv.final_validation` for issue runs; installed agents discover that separate contract through `soft-factory instructions --json`.
 Existing repositories need no configuration migration. Repositories that
 already have target files should commit or back them up before installation;
 Runner adopts identical bytes but refuses differing bytes without exact prior
@@ -138,7 +138,7 @@ manifest proof. A pre-existing `.agents/manifest.json` must match strict schema
 v1; repair or restore malformed metadata rather than deleting ownership proof
 blindly.
 
-There is no network API contract, API specification, API migration, server,
+The RPIV integration addition changes local CLI, configuration, and RunSnapshotV4 only. There is no network API contract, API specification, API migration, server,
 container, webhook, or long-running deployment. Installation is a local,
 short-lived CLI invocation and exits after a committed result or actionable
 refusal. npm packaging is the only asset distribution boundary.
@@ -156,3 +156,5 @@ Root `just verify-focused` and `just verify` are authoritative. Harness checks
 are structured delegates and do not replace direct RPIV boundary validation.
 For a refusal, retain the stable code, destination, `No files changed` claim,
 and remediation; never expose or paste local asset bytes as diagnostics.
+
+The Operator, Assessor, and Skill remain interfaces to Runner, not a competing control path. Their packaged bytes direct RPIV integration discovery to `soft-factory instructions --json`; catalog SHA-256 digests and package/install tests bind the updated bytes.

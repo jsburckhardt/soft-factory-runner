@@ -11,10 +11,119 @@ const issueRun = read("docs/phase-1-issue-run.md");
 const operations = read("docs/phase-3-recovery-operations.md");
 const doctorGuide = read("docs/phase-4-repository-doctor.md");
 const assetGuide = read("docs/phase-5-official-assets.md");
+const integrationGuide = read("docs/rpiv-integration-contract.md");
+const runReconciliationContract = read(
+  "project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md",
+);
+const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
+const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
 
 describe("V-11 Phase 3 operator documentation", () => {
+  it("documents executable RPIV integration, migration, safety, and no API/deployment service", () => {
+    for (const phrase of [
+      "IntegrationContractV1",
+      "rpiv.final_validation",
+      "just <recipe>",
+      "RunSnapshotV4",
+      "sole `just verify`",
+      "just verify-focused",
+      "RpivStatusV1",
+      "PROGRESS_MISSING",
+      "PROGRESS_CONFLICT",
+      "phase `unknown`",
+      "lastAccepted",
+      "never a display fallback",
+      "AgentResultV1",
+      "requiredFinalValidation",
+      "no-clobber",
+      "pull request is created",
+      "coordinator",
+      "No valid final artifact",
+      "Copilot environment names and values",
+      "no network API",
+      "no elapsed-age timeout",
+      "terminal `failed` publication",
+      "classifies before writing",
+      "Candidate `prNumber` is never trusted",
+      "verification summary and verifier retro commits",
+      "missing root `justfile`",
+      "strictly cross-checks launch run ID",
+      "Every progress classification",
+      "exact historical AgentResult shape",
+      "only at the version-aware legacy persistence/recovery boundary",
+      "Current AgentResultV1 publication and v4 snapshot parsing still require the strict new shape",
+    ])
+      expect(integrationGuide).toContain(phrase);
+    expect(readme).toContain("just run instructions --json");
+    expect(readme).toContain("missing root file fails before ownership");
+    expect(readme).toContain(
+      "valid completed v2/v3 snapshots with the historical pre-binding AgentResult remain readable",
+    );
+    expect(operations).toContain(
+      "no progress classification changes completion, activity, decision code, safe actions, cleanup eligibility, ownership, recovery, or process control",
+    );
+    expect(docsIndex).toContain(
+      "RPIV integration, progress, and completion handoff",
+    );
+    expect(rpivAgent).toContain("soft-factory instructions --json");
+    expect(rpivAgent).toContain("injected local AgentResultV1 validator");
+    expect(verifierAgent).toContain("publish strict AgentResultV1 only after");
+    expect(verifierAgent).toContain("injected no-clobber Runner helper");
+    expect(rpivAgent).toContain("publish-failed-terminal-progress");
+    expect(rpivAgent).toContain("preserve ORIGINAL_FAILURE verbatim first");
+    const createPr = verifierAgent.indexOf("RUN `create-pull-request`");
+    const summary = verifierAgent.indexOf("RUN `write-verification-summary`");
+    const confirmHead = verifierAgent.indexOf(
+      "RUN `confirm-final-head-and-pr`",
+    );
+    const publishResult = verifierAgent.indexOf("RUN `publish-agent-result`");
+    expect(createPr).toBeGreaterThan(-1);
+    expect(summary).toBeGreaterThan(createPr);
+    expect(confirmHead).toBeGreaterThan(summary);
+    expect(publishResult).toBeGreaterThan(confirmHead);
+    const router = rpivAgent.slice(
+      rpivAgent.indexOf('<process id="rpiv-router"'),
+      rpivAgent.indexOf('<process id="publish-research-progress"'),
+    );
+    const failedReturns =
+      router.match(/RETURN: format="PIPELINE_ERROR"/g) ?? [];
+    const failedPublications =
+      router.match(/RUN `publish-failed-terminal-progress`/g) ?? [];
+    expect(failedReturns.length).toBeGreaterThanOrEqual(10);
+    expect(failedPublications).toHaveLength(failedReturns.length);
+    expect(issueRun).not.toContain(
+      "exactly one passed `just verify-focused` and `just verify`",
+    );
+  });
+
+  it("guards corrected v4 architecture and final publication ordering against stale contracts", () => {
+    for (const phrase of [
+      "Persist new runs as `RunSnapshotV4`",
+      "snapshot versions 1 through 4",
+      "explicit version 4 reconciliation transition",
+      "a complete resulting `RunSnapshotV3` or `RunSnapshotV4`",
+      "strictly snapshot-bound `IntegrationLaunchV1`",
+    ])
+      expect(runReconciliationContract).toContain(phrase);
+    expect(runReconciliationContract).not.toContain(
+      "Persist new runs as `RunSnapshotV3`",
+    );
+    expect(runReconciliationContract).not.toContain(
+      "Read valid snapshot versions 1 through 3",
+    );
+    expect(decisionLog).toContain(
+      "Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions",
+    );
+    for (const phrase of [
+      "commits and pushes the required verification summary and verifier retro records",
+      "independently confirms that the pull request points at the resulting final head",
+      "Only after that confirmation",
+    ])
+      expect(issueRun).toContain(phrase);
+  });
+
   it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {
     for (const command of [
       "run --issue <positive-integer> [--json]",
@@ -67,7 +176,7 @@ describe("V-11 Phase 3 operator documentation", () => {
 
   it("documents recovery, exact process identity, resume decisions, and migration", () => {
     for (const phrase of [
-      "RunSnapshotV3",
+      "RunSnapshotV4",
       "TransitionEventV2",
       "complete, contiguous",
       "STATE_HISTORY_INVALID",
@@ -83,10 +192,12 @@ describe("V-11 Phase 3 operator documentation", () => {
       "RESUME_REFUSED",
       "RunSnapshotV1",
       "RunSnapshotV2",
-      "never silently treated as v3",
+      "never silently treated as v4",
       "concurrency slot lease",
-      "strictly parsed result artifact identity and content",
+      "strictly parsed result artifact identity, content",
       "permission-denied process metadata",
+      "exact historical AgentResult parser only at the legacy boundary",
+      "historical result shape remains invalid for current publication and v4 snapshots",
     ])
       expect(operations).toContain(phrase);
     expect(issueRun).toContain("Phase 3 continuation");
@@ -433,7 +544,6 @@ describe("V-9 Phase 5 official asset documentation", () => {
       "dist/",
       "assets/official/",
       "npm pack --dry-run --json",
-      "changes no `.soft-factory/config.yml` option or default",
       "no configuration migration",
       "no network API contract",
       "API specification",
@@ -466,6 +576,7 @@ describe("V-9 Phase 5 official asset documentation", () => {
       "soft-factory install skill soft-factory",
       "soft-factory install --recommended",
       "soft-factory doctor [--json]",
+      "soft-factory instructions [--json]",
       "soft-factory run --issue <number> [--json]",
     ])
       expect(help.stdout).toContain(command);

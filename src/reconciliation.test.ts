@@ -116,6 +116,16 @@ function matchingObservations(): ReconciliationObservationsV1 {
     tmux: observation("match", snapshot.tmux, "TMUX_MATCH"),
     workerProcess: observation("not_applicable", null, "WORKER_NOT_RECORDED"),
     rpivProcess: observation("match", processIdentity, "RPIV_MATCH"),
+    progress: observation(
+      "absent",
+      {
+        classification: "PROGRESS_MISSING",
+        phase: "unknown",
+        observed: null,
+        lastAccepted: null,
+      },
+      "PROGRESS_MISSING",
+    ),
     result: observation("not_applicable", null, "RESULT_NOT_REQUIRED"),
     remote: observation("not_applicable", null, "REMOTE_NOT_REQUIRED"),
     github: observation("not_applicable", null, "GITHUB_NOT_REQUIRED"),
@@ -143,6 +153,8 @@ function replaceBoundary(
       return { ...observations, workerProcess: changed };
     case "rpivProcess":
       return { ...observations, rpivProcess: changed };
+    case "progress":
+      return { ...observations, progress: changed };
     case "result":
       return { ...observations, result: changed };
     case "remote":
@@ -171,6 +183,7 @@ describe("V-2 full reconciliation matrix", () => {
       "tmux",
       "workerProcess",
       "rpivProcess",
+      "progress",
       "result",
       "remote",
       "github",
@@ -208,6 +221,110 @@ describe("V-2 full reconciliation matrix", () => {
       }
     }
   });
+
+  it.each([
+    ["valid", "match", "PROGRESS_VALID", "terminal"],
+    ["repeated", "mismatch", "PROGRESS_REPEATED", "terminal"],
+    ["missing", "absent", "PROGRESS_MISSING", "unknown"],
+    ["empty", "mismatch", "PROGRESS_EMPTY", "unknown"],
+    ["malformed", "mismatch", "PROGRESS_INVALID", "unknown"],
+    ["incomplete", "mismatch", "PROGRESS_REQUIRED_FIELD_MISSING", "unknown"],
+    ["unsupported", "mismatch", "PROGRESS_VERSION_UNSUPPORTED", "unknown"],
+    ["identity mismatch", "mismatch", "PROGRESS_IDENTITY_MISMATCH", "unknown"],
+    ["stale", "mismatch", "PROGRESS_STALE", "unknown"],
+    ["regressed", "mismatch", "PROGRESS_REGRESSED", "unknown"],
+    ["conflicting", "mismatch", "PROGRESS_CONFLICT", "unknown"],
+    ["late", "mismatch", "PROGRESS_LATE", "unknown"],
+  ] as const)(
+    "keeps completed authorization invariant for %s progress",
+    (_name, progressState, classification, phase) => {
+      const completed = {
+        ...snapshot,
+        state: "completed" as const,
+        admission: null,
+        rpivProcess: null,
+      };
+      const observations = matchingObservations();
+      const completedObservations: ReconciliationObservationsV1 = {
+        ...observations,
+        lease: observation("not_applicable", null, "LEASE_NOT_HELD"),
+        rpivProcess: observation("absent", null, "RPIV_PROCESS_ABSENT"),
+        progress: observation(
+          progressState,
+          {
+            classification,
+            phase,
+            observed: null,
+            lastAccepted: null,
+          },
+          classification,
+        ),
+        result: observation(
+          "match",
+          {
+            schemaVersion: 1,
+            issueNumber: 5,
+            outcome: "succeeded",
+            branch: snapshot.branch,
+            headSha: "a".repeat(40),
+            prNumber: 15,
+            acceptanceCriteria: [
+              { id: "AC-1", status: "verified", evidence: ["proof"] },
+            ],
+            validations: [],
+            requiredFinalValidation: {
+              command: "just verify",
+              status: "passed",
+              evidence: ["proof"],
+            },
+            completedAt: "2026-08-11T13:01:00.000Z",
+          },
+          "RESULT_MATCH",
+        ),
+        github: observation(
+          "match",
+          {
+            number: 15,
+            state: "OPEN",
+            mergedAt: null,
+            sourceBranch: snapshot.branch,
+            sourceHeadSha: "a".repeat(40),
+            mergeCommitSha: null,
+            closesIssues: [5],
+            complete: true,
+          },
+          "PULL_REQUEST_MATCH",
+        ),
+      };
+
+      const report = buildReconciliationReport(
+        completed,
+        completedObservations,
+      );
+
+      expect({
+        persistedState: report.persisted.state,
+        activity: report.activity,
+        decisionCode: report.decisionCode,
+        safeActions: report.safeActions,
+        diagnostics: report.diagnostics,
+        remediation: report.remediation,
+      }).toEqual({
+        persistedState: "completed",
+        activity: "inactive",
+        decisionCode: "MERGE_PENDING",
+        safeActions: ["attach", "explicit_clean"],
+        diagnostics: [],
+        remediation:
+          "Wait for the expected pull request to merge or use explicit cleanup only when all ownership facts remain exact.",
+      });
+      expect(report.observations.progress).toMatchObject({
+        state: progressState,
+        code: classification,
+        facts: { classification, phase },
+      });
+    },
+  );
 
   it("treats equal PID with a changed start token as an identity mismatch", () => {
     const observations = matchingObservations();

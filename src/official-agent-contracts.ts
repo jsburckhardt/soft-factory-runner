@@ -6,6 +6,9 @@ export interface AgentContractResult {
 
 export const OPERATOR_REQUIRED_DELEGATIONS = Object.freeze([
   "soft-factory run --issue <number>",
+  "soft-factory instructions --json",
+  "all failed coordinator exits attempt terminal failed progress",
+  "independently observed final-head pull-request facts",
   "soft-factory doctor --json",
   "soft-factory list --json",
   "soft-factory status <issue> --json",

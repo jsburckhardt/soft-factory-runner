@@ -1,6 +1,18 @@
-import { parseAgentResult, reconcileCompletion } from "./completion";
-import type { AgentResultV1, RunSnapshotV2 } from "./domain";
-import { REQUIRED_VALIDATIONS } from "./domain";
+import {
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  parseLegacyAgentResult,
+  reconcileCompletion,
+} from "./completion";
+import type {
+  AgentResultV1,
+  LegacyAgentResultV1,
+  RunSnapshotV2,
+} from "./domain";
+import {
+  LEGACY_FINAL_VALIDATION_EVIDENCE,
+  REQUIRED_VALIDATIONS,
+} from "./domain";
 import { RunnerError } from "./errors";
 import { RunStore } from "./persistence";
 import type { FilePort } from "./ports";
@@ -27,6 +39,30 @@ const validResult: AgentResultV1 = {
     command,
     status: "passed",
   })),
+  requiredFinalValidation: {
+    command: "just verify",
+    status: "passed",
+    evidence: ["test:just-verify"],
+  },
+  completedAt: "2026-08-11T12:00:00.000Z",
+};
+
+const legacyResult: LegacyAgentResultV1 = {
+  schemaVersion: 1,
+  issueNumber: 4,
+  outcome: "succeeded",
+  branch: "feat/4-proof",
+  headSha: sha,
+  prNumber: 14,
+  acceptanceCriteria: required.map(({ id }) => ({
+    id,
+    status: "verified",
+    evidence: [`test:${id}`],
+  })),
+  validations: [
+    { command: "just verify-focused", status: "passed" },
+    { command: "just verify", status: "passed" },
+  ],
   completedAt: "2026-08-11T12:00:00.000Z",
 };
 
@@ -117,7 +153,7 @@ function reconciliation(
     baseBranch: "main",
     remote: "origin",
     requiredAcceptanceCriteria: required,
-    requiredValidations: REQUIRED_VALIDATIONS,
+    requiredFinalValidation: { command: "just verify" },
     result: validResult,
     git: {
       localHeadSha: sha,
@@ -142,6 +178,62 @@ describe("AgentResultV1", () => {
   it("strictly parses every required versioned result field", () => {
     expect(parseAgentResult(JSON.stringify(validResult))).toEqual(validResult);
   });
+  it("keeps legacy parsing explicit and current publication strict", () => {
+    expect(parseLegacyAgentResult(JSON.stringify(legacyResult))).toEqual(
+      legacyResult,
+    );
+    expect(() => parseAgentResult(JSON.stringify(legacyResult))).toThrow(
+      RunnerError,
+    );
+    const first = migrateLegacyAgentResult(legacyResult);
+    const second = migrateLegacyAgentResult(legacyResult);
+    expect(first).toEqual(second);
+    expect(first.requiredFinalValidation).toEqual({
+      command: "just verify",
+      status: "passed",
+      evidence: [LEGACY_FINAL_VALIDATION_EVIDENCE],
+    });
+    expect(first.validations).toContainEqual({
+      command: "just verify-focused",
+      status: "passed",
+    });
+  });
+
+  it.each([
+    ["unsupported version", { ...legacyResult, schemaVersion: 2 }],
+    [
+      "current-only required binding",
+      {
+        ...legacyResult,
+        requiredFinalValidation: validResult.requiredFinalValidation,
+      },
+    ],
+    [
+      "missing final validation",
+      {
+        ...legacyResult,
+        validations: legacyResult.validations.filter(
+          (entry) => entry.command !== "just verify",
+        ),
+      },
+    ],
+  ])("rejects legacy migration with %s", (_label, candidate) => {
+    if (
+      candidate.schemaVersion !== 1 ||
+      "requiredFinalValidation" in candidate
+    ) {
+      expect(() => parseLegacyAgentResult(JSON.stringify(candidate))).toThrow(
+        RunnerError,
+      );
+      return;
+    }
+    expect(() =>
+      migrateLegacyAgentResult(
+        parseLegacyAgentResult(JSON.stringify(candidate)),
+      ),
+    ).toThrow(RunnerError);
+  });
+
   it.each([
     ["missing", null, "RESULT_MISSING"],
     ["malformed", "{", "RESULT_INVALID"],
@@ -421,57 +513,40 @@ describe("pure completion reconciliation", () => {
       },
       "AC_AC-1_MISMATCH",
     ],
-    [
-      "validation missing",
-      { result: { ...validResult, validations: [validResult.validations[1]] } },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "validation duplicate",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            validResult.validations[0],
-            validResult.validations[0],
-            validResult.validations[1],
-          ],
-        },
-      },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "validation failed",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            { command: "just verify-focused", status: "failed" },
-            validResult.validations[1],
-          ],
-        },
-      },
-      "VALIDATION_FOCUSED_MISMATCH",
-    ],
-    [
-      "full validation failed",
-      {
-        result: {
-          ...validResult,
-          validations: [
-            validResult.validations[0],
-            { command: "just verify", status: "failed" },
-          ],
-        },
-      },
-      "VALIDATION_FULL_MISMATCH",
-    ],
   ])("rejects isolated %s contradiction", (_name, override, code) => {
     const result = reconciliation(
       override as Partial<Parameters<typeof reconcileCompletion>[0]>,
     );
     expect(result.state).toBe("failed");
     expect(result.code).toBe(code);
+  });
+  it.each([
+    [[]],
+    [[{ command: "just verify-focused", status: "passed" as const }]],
+    [[{ command: "just verify-focused", status: "failed" as const }]],
+    [[{ command: "just verify", status: "failed" as const }]],
+  ])(
+    "keeps supplementary validation evidence completion-neutral",
+    (validations) => {
+      const result = reconciliation({
+        result: { ...validResult, validations },
+      });
+      expect(result.state).toBe("completed");
+      expect(result.code).toBe("COMPLETION_PROVED");
+    },
+  );
+  it("rejects a mismatched required final-validation binding", () => {
+    const result = reconciliation({
+      result: {
+        ...validResult,
+        requiredFinalValidation: {
+          command: "just custom",
+          status: "passed",
+          evidence: ["proof"],
+        },
+      },
+    });
+    expect(result.code).toBe("RESULT_FINAL_VALIDATION_MISMATCH");
   });
   it("classifies incomplete proof and named non-success outcomes", () => {
     expect(reconciliation({ git: null }).state).toBe("interrupted");

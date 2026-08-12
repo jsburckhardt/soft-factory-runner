@@ -5,6 +5,7 @@ import type {
   ConcurrencyLeaseV1,
   IssueFacts,
   LaunchIntentV1,
+  LegacyAgentResultV1,
   MergedPullRequestFactsV1,
   ProcessIdentityV1,
   ReconciliationReportV1,
@@ -13,7 +14,10 @@ import type {
   RunSnapshotV3,
   TmuxIdentity,
 } from "./domain";
-import { REQUIRED_VALIDATIONS } from "./domain";
+import {
+  LEGACY_FINAL_VALIDATION_EVIDENCE,
+  REQUIRED_VALIDATIONS,
+} from "./domain";
 import { RunnerError } from "./errors";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
@@ -64,6 +68,25 @@ const lease: ConcurrencyLeaseV1 = {
   configuredLimit: 2,
   acquiredAt: "2026-08-11T13:00:00.000Z",
 };
+const legacyRequiredValidations = [
+  { command: "just verify-focused" },
+  { command: "just verify" },
+] as const;
+const legacyResult: LegacyAgentResultV1 = {
+  schemaVersion: 1,
+  issueNumber: 5,
+  outcome: "succeeded",
+  branch,
+  headSha: sha,
+  prNumber: 15,
+  acceptanceCriteria: [{ id: "AC-1", status: "verified", evidence: ["test"] }],
+  validations: legacyRequiredValidations.map(({ command }) => ({
+    command,
+    status: "passed" as const,
+  })),
+  completedAt: "2026-08-11T13:10:00.000Z",
+};
+
 const result: AgentResultV1 = {
   schemaVersion: 1,
   issueNumber: 5,
@@ -76,6 +99,11 @@ const result: AgentResultV1 = {
     command,
     status: "passed",
   })),
+  requiredFinalValidation: {
+    command: "just verify",
+    status: "passed",
+    evidence: ["test:just-verify"],
+  },
   completedAt: "2026-08-11T13:10:00.000Z",
 };
 
@@ -250,6 +278,9 @@ class ControlGitHub implements GitHubPort {
       complete: true,
     };
   }
+  public async findOpenPullRequest() {
+    return this.loadPullRequest();
+  }
   public mergedFailure: RunnerError | null = null;
   public async loadMergedPullRequest() {
     if (this.mergedFailure !== null) throw this.mergedFailure;
@@ -391,7 +422,7 @@ function snapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
     error: null,
     updatedAt: "2026-08-11T13:00:00.000Z",
     requiredAcceptanceCriteria: [{ id: "AC-1", text: "recover" }],
-    requiredValidations: REQUIRED_VALIDATIONS,
+    requiredValidations: legacyRequiredValidations,
     finalization: null,
     ...overrides,
   };
@@ -459,7 +490,7 @@ describe("V-1 explicit legacy migration", () => {
       error: null,
       updatedAt: "2026-08-11T13:00:00.000Z",
       requiredAcceptanceCriteria: [{ id: "AC-1", text: "recover" }],
-      requiredValidations: REQUIRED_VALIDATIONS,
+      requiredValidations: legacyRequiredValidations,
       finalization: null,
     };
     f.files.values.set(f.store.snapshotPath(5), JSON.stringify(legacy));
@@ -477,11 +508,94 @@ describe("V-1 explicit legacy migration", () => {
     );
     const report = await new IssueRunService(f.ports).reconcile(5, root);
     expect(report.persisted).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       revision: 1,
       state: "interrupted",
     });
     expect(await f.store.loadHistory(5)).toHaveLength(2);
+  });
+
+  it("normalizes supported legacy state to sole just verify despite invalid current final-validation config", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: null }),
+    );
+    f.files.values.set(
+      path.join(root, ".soft-factory", "config.yml"),
+      "rpiv:\n  final_validation: [invalid current value]\n",
+    );
+    await new IssueRunService(f.ports).reconcile(5, root);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      schemaVersion: 4,
+      requiredFinalValidation: { command: "just verify" },
+      integrationLaunch: {
+        requiredFinalValidation: { command: "just verify" },
+      },
+    });
+  });
+
+  it("deterministically migrates completed v3 proof without current config or focused requirements", async () => {
+    const completed = snapshot({
+      state: "completed",
+      admission: null,
+      rpivProcess: null,
+      requiredValidations: legacyRequiredValidations,
+      finalization: {
+        result: legacyResult,
+        git: null,
+        pullRequest: null,
+        reconciliation: {
+          schemaVersion: 1,
+          comparisons: [],
+          passed: true,
+          decisionCode: "COMPLETION_PROVED",
+        },
+      },
+    });
+    const normalized = [];
+    for (const config of [
+      "rpiv:\n  final_validation: [invalid current value]\n",
+      "rpiv:\n  final_validation: just changed_check\n",
+    ]) {
+      const f = await fixture(completed);
+      f.github.merged = null;
+      f.files.values.set(
+        path.join(root, ".soft-factory", "config.yml"),
+        config,
+      );
+      const report = await new IssueRunService(f.ports).reconcile(5, root);
+      expect(report.persisted).toMatchObject({
+        schemaVersion: 4,
+        state: "completed",
+        requiredFinalValidation: { command: "just verify" },
+        finalization: {
+          result: {
+            requiredFinalValidation: {
+              command: "just verify",
+              status: "passed",
+              evidence: [LEGACY_FINAL_VALIDATION_EVIDENCE],
+            },
+          },
+        },
+      });
+      expect(report.observations.result).toMatchObject({
+        state: "match",
+        code: "RESULT_MATCH",
+      });
+      expect("requiredValidations" in report.persisted).toBe(false);
+      const migratedResult = report.persisted.finalization?.result;
+      expect(migratedResult?.validations).toContainEqual({
+        command: "just verify-focused",
+        status: "passed",
+      });
+      normalized.push({
+        requiredFinalValidation:
+          report.persisted.schemaVersion === 4
+            ? report.persisted.requiredFinalValidation
+            : null,
+        result: migratedResult,
+      });
+    }
+    expect(normalized[0]).toEqual(normalized[1]);
   });
 });
 
@@ -518,7 +632,7 @@ describe("V-2 collected reconciliation facts", () => {
       state: "completed",
       rpivProcess: null,
       finalization: {
-        result,
+        result: legacyResult,
         git: null,
         pullRequest: null,
         reconciliation: null,
@@ -597,6 +711,16 @@ describe("V-3 exact process preservation and adoption", () => {
       state: "running_rpiv",
       attempt: 2,
       admission: { slot: 1, issueNumber: 5 },
+      integrationLaunch: {
+        runId: "run-5",
+        attempt: 2,
+        issueNumber: 5,
+        branch,
+        progressPath: path.join(worktree, ".soft-factory", "rpiv-status.json"),
+        resultPath: path.join(worktree, ".soft-factory", "agent-result.json"),
+        requiredFinalValidation: { command: "just verify" },
+      },
+      progress: null,
     });
     expect(f.tmux.trace).toContain("restart");
     expect(await f.store.readOwner(5)).not.toBeNull();
@@ -670,7 +794,7 @@ describe("resume reconciliation gates", () => {
         state: "finalizing",
         rpivProcess: null,
         finalization: {
-          result,
+          result: legacyResult,
           git: null,
           pullRequest: null,
           reconciliation: null,
@@ -837,7 +961,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         matches: true,
       },
       finalization: {
-        result,
+        result: legacyResult,
         git: {
           localHeadSha: sha,
           remote: "origin",

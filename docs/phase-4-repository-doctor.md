@@ -159,3 +159,5 @@ harness checks --json
 | Product and harness results differ | Remember `soft-factory doctor` checks repository runtime readiness; `harness doctor` checks the development surface. |
 
 Runner remains a short-lived local CLI with no daemon, network API, service endpoint, container, or deployment change. No API specification or API migration is applicable. Operational deployment remains local npm/Node execution through the root `justfile` interface.
+
+Doctor configuration compatibility recognizes the optional `rpiv.final_validation` issue-run contract. Its exact declared-recipe grammar, pre-ownership rejection, snapshot semantics, legacy behavior, and separation from Doctor readiness are documented in [the RPIV integration guide](rpiv-integration-contract.md). Doctor remains repository-readiness authority and does not infer RPIV progress or completion.

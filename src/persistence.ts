@@ -1,9 +1,17 @@
 import path from "node:path";
-import { parseAgentResult } from "./completion";
+import {
+  migrateLegacyAgentResult,
+  parseAgentResult,
+  parseLegacyAgentResult,
+} from "./completion";
 import type {
   ConcurrencyLeaseV1,
+  IntegrationLaunchV1,
   OwnerRecordV1,
+  RequiredFinalValidationV1,
   RunSnapshot,
+  RunSnapshotV3,
+  RunSnapshotV4,
   RunState,
   TransitionEvent,
   TransitionEventV2,
@@ -83,31 +91,31 @@ export class RunStore {
     from: RunState | null,
     reason: string,
   ): Promise<void> {
-    const event: TransitionEvent =
-      snapshot.schemaVersion === 3
-        ? {
-            schemaVersion: 2,
-            at: this.clock.now(),
-            runId: snapshot.runId,
-            issueNumber: snapshot.issueNumber,
-            priorRevision: snapshot.revision - 1,
-            resultingRevision: snapshot.revision,
-            reason,
-            resultingSnapshot: snapshot,
-          }
-        : {
-            schemaVersion: 1,
-            at: this.clock.now(),
-            runId: snapshot.runId,
-            issueNumber: snapshot.issueNumber,
-            from,
-            to: snapshot.state,
-            reason,
-          };
-    if (snapshot.schemaVersion === 3) {
+    const revisioned = isRevisionedSnapshot(snapshot);
+    const event: TransitionEvent = revisioned
+      ? {
+          schemaVersion: 2,
+          at: this.clock.now(),
+          runId: snapshot.runId,
+          issueNumber: snapshot.issueNumber,
+          priorRevision: snapshot.revision - 1,
+          resultingRevision: snapshot.revision,
+          reason,
+          resultingSnapshot: snapshot,
+        }
+      : {
+          schemaVersion: 1,
+          at: this.clock.now(),
+          runId: snapshot.runId,
+          issueNumber: snapshot.issueNumber,
+          from,
+          to: snapshot.state,
+          reason,
+        };
+    if (revisioned) {
       if (snapshot.revision < 1)
         throw stateHistoryError(
-          "Version 3 snapshots require a positive revision.",
+          "Revisioned snapshots require a positive revision.",
         );
       const existingText = await this.files.readText(
         this.snapshotPath(snapshot.issueNumber),
@@ -119,8 +127,9 @@ export class RunStore {
           );
       } else {
         const existing = await this.load(snapshot.issueNumber);
-        const expectedRevision =
-          existing.schemaVersion === 3 ? existing.revision + 1 : 1;
+        const expectedRevision = isRevisionedSnapshot(existing)
+          ? existing.revision + 1
+          : 1;
         if (
           existing.runId !== snapshot.runId ||
           existing.ownerId !== snapshot.ownerId ||
@@ -307,7 +316,7 @@ export function replayHistory(
   const versionTwo = events.filter(
     (event): event is TransitionEventV2 => event.schemaVersion === 2,
   );
-  if (snapshot.schemaVersion !== 3) {
+  if (!isRevisionedSnapshot(snapshot)) {
     if (versionTwo.length > 0)
       throw stateHistoryError(
         "Legacy snapshot has version 2 history that cannot be inferred safely.",
@@ -386,16 +395,24 @@ export function parseSnapshot(text: string, issueNumber: number): RunSnapshot {
 export function isSnapshot(value: unknown): value is RunSnapshot {
   if (!isRecord(value) || !isCommonSnapshot(value)) return false;
   if (value.schemaVersion === 1) return isLegacyState(value.state);
-  if (value.schemaVersion !== 2 && value.schemaVersion !== 3) return false;
+  if (
+    value.schemaVersion !== 2 &&
+    value.schemaVersion !== 3 &&
+    value.schemaVersion !== 4
+  )
+    return false;
   if (
     !isRunState(value.state) ||
     !isRequiredAcceptance(value.requiredAcceptanceCriteria) ||
-    !isRequiredValidations(value.requiredValidations) ||
-    !isFinalization(value.finalization)
+    (value.schemaVersion !== 4 &&
+      !isRequiredValidations(value.requiredValidations)) ||
+    (value.schemaVersion === 4
+      ? !isFinalization(value.finalization)
+      : !isLegacyFinalization(value.finalization, value.state))
   )
     return false;
   if (value.schemaVersion === 2) return true;
-  return (
+  const revisioned =
     isNonnegativeInteger(value.revision) &&
     isPositiveInteger(value.attempt) &&
     (value.admission === null || isLeaseRecord(value.admission)) &&
@@ -406,7 +423,14 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
     (value.cleanup === null || isCleanupFacts(value.cleanup)) &&
     Array.isArray(value.logs) &&
     value.logs.every(isLogFacts) &&
-    (value.mergedPullRequest === null || isMergedFacts(value.mergedPullRequest))
+    (value.mergedPullRequest === null ||
+      isMergedFacts(value.mergedPullRequest));
+  if (!revisioned) return false;
+  if (value.schemaVersion === 3) return true;
+  return (
+    isRequiredFinalValidation(value.requiredFinalValidation) &&
+    isBoundIntegrationLaunch(value.integrationLaunch, value) &&
+    (value.progress === null || isRpivStatus(value.progress))
   );
 }
 
@@ -431,7 +455,8 @@ export function isTransitionEvent(value: unknown): value is TransitionEvent {
     isPositiveInteger(value.resultingRevision) &&
     typeof value.reason === "string" &&
     isSnapshot(value.resultingSnapshot) &&
-    value.resultingSnapshot.schemaVersion === 3
+    (value.resultingSnapshot.schemaVersion === 3 ||
+      value.resultingSnapshot.schemaVersion === 4)
   );
 }
 
@@ -498,17 +523,123 @@ function isRequiredAcceptance(value: unknown): boolean {
   );
 }
 function isRequiredValidations(value: unknown): boolean {
-  if (!Array.isArray(value) || value.length !== 2) return false;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2)
+    return false;
   const commands = value.flatMap((entry) =>
     isRecord(entry) && typeof entry.command === "string" ? [entry.command] : [],
   );
   return (
-    commands.length === 2 &&
-    new Set(commands).size === 2 &&
-    commands.includes("just verify-focused") &&
-    commands.includes("just verify")
+    commands.length === value.length &&
+    new Set(commands).size === commands.length &&
+    commands.includes("just verify") &&
+    commands.every(
+      (command) =>
+        command === "just verify" || command === "just verify-focused",
+    )
   );
 }
+function isRequiredFinalValidation(
+  value: unknown,
+): value is RequiredFinalValidationV1 {
+  return (
+    isRecord(value) &&
+    Object.keys(value).length === 1 &&
+    typeof value.command === "string" &&
+    /^just [A-Za-z][A-Za-z0-9_-]*$/.test(value.command) &&
+    value.command !== "just verify-focused"
+  );
+}
+function isBoundIntegrationLaunch(
+  value: unknown,
+  snapshot: Readonly<Record<string, unknown>>,
+): boolean {
+  const snapshotFinalValidation = snapshot.requiredFinalValidation;
+  if (
+    !isIntegrationLaunch(value) ||
+    typeof snapshot.runId !== "string" ||
+    !isPositiveInteger(snapshot.attempt) ||
+    !isPositiveInteger(snapshot.issueNumber) ||
+    typeof snapshot.branch !== "string" ||
+    typeof snapshot.worktreePath !== "string" ||
+    !isRequiredFinalValidation(snapshotFinalValidation)
+  )
+    return false;
+  return (
+    value.runId === snapshot.runId &&
+    value.attempt === snapshot.attempt &&
+    value.issueNumber === snapshot.issueNumber &&
+    value.branch === snapshot.branch &&
+    value.progressPath ===
+      path.join(snapshot.worktreePath, ".soft-factory", "rpiv-status.json") &&
+    value.resultPath ===
+      path.join(snapshot.worktreePath, ".soft-factory", "agent-result.json") &&
+    value.requiredFinalValidation.command === snapshotFinalValidation.command
+  );
+}
+function isIntegrationLaunch(value: unknown): value is IntegrationLaunchV1 {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    typeof value.runId === "string" &&
+    isPositiveInteger(value.attempt) &&
+    isPositiveInteger(value.issueNumber) &&
+    typeof value.branch === "string" &&
+    typeof value.startedAt === "string" &&
+    typeof value.progressPath === "string" &&
+    typeof value.resultPath === "string" &&
+    isRequiredFinalValidation(value.requiredFinalValidation) &&
+    typeof value.publishProgressCommand === "string" &&
+    typeof value.publishResultCommand === "string" &&
+    typeof value.validateResultCommand === "string"
+  );
+}
+function isRpivStatus(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const phase = value.phase;
+  const status = value.status;
+  return (
+    value.schemaVersion === 1 &&
+    typeof value.runId === "string" &&
+    isPositiveInteger(value.attempt) &&
+    isPositiveInteger(value.issueNumber) &&
+    typeof value.branch === "string" &&
+    isPositiveInteger(value.sequence) &&
+    typeof phase === "string" &&
+    ["research", "plan", "implement", "verify", "terminal"].includes(phase) &&
+    typeof status === "string" &&
+    (phase === "terminal"
+      ? ["succeeded", "failed", "blocked", "cancelled", "interrupted"].includes(
+          status,
+        )
+      : status === "running") &&
+    typeof value.updatedAt === "string"
+  );
+}
+function isLegacyFinalization(value: unknown, state: unknown): boolean {
+  if (value === null) return true;
+  if (
+    !isRecord(value) ||
+    !("result" in value) ||
+    !("git" in value) ||
+    !("pullRequest" in value) ||
+    !("reconciliation" in value)
+  )
+    return false;
+  if (value.result !== null) {
+    try {
+      const result = parseLegacyAgentResult(JSON.stringify(value.result));
+      if (state === "completed") migrateLegacyAgentResult(result);
+    } catch {
+      return false;
+    }
+  }
+  return (
+    isGitFacts(value.git) &&
+    isPullRequestFacts(value.pullRequest) &&
+    isReconciliation(value.reconciliation)
+  );
+}
+
 function isFinalization(value: unknown): boolean {
   if (value === null) return true;
   if (
@@ -780,4 +911,10 @@ function parseRecordAt<T>(
     `The ${label} record is malformed.`,
     `Preserve the ${label}; malformed ownership never authorizes mutation.`,
   );
+}
+
+function isRevisionedSnapshot(
+  snapshot: RunSnapshot,
+): snapshot is RunSnapshotV3 | RunSnapshotV4 {
+  return snapshot.schemaVersion === 3 || snapshot.schemaVersion === 4;
 }

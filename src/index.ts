@@ -67,6 +67,12 @@ export async function runCli(
       };
     }
     const service = new IssueRunService(ports);
+    if (command.kind === "instructions")
+      return {
+        exitCode: 0,
+        stdout: await service.instructions(startPath, command.json),
+        stderr: "",
+      };
     if (command.kind === "run")
       return {
         exitCode: 0,
@@ -115,6 +121,47 @@ export async function runCli(
       return {
         exitCode: result.exitCode,
         stdout: renderControl(result, command.json),
+        stderr: "",
+      };
+    }
+    if (command.kind === "publish-progress") {
+      const progress = await service.publishRpivProgress(
+        command.issueNumber,
+        startPath,
+        command.phase,
+        command.status,
+      );
+      return {
+        exitCode: 0,
+        stdout:
+          JSON.stringify({ schemaVersion: 1, status: "published", progress }) +
+          "\n",
+        stderr: "",
+      };
+    }
+    if (command.kind === "publish-result") {
+      const result = await service.publishRpivResult(
+        command.issueNumber,
+        startPath,
+        command.candidatePath,
+      );
+      return {
+        exitCode: 0,
+        stdout:
+          JSON.stringify({ schemaVersion: 1, status: "published", result }) +
+          "\n",
+        stderr: "",
+      };
+    }
+    if (command.kind === "validate-result") {
+      const result = await service.validateRpivResult(
+        command.issueNumber,
+        startPath,
+      );
+      return {
+        exitCode: 0,
+        stdout:
+          JSON.stringify({ schemaVersion: 1, status: "valid", result }) + "\n",
         stderr: "",
       };
     }

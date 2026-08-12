@@ -1,11 +1,14 @@
 import type {
+  LegacyAgentResultV1,
   RunSnapshotV1,
   RunSnapshotV2,
   RunSnapshotV3,
+  RunSnapshotV4,
   TransitionEventV2,
 } from "./domain";
 import { REQUIRED_VALIDATIONS } from "./domain";
 import { RunnerError } from "./errors";
+import { integrationLaunch } from "./integration";
 import { replayHistory, RunStore } from "./persistence";
 import type { FilePort } from "./ports";
 
@@ -75,6 +78,25 @@ const base = {
   error: null,
   updatedAt: "2026-08-11T13:00:00.000Z",
 };
+const legacyRequiredValidations = [
+  { command: "just verify-focused" },
+  { command: "just verify" },
+] as const;
+const legacyResult: LegacyAgentResultV1 = {
+  schemaVersion: 1,
+  issueNumber: 5,
+  outcome: "succeeded",
+  branch: base.branch,
+  headSha: "a".repeat(40),
+  prNumber: 15,
+  acceptanceCriteria: [{ id: "AC-1", status: "verified", evidence: ["test"] }],
+  validations: legacyRequiredValidations.map(({ command }) => ({
+    command,
+    status: "passed" as const,
+  })),
+  completedAt: "2026-08-11T13:10:00.000Z",
+};
+
 function v3(revision = 1): RunSnapshotV3 {
   return {
     ...base,
@@ -90,8 +112,47 @@ function v3(revision = 1): RunSnapshotV3 {
     logs: [],
     mergedPullRequest: null,
     requiredAcceptanceCriteria: [{ id: "AC-1", text: "recover" }],
-    requiredValidations: REQUIRED_VALIDATIONS,
+    requiredValidations: legacyRequiredValidations,
     finalization: null,
+  };
+}
+function completedV3(): RunSnapshotV3 {
+  return {
+    ...v3(),
+    state: "completed",
+    finalization: {
+      result: legacyResult,
+      git: null,
+      pullRequest: null,
+      reconciliation: {
+        schemaVersion: 1,
+        comparisons: [],
+        passed: true,
+        decisionCode: "COMPLETION_PROVED",
+      },
+    },
+  };
+}
+
+function v4(revision = 1): RunSnapshotV4 {
+  const { requiredValidations: legacyValidations, ...versionThree } =
+    v3(revision);
+  void legacyValidations;
+  const requiredFinalValidation = { command: "just verify" };
+  return {
+    ...versionThree,
+    schemaVersion: 4,
+    requiredFinalValidation,
+    integrationLaunch: integrationLaunch({
+      runId: versionThree.runId,
+      attempt: versionThree.attempt,
+      issueNumber: versionThree.issueNumber,
+      branch: versionThree.branch,
+      worktreePath: versionThree.worktreePath,
+      startedAt: versionThree.updatedAt,
+      requiredFinalValidation,
+    }),
+    progress: null,
   };
 }
 function event(
@@ -111,6 +172,154 @@ function event(
 }
 
 describe("V-1 revisioned persistence and replay", () => {
+  it("round trips a strictly bound v4 snapshot", async () => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    files.values.set(store.snapshotPath(5), JSON.stringify(v4()));
+    await expect(store.load(5)).resolves.toEqual(v4());
+    expect(files.trace).toEqual([]);
+  });
+
+  it.each([
+    [
+      "run ID",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, runId: "forged-run" },
+      }),
+    ],
+    [
+      "attempt",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, attempt: 2 },
+      }),
+    ],
+    [
+      "issue number",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: { ...value.integrationLaunch, issueNumber: 6 },
+      }),
+    ],
+    [
+      "branch",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          branch: "feat/forged",
+        },
+      }),
+    ],
+    [
+      "progress path",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          progressPath: "/tmp/forged-rpiv-status.json",
+        },
+      }),
+    ],
+    [
+      "result path",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          resultPath: "/tmp/forged-agent-result.json",
+        },
+      }),
+    ],
+    [
+      "required final validation",
+      (value: RunSnapshotV4) => ({
+        ...value,
+        integrationLaunch: {
+          ...value.integrationLaunch,
+          requiredFinalValidation: { command: "just release_check" },
+        },
+      }),
+    ],
+  ] as const)(
+    "rejects a v4 launch whose %s contradicts its snapshot without mutation",
+    async (_name, mutate) => {
+      const files = new FaultFiles();
+      const store = new RunStore(root, files, clock);
+      const contradictory = mutate(v4());
+      files.values.set(store.snapshotPath(5), JSON.stringify(contradictory));
+      const before = new Map(files.values);
+
+      await expect(store.load(5)).rejects.toMatchObject({
+        code: "STATE_INVALID",
+      });
+
+      expect(files.values).toEqual(before);
+      expect(files.trace).toEqual([]);
+    },
+  );
+
+  it("reads the base-valid completed v3 result shape without weakening v4", async () => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    const completed = completedV3();
+    files.values.set(store.snapshotPath(5), JSON.stringify(completed));
+    await expect(store.load(5)).resolves.toEqual(completed);
+
+    files.values.set(
+      store.snapshotPath(5),
+      JSON.stringify({
+        ...v4(),
+        state: "completed",
+        finalization: completed.finalization,
+      }),
+    );
+    await expect(store.load(5)).rejects.toMatchObject({
+      code: "STATE_INVALID",
+    });
+  });
+
+  it.each([
+    ["unsupported result version", { ...legacyResult, schemaVersion: 2 }],
+    [
+      "failed required final validation",
+      {
+        ...legacyResult,
+        validations: legacyResult.validations.map((entry) =>
+          entry.command === "just verify"
+            ? { ...entry, status: "failed" }
+            : entry,
+        ),
+      },
+    ],
+    [
+      "new-shape field at the legacy boundary",
+      {
+        ...legacyResult,
+        requiredFinalValidation: {
+          command: "just verify",
+          status: "passed",
+          evidence: ["proof"],
+        },
+      },
+    ],
+  ])("rejects completed v3 with %s", async (_label, malformedResult) => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    const malformed = completedV3();
+    files.values.set(
+      store.snapshotPath(5),
+      JSON.stringify({
+        ...malformed,
+        finalization: { ...malformed.finalization, result: malformedResult },
+      }),
+    );
+    await expect(store.load(5)).rejects.toMatchObject({
+      code: "STATE_INVALID",
+    });
+  });
+
   it("round trips v3 and appends its complete v2 event before snapshot replacement", async () => {
     const files = new FaultFiles();
     const store = new RunStore(root, files, clock);
@@ -173,6 +382,16 @@ describe("V-1 revisioned persistence and replay", () => {
     };
     files.values.set(store.snapshotPath(5), JSON.stringify(versionTwo));
     await expect(store.load(5)).resolves.toEqual(versionTwo);
+    const completedVersionTwo: RunSnapshotV2 = {
+      ...versionTwo,
+      state: "completed",
+      finalization: completedV3().finalization,
+    };
+    files.values.set(
+      store.snapshotPath(5),
+      JSON.stringify(completedVersionTwo),
+    );
+    await expect(store.load(5)).resolves.toEqual(completedVersionTwo);
     files.values.set(store.eventsPath(5), `${JSON.stringify(event(v3()))}\n`);
     await expect(store.load(5)).rejects.toMatchObject({
       code: "STATE_HISTORY_INVALID",

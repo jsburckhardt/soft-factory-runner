@@ -1,4 +1,5 @@
-import type { RunConfiguration } from "./domain";
+import type { RequiredFinalValidationV1, RunConfiguration } from "./domain";
+import { DEFAULT_FINAL_VALIDATION } from "./domain";
 import { RunnerError } from "./errors";
 
 const EMPTY_ENVIRONMENT: Readonly<Record<string, string>> = Object.freeze({});
@@ -13,6 +14,7 @@ export const DEFAULT_CONFIGURATION: RunConfiguration = Object.freeze({
   promptTemplate: "Deliver issue #{issue}",
   maxConcurrentRuns: 1,
   copilotEnvironment: EMPTY_ENVIRONMENT,
+  finalValidation: DEFAULT_FINAL_VALIDATION,
 });
 
 const allowedTypes = new Set([
@@ -43,6 +45,7 @@ const FIXED_KEYS = new Set([
   "repository.worktree_root",
   "repository.state_root",
   "rpiv.prompt",
+  "rpiv.final_validation",
   "execution.max_concurrent_runs",
 ]);
 const ENVIRONMENT_PREFIX = "copilot.environment.";
@@ -54,8 +57,21 @@ interface ParsedScalar {
   readonly quoted: boolean;
 }
 
-export function parseConfiguration(text: string | null): RunConfiguration {
-  if (text === null || text.trim() === "") return DEFAULT_CONFIGURATION;
+export function parseConfiguration(
+  text: string | null,
+  rootJustfile: string | null | undefined = undefined,
+  persistedFinalValidation?: RequiredFinalValidationV1,
+): RunConfiguration {
+  if (text === null || text.trim() === "") {
+    if (persistedFinalValidation === undefined && rootJustfile !== undefined)
+      validateDeclaredRecipe(DEFAULT_FINAL_VALIDATION.command, rootJustfile);
+    return persistedFinalValidation === undefined
+      ? DEFAULT_CONFIGURATION
+      : Object.freeze({
+          ...DEFAULT_CONFIGURATION,
+          finalValidation: persistedFinalValidation,
+        });
+  }
   const values = new Map<string, ParsedScalar>();
   const mappings = new Set<string>();
   const seen = new Set<string>();
@@ -104,10 +120,30 @@ export function parseConfiguration(text: string | null): RunConfiguration {
       levels[depth] = key;
       continue;
     }
-    values.set(field, parseScalar(rawValue, field));
+    values.set(
+      field,
+      field.startsWith("rpiv.final_validation") &&
+        persistedFinalValidation !== undefined
+        ? { raw: rawValue, value: rawValue, quoted: false }
+        : parseScalar(rawValue, field),
+    );
   }
 
+  if (persistedFinalValidation !== undefined) {
+    for (const key of [...values.keys()])
+      if (key.startsWith("rpiv.final_validation")) values.delete(key);
+    for (const key of [...mappings])
+      if (key.startsWith("rpiv.final_validation")) mappings.delete(key);
+  }
   validateKnownKeys(values, mappings);
+  if (
+    persistedFinalValidation === undefined &&
+    mappings.has("rpiv.final_validation")
+  )
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "value must be one argument-free just recipe and must not be empty",
+    );
   const protocolValue = optional(values, "protocol_version");
   const protocolVersion =
     protocolValue === null
@@ -132,6 +168,9 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     );
   const promptTemplate =
     optional(values, "rpiv.prompt") ?? DEFAULT_CONFIGURATION.promptTemplate;
+  const finalValidation =
+    persistedFinalValidation ??
+    parseFinalValidation(values.get("rpiv.final_validation"), rootJustfile);
   const concurrencyValue = optional(values, "execution.max_concurrent_runs");
   const maxConcurrentRuns =
     concurrencyValue === null
@@ -173,6 +212,7 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     promptTemplate,
     maxConcurrentRuns,
     copilotEnvironment: Object.freeze(copilotEnvironment),
+    finalValidation,
   });
 }
 
@@ -330,4 +370,55 @@ function pathsOverlap(left: string, right: string): boolean {
     left.startsWith(right + "/") ||
     right.startsWith(left + "/")
   );
+}
+
+export function parseFinalValidation(
+  scalar:
+    | { readonly raw: string; readonly value: string; readonly quoted: boolean }
+    | undefined,
+  rootJustfile: string | null | undefined,
+): RequiredFinalValidationV1 {
+  const command = scalar?.value ?? DEFAULT_FINAL_VALIDATION.command;
+  if (scalar !== undefined && (!isStringScalar(scalar) || scalar.value === ""))
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "value must be a nonempty string scalar",
+    );
+  const match = /^just ([A-Za-z][A-Za-z0-9_-]*)$/.exec(command);
+  if (match === null || command.includes("  "))
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "value must match exactly just <recipe> without arguments or shell syntax",
+    );
+  if (command === "just verify-focused")
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "focused validation is implementation feedback and cannot control completion",
+    );
+  if (rootJustfile !== undefined) validateDeclaredRecipe(command, rootJustfile);
+  return Object.freeze({ command });
+}
+
+function validateDeclaredRecipe(
+  command: string,
+  rootJustfile: string | null,
+): void {
+  if (rootJustfile === null) {
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "final-validation recipe cannot be proved without the root justfile",
+    );
+  }
+  const recipe = command.slice("just ".length);
+  const declared = rootJustfile.split(/\r?\n/).some((line) => {
+    const match = /^([A-Za-z][A-Za-z0-9_-]*)(?:\s+[^:]*)?:\s*(?:#.*)?$/.exec(
+      line,
+    );
+    return match?.[1] === recipe;
+  });
+  if (!declared)
+    throw invalidConfiguration(
+      "rpiv.final_validation",
+      "recipe is not declared by the repository root justfile",
+    );
 }

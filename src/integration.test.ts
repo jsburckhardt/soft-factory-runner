@@ -39,6 +39,13 @@ const issue: IssueFacts = {
   complete: true,
 };
 
+async function writeRootJustfile(root: string): Promise<void> {
+  await fs.writeFile(
+    path.join(root, "justfile"),
+    "verify-focused:\n\ttrue\nverify:\n\ttrue\n",
+  );
+}
+
 class DiskFiles implements FilePort {
   private temporaryCounter = 0;
   public async readText(filePath: string): Promise<string | null> {
@@ -112,6 +119,9 @@ class BarrierGitHub implements GitHubPort {
     this.release = resolve;
   });
   public async loadPullRequest(): Promise<null> {
+    return null;
+  }
+  public async findOpenPullRequest(): Promise<null> {
     return null;
   }
   public async loadMergedPullRequest(): Promise<null> {
@@ -398,6 +408,7 @@ describe("live GitHub proof parsing", () => {
       const root = await fs.mkdtemp(
         path.join(os.tmpdir(), "soft-factory-live-github-"),
       );
+      await writeRootJustfile(root);
       const bin = path.join(root, "bin");
       await fs.mkdir(bin);
       await writeFakeGitHubCli(bin, {
@@ -469,7 +480,11 @@ describe("live completion pull-request proof", () => {
       headRefOid: "a".repeat(40),
       closingIssuesReferences: [{ number: 4 }],
     };
-    await writeFakeGitHubCli(bin, { ...base, completionPullRequest: complete });
+    await writeFakeGitHubCli(bin, {
+      ...base,
+      pullRequests: [complete],
+      completionPullRequest: complete,
+    });
     const originalPath = process.env.PATH;
     process.env.PATH = bin + ":" + (originalPath ?? "");
     try {
@@ -485,10 +500,17 @@ describe("live completion pull-request proof", () => {
         closesIssues: [4],
         complete: true,
       });
+      await expect(
+        live.github.findOpenPullRequest("owner/repo", "feat/4-proof"),
+      ).resolves.toMatchObject({ number: 14, headSha: "a".repeat(40) });
       await writeFakeGitHubCli(bin, {
         ...base,
+        pullRequests: [complete, { ...complete, number: 15 }],
         completionPullRequest: { ...complete, headRefOid: "short" },
       });
+      await expect(
+        live.github.findOpenPullRequest("owner/repo", "feat/4-proof"),
+      ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
       await expect(
         live.github.loadPullRequest("owner/repo", 14),
       ).rejects.toMatchObject({ code: "COMPLETION_PROOF_INCOMPLETE" });
@@ -670,6 +692,7 @@ describe("real filesystem and Git integration", () => {
   it("uses exclusive-create ownership so barrier-released starts create one resource set", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "soft-factory-lock-"));
     try {
+      await writeRootJustfile(root);
       const files = new DiskFiles();
       const github = new BarrierGitHub();
       const repository = new CountingGit(root);
@@ -730,6 +753,7 @@ describe("real filesystem and Git integration", () => {
         path.join(os.tmpdir(), "soft-factory-distinct-"),
       );
       try {
+        await writeRootJustfile(root);
         const files = new DiskFiles();
         await files.atomicWrite(
           path.join(root, ".soft-factory", "config.yml"),
@@ -1078,6 +1102,11 @@ describe("real filesystem and Git integration", () => {
           { command: "just verify-focused", status: "passed" },
           { command: "just verify", status: "passed" },
         ],
+        requiredFinalValidation: {
+          command: "just verify",
+          status: "passed",
+          evidence: ["fixture:just-verify"],
+        },
         completedAt: "2026-08-11T12:01:00.000Z",
       });
       const stateDirectory = path.join(root, ".soft-factory");
@@ -1121,6 +1150,15 @@ describe("real filesystem and Git integration", () => {
       };
       const completionGithub: GitHubPort = {
         loadIssue: async () => null,
+        findOpenPullRequest: async () => ({
+          number: 14,
+          state: "OPEN",
+          baseBranch: "main",
+          headBranch: branch,
+          headSha: expectedPrSha,
+          closesIssues: [4],
+          complete: true,
+        }),
         loadPullRequest: async () => ({
           number: 14,
           state: "OPEN",

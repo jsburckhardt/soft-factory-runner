@@ -9,11 +9,12 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260810-typescript-node-cli | TypeScript and Node.js CLI | Accepted | 2026-08-10 |
 | ADR-260811-engineering-harness-surface | Engineering Harness Development Surface | Accepted | 2026-08-11 |
 | ADR-260811-prototype-one-run-orchestration | Prototype One Issue Run Orchestration | Accepted | 2026-08-11 |
-| ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Accepted | 2026-08-11 |
+| ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Superseded by ADR-260812-rpiv-integration-completion-contract | 2026-08-11 |
 | ADR-260811-prototype-three-recovery-concurrency | Prototype Three Recovery and Explicit Concurrency | Accepted | 2026-08-11 |
 | ADR-260812-repository-doctor-readiness | Repository Doctor Readiness Architecture | Accepted | 2026-08-12 |
 | ADR-260812-official-asset-distribution-installation | Official Asset Distribution and Installation | Accepted | 2026-08-12 |
 | ADR-260812-copilot-child-environment | Copilot Child Environment Configuration | Accepted | 2026-08-12 |
+| ADR-260812-rpiv-integration-completion-contract | RPIV Integration and Completion Contract | Accepted | 2026-08-12 |
 
 ## Core-Components
 
@@ -39,6 +40,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260812-repository-doctor-contract | Repository Doctor Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-official-asset-installation-contract | Official Asset Installation Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-copilot-child-environment-contract | Copilot Child Environment Contract | Adopted | 2026-08-12 |
+| CORE-COMPONENT-260812-rpiv-integration-handoff | RPIV Integration Handoff | Adopted | 2026-08-12 |
 
 ## Decisions
 
@@ -53,7 +55,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 5 | Create the issue feature branch before RPIV Research starts | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
 | 6 | Assign stable AC IDs and prove task, validation, and evidence coverage | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
 | 7 | Use root justfile recipes for Implement and Verify validation by default | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
-| 8 | Restrict Verify to acceptance decisions, GitHub updates, push, and PR creation | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
+| 8 | Require Verify to decide acceptance, create the PR, and publish the bound result | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-12 |
 | 9 | Route verification defects to Implement or Plan by ownership | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-06 |
 | 10 | Define project operating commands as root justfile recipes | CORE-COMPONENT-260806-project-command-interface | 2026-08-06 |
 | 11 | Use the root justfile as the default command interface | CORE-COMPONENT-260806-project-command-interface | 2026-08-06 |
@@ -96,7 +98,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 48 | Inject deterministic fixture adapters without exposing production test backdoors | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-11 |
 | 49 | Finalize zero-exit RPIV runs through strict result, Git, and GitHub reconciliation | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
 | 50 | Derive required acceptance IDs from ordered issue criteria | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
-| 51 | Require passed `just verify-focused` and `just verify` result entries | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
+| 51 | Use the current RPIV integration contract instead of fixed completion recipes | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
 | 52 | Read legacy snapshots without accepting them as completion proof | ADR-260811-prototype-two-completion-proof | 2026-08-11 |
 | 53 | Read only strict versioned results from the owned worktree artifact path | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
 | 54 | Persist exact required acceptance texts before launching RPIV | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-11 |
@@ -146,3 +148,17 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 98 | Isolate configured Copilot environments from other subprocesses and concurrent issues | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
 | 99 | Prohibit configured values in Runner errors, output, persistence, and logs | CORE-COMPONENT-260812-copilot-child-environment-contract | 2026-08-12 |
 | 100 | Compose Copilot child environments under the dedicated launch contract | CORE-COMPONENT-260811-issue-run-orchestration | 2026-08-12 |
+| 101 | Supersede fixed two-recipe completion proof with the RPIV integration completion contract | ADR-260811-prototype-two-completion-proof | 2026-08-12 |
+| 102 | Treat RPIV progress as non-authorizing recovery evidence | ADR-260811-prototype-three-recovery-concurrency | 2026-08-12 |
+| 103 | Require Verify to publish the bound final result after pull-request creation | CORE-COMPONENT-260806-rpiv-stage-contract | 2026-08-12 |
+| 104 | Require one snapshotted final-validation binding and ignore focused validation for completion | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-12 |
+| 105 | Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-12 |
+| 106 | Use `rpiv.final_validation` for one argument-free root justfile recipe | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
+| 107 | Default absent final-validation configuration to `just verify` | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
+| 108 | Persist one final validation unchanged through execution and recovery | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
+| 109 | Normalize supported legacy completion validation to sole `just verify` | ADR-260812-rpiv-integration-completion-contract | 2026-08-12 |
+| 110 | Publish versioned RPIV progress atomically at every phase transition | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
+| 111 | Report missing or invalid progress as unknown without inferring phase | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
+| 112 | Publish immutable AgentResultV1 only after pull-request creation | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
+| 113 | Require coordinator result validation before successful RPIV exit | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
+| 114 | Derive human and JSON integration instructions from IntegrationContractV1 | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |

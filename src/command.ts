@@ -5,6 +5,7 @@ export type Command =
   | { readonly kind: "bootstrap" }
   | { readonly kind: "help" }
   | { readonly kind: "doctor"; readonly json: boolean }
+  | { readonly kind: "instructions"; readonly json: boolean }
   | {
       readonly kind: "install";
       readonly assets: readonly OfficialAssetIdentity[];
@@ -22,7 +23,19 @@ export type Command =
     }
   | { readonly kind: "list"; readonly json: boolean }
   | { readonly kind: "attach"; readonly issueNumber: number }
-  | { readonly kind: "worker"; readonly issueNumber: number };
+  | { readonly kind: "worker"; readonly issueNumber: number }
+  | {
+      readonly kind: "publish-progress";
+      readonly issueNumber: number;
+      readonly phase: string;
+      readonly status: string;
+    }
+  | {
+      readonly kind: "publish-result";
+      readonly issueNumber: number;
+      readonly candidatePath: string;
+    }
+  | { readonly kind: "validate-result"; readonly issueNumber: number };
 
 const ISSUE_COMMANDS = new Set([
   "reconcile",
@@ -60,6 +73,8 @@ export function parseCommand(args: readonly string[]): Command {
     return { kind: "install", assets: [{ type: args[1], name: args[2] }] };
   if (args[0] === "doctor" && (args.length === 1 || args.length === 2))
     return { kind: "doctor", json: parseOptionalJson(args.slice(1)) };
+  if (args[0] === "instructions" && (args.length === 1 || args.length === 2))
+    return { kind: "instructions", json: parseOptionalJson(args.slice(1)) };
   if (
     args[0] === "run" &&
     (args.length === 3 || args.length === 4) &&
@@ -87,6 +102,41 @@ export function parseCommand(args: readonly string[]): Command {
   }
   if (args[0] === "attach" && args.length === 2)
     return { kind: "attach", issueNumber: parseIssue(args[1]) };
+  if (
+    args[0] === "internal" &&
+    args[1] === "publish-progress" &&
+    args[2] === "--issue" &&
+    args[4] === "--phase" &&
+    args[6] === "--status" &&
+    args.length === 8
+  )
+    return {
+      kind: "publish-progress",
+      issueNumber: parseIssue(args[3]),
+      phase: args[5] ?? "",
+      status: args[7] ?? "",
+    };
+  if (
+    args[0] === "internal" &&
+    args[1] === "publish-result" &&
+    args[2] === "--issue" &&
+    args[4] === "--candidate" &&
+    args.length === 6 &&
+    args[5] !== undefined &&
+    args[5] !== ""
+  )
+    return {
+      kind: "publish-result",
+      issueNumber: parseIssue(args[3]),
+      candidatePath: args[5],
+    };
+  if (
+    args[0] === "internal" &&
+    args[1] === "validate-result" &&
+    args[2] === "--issue" &&
+    args.length === 4
+  )
+    return { kind: "validate-result", issueNumber: parseIssue(args[3]) };
   if (
     args[0] === "internal" &&
     args[1] === "run-agent" &&
@@ -136,6 +186,7 @@ Usage:
   soft-factory install skill soft-factory
   soft-factory install --recommended
   soft-factory doctor [--json]
+  soft-factory instructions [--json]
   soft-factory run --issue <number> [--json]
   soft-factory reconcile <issue> [--json]
   soft-factory resume <issue> [--json]
@@ -148,5 +199,6 @@ Usage:
 
 Install writes verified package-local official assets transactionally beneath .agents/.
 Doctor reports repository readiness only; it never selects or assesses an issue.
+Instructions reports the deterministic Runner/RPIV integration contract without mutation.
 Control commands return stable state, code, facts, remediation, and exit status.
 `;

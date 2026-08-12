@@ -15,8 +15,8 @@ This component applies to snapshot and event recovery, lock and resource observa
 ## Definition
 
 ### Rules
-- Persist new runs as `RunSnapshotV3` with monotonic revision, attempt, lease, launch intent, worker and RPIV process identity, stop, cleanup, log, and merge facts. Append `TransitionEventV2` containing prior revision, resulting revision, and the complete redacted resulting snapshot before atomic snapshot replacement.
-- Read valid snapshot versions 1 through 3 and event versions 1 and 2. Upgrade legacy records only through an explicit version 3 reconciliation transition. Replay only a contiguous, run-identity-matching version 2 chain ahead of the snapshot; refuse malformed, conflicting, legacy-ahead, or noncontiguous history.
+- Persist new runs as `RunSnapshotV4` with monotonic revision, attempt, lease, launch intent, worker and RPIV process identity, stop, cleanup, log, merge, one required final-validation, integration-launch, and progress facts. Append `TransitionEventV2` containing prior revision, resulting revision, and the complete redacted resulting `RunSnapshotV4` before atomic snapshot replacement.
+- Read valid snapshot versions 1 through 4 and event versions 1 and 2. Keep v1 readable but non-completable without its missing acceptance input; upgrade eligible v2 and v3 records only through an explicit version 4 reconciliation transition. Replay only a contiguous, run-identity-matching version 2 chain whose resulting snapshots are valid v3 or v4 records; refuse malformed, conflicting, legacy-ahead, or noncontiguous history.
 - Reconcile persisted state separately against issue lock, filesystem, Git branch and worktree, tmux session/window/pane, worker and RPIV process, result artifact, remote branch, and GitHub pull request facts. Classify every observation as `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`.
 - Perform one bounded observation per external boundary per reconciliation attempt. Do not poll or retry internally. Unknown or contradictory facts must not authorize resource reuse, process launch, signaling, or cleanup.
 - Match a process only by PID, process-group ID, OS start token, resolved executable, exact arguments, cwd, launch time, and recorded tmux pane lineage. Persist launch intent before spawn and process identity immediately after spawn. Adopt only one unambiguous pane descendant matching an interrupted launch intent.
@@ -26,13 +26,14 @@ This component applies to snapshot and event recovery, lock and resource observa
 - Require an exact tmux identity for attach. Return retained redacted attempt transcripts from logs and include a bounded live pane capture only when the target still matches.
 - Stop only an exact matching RPIV process group. Send `SIGTERM`, wait no more than 10 seconds, send `SIGKILL` only if still active, and wait no more than 5 further seconds. Persist cancelled state and stop facts, preserve worktree and tmux, and block signaling on ambiguity.
 - Configure issue panes to remain after process exit. Capture redacted tmux history before and after stop and before tmux cleanup into `.soft-factory/logs/<issue>/<attempt>.log`, cap each transcript at 2 MiB with explicit truncation, and retain logs, snapshots, and events after cleanup.
-- Preserve the existing completion-proof conjunction and terminal state meanings. Store control or cleanup blockage separately when the run was already proved completed.
+- Preserve terminal state meanings and the single snapshotted final-validation proof governed by ADR-260812-rpiv-integration-completion-contract. Store control or cleanup blockage separately when the run was already proved completed.
+- Observe RPIV progress with its strict classification, last-accepted fact, and phase, but exclude progress from activity, safe-action, result, completion, recovery, signaling, and cleanup authorization.
 
 ### Interfaces
-- `RunSnapshotV3` extends existing ownership and completion facts with `revision`, `attempt`, `admission`, `launchIntent`, `workerProcess`, `rpivProcess`, `stop`, `cleanup`, `logs`, and merged-pull-request reconciliation facts.
-- `TransitionEventV2` contains schema version, run and issue identity, prior and resulting revisions, transition reason, timestamp, and complete resulting `RunSnapshotV3`.
+- `RunSnapshotV4` carries the revisioned v3 ownership and recovery facts (`revision`, `attempt`, `admission`, `launchIntent`, `workerProcess`, `rpivProcess`, `stop`, `cleanup`, `logs`, and merged-pull-request reconciliation) plus one `requiredFinalValidation`, a strictly snapshot-bound `IntegrationLaunchV1`, and last-accepted progress.
+- `TransitionEventV2` contains schema version, run and issue identity, prior and resulting revisions, transition reason, timestamp, and a complete resulting `RunSnapshotV3` or `RunSnapshotV4` for supported history replay.
 - `ProcessIdentityV1` contains PID, process-group ID, OS start token, resolved executable, exact args, cwd, launch time, and pane lineage.
-- `ReconciliationReportV1` contains persisted revision, normalized observations for every boundary, decision code, active classification, safe actions, and redacted diagnostics.
+- `ReconciliationReportV1` contains persisted revision, normalized observations for every boundary including non-authorizing progress, decision code, active classification, safe actions, and redacted diagnostics.
 - Process adapters expose spawn identity, process and process-tree observation, bounded wait, and exact process-group signaling. Tmux adapters expose identity observation, bounded pane capture, remain-on-exit setup, attach, and window removal.
 - File and store adapters expose strict enumeration, lock reads, event reads, atomic writes, compare-and-delete, retained-log reads/writes, and version validation.
 
@@ -42,6 +43,7 @@ This component applies to snapshot and event recovery, lock and resource observa
 - Reinvoking recovery while the recorded RPIV process remains active performs zero process launches.
 - A stopped run retains both its owned worktree and inspectable terminal transcript.
 - Observation failures produce stable actionable non-success outcomes and never become inferred absence.
+- Missing or unusable progress reports phase unknown without changing operational state or safe actions.
 
 ## Rationale
 
@@ -83,4 +85,5 @@ How is compliance with this component verified?
 ## Related ADRs
 
 - [ADR-260811-prototype-three-recovery-concurrency](../ADR/ADR-260811-prototype-three-recovery-concurrency.md)
+- [ADR-260812-rpiv-integration-completion-contract](../ADR/ADR-260812-rpiv-integration-completion-contract.md)
 - [ADR-260811-prototype-two-completion-proof](../ADR/ADR-260811-prototype-two-completion-proof.md)

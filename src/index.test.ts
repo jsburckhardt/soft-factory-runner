@@ -110,6 +110,7 @@ rpiv:
       promptTemplate: "Implement #{issue}",
       maxConcurrentRuns: 1,
       copilotEnvironment: {},
+      finalValidation: { command: "just verify" },
     });
     expect(renderPrompt(configuration.promptTemplate, 3)).toBe("Implement #3");
     expect(parseConfiguration(null).labelTypes).toEqual({ feature: "feat" });
