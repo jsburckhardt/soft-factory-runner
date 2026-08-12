@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "ready": true,
+  "repository": {
+    "github": "owner/repo",
+    "defaultBranch": "main"
+  },
+  "checks": [
+    {
+      "id": "repository.git-membership",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "repository.primary-worktree",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "repository.git-common-directory",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "repository.github-identity",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "repository.default-branch",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "command.git",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "command.gh",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "command.tmux",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "command.node",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "command.copilot",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "authentication.github-cli",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "authentication.copilot-cli",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.rpiv-agent",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.runner-protocol",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.configuration",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.worktree-root",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.state-root-writable",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.trees-ignored",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.runtime-state-ignored",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "compatibility.result-contract",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "runtime.trees-ownership",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "runtime.state-readable",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "runtime.locks-interpretable",
+      "status": "passed",
+      "blocking": true
+    },
+    {
+      "id": "runtime.required-paths-creatable",
+      "status": "passed",
+      "blocking": true
+    }
+  ]
+}

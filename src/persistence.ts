@@ -410,7 +410,7 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
   );
 }
 
-function isTransitionEvent(value: unknown): value is TransitionEvent {
+export function isTransitionEvent(value: unknown): value is TransitionEvent {
   if (!isRecord(value)) return false;
   if (value.schemaVersion === 1) {
     return (
@@ -617,7 +617,7 @@ function isErrorFact(value: unknown): boolean {
       typeof value.message === "string")
   );
 }
-function isOwnerRecord(value: unknown): value is OwnerRecordV1 {
+export function isOwnerRecord(value: unknown): value is OwnerRecordV1 {
   return (
     isRecord(value) &&
     value.schemaVersion === 1 &&
@@ -628,7 +628,7 @@ function isOwnerRecord(value: unknown): value is OwnerRecordV1 {
     typeof value.acquiredAt === "string"
   );
 }
-function isLeaseRecord(value: unknown): value is ConcurrencyLeaseV1 {
+export function isLeaseRecord(value: unknown): value is ConcurrencyLeaseV1 {
   return (
     isRecord(value) &&
     value.schemaVersion === 1 &&

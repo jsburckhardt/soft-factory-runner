@@ -21,17 +21,22 @@ just run attach <positive-integer>
 
 ## Configuration and readiness
 
-Runner reads optional `.soft-factory/config.yml`:
+Runner reads optional `.soft-factory/config.yml` for issue execution, while repository Doctor requires the file and protocol declaration. Configuration parsing is strict and rejects unknown keys. Existing files migrate by adding `protocol_version` and safe repository roots:
 
 ```yaml
+protocol_version: 1
 repository:
   remote: origin
   base_branch: main
+  worktree_root: .trees
+  state_root: .soft-factory
 branch_types:
   feature: feat
 rpiv:
   prompt: "Deliver issue #{issue}"
 ```
+
+Doctor requires normalized repository-relative, non-overlapping roots contained physically by the primary worktree; absolute paths, traversal, file or Git-common-directory collisions, and symlink escape fail safely. See [the Phase 4 repository Doctor guide](phase-4-repository-doctor.md).
 
 Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. `repository.base_branch` must equal the advertised default branch. The default `feature: feat` mapping is available, and exactly one issue label must map to an allowed Conventional Commit type.
 

@@ -45,7 +45,9 @@ export type ErrorCode =
   | "CLEANUP_OWNERSHIP_UNPROVED"
   | "CLEANUP_MERGE_NOT_PROVED"
   | "CLEANUP_PARTIAL"
-  | "LOG_NOT_FOUND";
+  | "LOG_NOT_FOUND"
+  | "DOCTOR_ADAPTER_FAILED"
+  | "DOCTOR_INVARIANT";
 
 export class RunnerError extends Error {
   public readonly code: ErrorCode;

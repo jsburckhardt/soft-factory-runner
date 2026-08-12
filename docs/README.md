@@ -4,6 +4,7 @@ Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolate
 
 ## Guides
 
+- [Phase 4 repository Doctor](phase-4-repository-doctor.md) — all 24 blocking repository-readiness checks, schema-v1 human/JSON semantics, configuration and metadata, safe probes, deterministic fixtures, timing, and troubleshooting.
 - [Issue run and completion proof](phase-1-issue-run.md) — readiness, configuration, fetched-base proof, ownership, visible RPIV launch, `AgentResultV1`, authoritative remote proof, and terminal-state semantics.
 - [Phase 3 recovery and concurrency operations](phase-3-recovery-operations.md) — complete CLI reference, JSON/exit behavior, concurrency configuration, reconciliation, resume, bounded stop, retained logs, guarded cleanup, schema migration, troubleshooting, and local deployment limitations.
 
@@ -12,6 +13,7 @@ Use only root `justfile` recipes for local operation and project validation:
 ```text
 just --list
 just run --help
+just run doctor [--json]
 just verify-focused
 just verify
 ```

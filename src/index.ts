@@ -2,6 +2,8 @@
 
 import { HELP_TEXT, parseCommand } from "./command";
 import { errorExitCode, isRunnerError } from "./errors";
+import { renderDoctor } from "./doctor-render";
+import { createLiveDoctorService, type DoctorRunner } from "./doctor-service";
 import { createLivePorts } from "./live";
 import { IssueRunService } from "./orchestrator";
 import type { RunnerPorts } from "./ports";
@@ -31,6 +33,7 @@ export async function runCli(
   args: readonly string[],
   startPath: string,
   ports: RunnerPorts,
+  doctorRunner?: DoctorRunner,
 ): Promise<CliResult> {
   const jsonRequested = args.includes("--json");
   try {
@@ -39,6 +42,16 @@ export async function runCli(
       return { exitCode: 0, stdout: bootstrapMessage, stderr: "" };
     if (command.kind === "help")
       return { exitCode: 0, stdout: HELP_TEXT, stderr: "" };
+    if (command.kind === "doctor") {
+      const result = await (doctorRunner ?? createLiveDoctorService()).run(
+        startPath,
+      );
+      return {
+        exitCode: result.ready ? 0 : 3,
+        stdout: renderDoctor(result, command.json),
+        stderr: "",
+      };
+    }
     const service = new IssueRunService(ports);
     if (command.kind === "run")
       return {

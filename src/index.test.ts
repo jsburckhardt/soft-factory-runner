@@ -101,8 +101,11 @@ rpiv:
   prompt: "Implement #{issue}"
 `);
     expect(configuration).toEqual({
+      protocolVersion: null,
       remote: "upstream",
       baseBranch: "main",
+      worktreeRoot: ".trees",
+      stateRoot: ".soft-factory",
       labelTypes: { feature: "feat" },
       promptTemplate: "Implement #{issue}",
       maxConcurrentRuns: 1,

@@ -11,6 +11,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260811-prototype-one-run-orchestration | Prototype One Issue Run Orchestration | Accepted | 2026-08-11 |
 | ADR-260811-prototype-two-completion-proof | Prototype Two Completion Proof | Accepted | 2026-08-11 |
 | ADR-260811-prototype-three-recovery-concurrency | Prototype Three Recovery and Explicit Concurrency | Accepted | 2026-08-11 |
+| ADR-260812-repository-doctor-readiness | Repository Doctor Readiness Architecture | Accepted | 2026-08-12 |
 
 ## Core-Components
 
@@ -33,6 +34,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260811-run-reconciliation-control | Run Reconciliation and Control | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-concurrent-run-admission | Concurrent Run Admission | Adopted | 2026-08-11 |
 | CORE-COMPONENT-260811-owned-resource-cleanup | Owned Resource Cleanup | Adopted | 2026-08-11 |
+| CORE-COMPONENT-260812-repository-doctor-contract | Repository Doctor Contract | Adopted | 2026-08-12 |
 
 ## Decisions
 
@@ -116,3 +118,12 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 74 | Require inactive, clean, exactly owned resources before non-forced cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |
 | 75 | Verify merged PR source branch and SHA before automatic owned-resource cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |
 | 76 | Retain branches, snapshots, events, logs, and automatic-cleanup tmux evidence | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-11 |
+| 77 | Evaluate all 24 repository Doctor prerequisites as blocking checks | ADR-260812-repository-doctor-readiness | 2026-08-12 |
+| 78 | Require Runner protocol 1 in configuration and RPIV asset metadata | ADR-260812-repository-doctor-readiness | 2026-08-12 |
+| 79 | Restrict Doctor path probes to reversible repository-contained resources | ADR-260812-repository-doctor-readiness | 2026-08-12 |
+| 80 | Return exit 3 for complete NOT READY Doctor reports | ADR-260812-repository-doctor-readiness | 2026-08-12 |
+| 81 | Emit the ordered 24-ID Doctor check vocabulary without omissions | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
+| 82 | Derive Doctor human and JSON output from one versioned result | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
+| 83 | Fail Doctor checks on missing, malformed, contradictory, or ambiguous proof | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
+| 84 | Prohibit Doctor from selecting or inspecting GitHub issues | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |
+| 85 | Bound Doctor probes to 2 seconds and aggregate execution to 9 seconds | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-12 |

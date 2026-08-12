@@ -9,6 +9,9 @@ const readme = read("README.md");
 const docsIndex = read("docs/README.md");
 const issueRun = read("docs/phase-1-issue-run.md");
 const operations = read("docs/phase-3-recovery-operations.md");
+const doctorGuide = read("docs/phase-4-repository-doctor.md");
+const rpivAgent = read(".github/agents/rpiv.agent.md");
+const packageJson = read("package.json");
 
 describe("V-11 Phase 3 operator documentation", () => {
   it("documents every public command, JSON form, stable facts, exits, and root recipes", () => {
@@ -143,7 +146,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       encoding: "utf8",
     });
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Soft Factory Runner Phase 3");
+    expect(help.stdout).toContain("Soft Factory Runner Phase 4");
     for (const command of [
       "status",
       "reconcile",
@@ -166,5 +169,115 @@ describe("V-11 Phase 3 operator documentation", () => {
     });
     expect(inventory.status).toBe(0);
     expect(inventory.stdout).toContain("INVENTORY_READY");
+  });
+});
+
+describe("V-11 Phase 4 repository Doctor documentation", () => {
+  it("documents all ordered blocking checks and shared schema-v1 exits", () => {
+    const ids = [
+      "repository.git-membership",
+      "repository.primary-worktree",
+      "repository.git-common-directory",
+      "repository.github-identity",
+      "repository.default-branch",
+      "command.git",
+      "command.gh",
+      "command.tmux",
+      "command.node",
+      "command.copilot",
+      "authentication.github-cli",
+      "authentication.copilot-cli",
+      "compatibility.rpiv-agent",
+      "compatibility.runner-protocol",
+      "compatibility.configuration",
+      "compatibility.worktree-root",
+      "compatibility.state-root-writable",
+      "compatibility.trees-ignored",
+      "compatibility.runtime-state-ignored",
+      "compatibility.result-contract",
+      "runtime.trees-ownership",
+      "runtime.state-readable",
+      "runtime.locks-interpretable",
+      "runtime.required-paths-creatable",
+    ];
+    for (const id of ids) expect(doctorGuide).toContain("`" + id + "`");
+    for (const phrase of [
+      "exactly these 24 checks in this order",
+      "Every check is blocking",
+      "schemaVersion",
+      "ready",
+      "github",
+      "defaultBranch",
+      "message",
+      "remediation",
+      "STATUS: READY",
+      "STATUS: NOT READY",
+      "exits 0",
+      "exits 3",
+      "syntax exits 2",
+      "internal invariant failure exits 1",
+      "identical meaning",
+    ])
+      expect(doctorGuide).toContain(phrase);
+  });
+
+  it("documents strict configuration, metadata, path safety, and migration", () => {
+    for (const phrase of [
+      "protocol_version: 1",
+      "worktree_root: .trees",
+      "state_root: .soft-factory",
+      "unknown keys are now rejected",
+      "configuration compatibility migration",
+      "repository-relative",
+      "non-overlapping",
+      "symlink escape",
+      "Git common directory",
+      "runner_protocol: 1",
+      "result_contract: agent-result-v1",
+      "No fallback `.agents/`",
+    ])
+      expect(doctorGuide).toContain(phrase);
+    expect(rpivAgent).toContain("runner_protocol: 1");
+    expect(rpivAgent).toContain("result_contract: agent-result-v1");
+    expect(issueRun).toContain("Existing files migrate");
+    expect(readme).toContain("Existing configuration files must migrate");
+  });
+
+  it("documents repository-only safe bounded operation, fixtures, timing, and no API impact", () => {
+    for (const phrase of [
+      "does not accept an issue number",
+      "select an issue",
+      "ambient `harness doctor`",
+      "shell: false",
+      "environment allowlist",
+      "2-second timeout",
+      "one attempt",
+      "no polling or hidden retry",
+      "9-second aggregate deadline",
+      "exclusive tokenized",
+      "never creates issue state",
+      "fixtures/doctor/ready.json",
+      "fixtures/doctor/blocked.json",
+      "fixtures/doctor/isolated-failures.json",
+      "24-row pass/fail matrix",
+      "10,000 ms",
+      "no daemon",
+      "No API specification or API migration is applicable",
+    ])
+      expect(doctorGuide).toContain(phrase);
+    expect(packageJson).not.toContain("engineering-harness");
+    expect(docsIndex).toContain("Phase 4 repository Doctor");
+    expect(operations).toContain("Repository readiness preflight");
+  });
+
+  it("exposes Doctor in README and cumulative CLI help", () => {
+    expect(readme).toContain("just run doctor --json");
+    const help = spawnSync("just", ["run", "--help"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("soft-factory doctor [--json]");
+    expect(help.stdout).toContain("repository readiness only");
   });
 });

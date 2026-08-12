@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "ready": false,
+  "repository": {
+    "github": null,
+    "defaultBranch": null
+  },
+  "checks": [
+    {
+      "id": "repository.git-membership",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite repository.git-membership failed.",
+      "remediation": "Correct repository.git-membership and rerun Doctor."
+    },
+    {
+      "id": "repository.primary-worktree",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite repository.primary-worktree failed.",
+      "remediation": "Correct repository.primary-worktree and rerun Doctor."
+    },
+    {
+      "id": "repository.git-common-directory",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite repository.git-common-directory failed.",
+      "remediation": "Correct repository.git-common-directory and rerun Doctor."
+    },
+    {
+      "id": "repository.github-identity",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite repository.github-identity failed.",
+      "remediation": "Correct repository.github-identity and rerun Doctor."
+    },
+    {
+      "id": "repository.default-branch",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite repository.default-branch failed.",
+      "remediation": "Correct repository.default-branch and rerun Doctor."
+    },
+    {
+      "id": "command.git",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite command.git failed.",
+      "remediation": "Correct command.git and rerun Doctor."
+    },
+    {
+      "id": "command.gh",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite command.gh failed.",
+      "remediation": "Correct command.gh and rerun Doctor."
+    },
+    {
+      "id": "command.tmux",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite command.tmux failed.",
+      "remediation": "Correct command.tmux and rerun Doctor."
+    },
+    {
+      "id": "command.node",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite command.node failed.",
+      "remediation": "Correct command.node and rerun Doctor."
+    },
+    {
+      "id": "command.copilot",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite command.copilot failed.",
+      "remediation": "Correct command.copilot and rerun Doctor."
+    },
+    {
+      "id": "authentication.github-cli",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite authentication.github-cli failed.",
+      "remediation": "Correct authentication.github-cli and rerun Doctor."
+    },
+    {
+      "id": "authentication.copilot-cli",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite authentication.copilot-cli failed.",
+      "remediation": "Correct authentication.copilot-cli and rerun Doctor."
+    },
+    {
+      "id": "compatibility.rpiv-agent",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.rpiv-agent failed.",
+      "remediation": "Correct compatibility.rpiv-agent and rerun Doctor."
+    },
+    {
+      "id": "compatibility.runner-protocol",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.runner-protocol failed.",
+      "remediation": "Correct compatibility.runner-protocol and rerun Doctor."
+    },
+    {
+      "id": "compatibility.configuration",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.configuration failed.",
+      "remediation": "Correct compatibility.configuration and rerun Doctor."
+    },
+    {
+      "id": "compatibility.worktree-root",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.worktree-root failed.",
+      "remediation": "Correct compatibility.worktree-root and rerun Doctor."
+    },
+    {
+      "id": "compatibility.state-root-writable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.state-root-writable failed.",
+      "remediation": "Correct compatibility.state-root-writable and rerun Doctor."
+    },
+    {
+      "id": "compatibility.trees-ignored",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.trees-ignored failed.",
+      "remediation": "Correct compatibility.trees-ignored and rerun Doctor."
+    },
+    {
+      "id": "compatibility.runtime-state-ignored",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.runtime-state-ignored failed.",
+      "remediation": "Correct compatibility.runtime-state-ignored and rerun Doctor."
+    },
+    {
+      "id": "compatibility.result-contract",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite compatibility.result-contract failed.",
+      "remediation": "Correct compatibility.result-contract and rerun Doctor."
+    },
+    {
+      "id": "runtime.trees-ownership",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite runtime.trees-ownership failed.",
+      "remediation": "Correct runtime.trees-ownership and rerun Doctor."
+    },
+    {
+      "id": "runtime.state-readable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite runtime.state-readable failed.",
+      "remediation": "Correct runtime.state-readable and rerun Doctor."
+    },
+    {
+      "id": "runtime.locks-interpretable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite runtime.locks-interpretable failed.",
+      "remediation": "Correct runtime.locks-interpretable and rerun Doctor."
+    },
+    {
+      "id": "runtime.required-paths-creatable",
+      "status": "failed",
+      "blocking": true,
+      "message": "Fixture prerequisite runtime.required-paths-creatable failed.",
+      "remediation": "Correct runtime.required-paths-creatable and rerun Doctor."
+    }
+  ]
+}

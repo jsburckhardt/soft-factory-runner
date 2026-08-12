@@ -3,6 +3,7 @@ import { RunnerError } from "./errors";
 export type Command =
   | { readonly kind: "bootstrap" }
   | { readonly kind: "help" }
+  | { readonly kind: "doctor"; readonly json: boolean }
   | {
       readonly kind: "run";
       readonly issueNumber: number;
@@ -34,6 +35,8 @@ export function parseCommand(args: readonly string[]): Command {
   if (args.length === 0) return { kind: "bootstrap" };
   if (args.length === 1 && (args[0] === "--help" || args[0] === "help"))
     return { kind: "help" };
+  if (args[0] === "doctor" && (args.length === 1 || args.length === 2))
+    return { kind: "doctor", json: parseOptionalJson(args.slice(1)) };
   if (
     args[0] === "run" &&
     (args.length === 3 || args.length === 4) &&
@@ -102,9 +105,10 @@ function parseOptionalJson(args: readonly string[]): boolean {
   );
 }
 
-export const HELP_TEXT = `Soft Factory Runner Phase 3
+export const HELP_TEXT = `Soft Factory Runner Phase 4
 
 Usage:
+  soft-factory doctor [--json]
   soft-factory run --issue <number> [--json]
   soft-factory reconcile <issue> [--json]
   soft-factory resume <issue> [--json]
@@ -115,5 +119,6 @@ Usage:
   soft-factory attach <issue>
   soft-factory logs <issue> [--json]
 
+Doctor reports repository readiness only; it never selects or assesses an issue.
 Control commands return stable state, code, facts, remediation, and exit status.
 `;
