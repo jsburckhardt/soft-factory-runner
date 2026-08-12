@@ -83,5 +83,5 @@ Implementation follows ADR-260812-rpiv-integration-completion-contract and CORE-
 
 - `.harness/records/retro/2026-08-12/014-issue-19-rpiv-research.md` — read back with CONF-001 and DL-001..DL-003, then buffer clear reported 4.
 - `.harness/records/retro/2026-08-12/015-issue-19-rpiv-planner.md` — read back with DL-001..DL-002, then buffer clear reported 2.
-- `.harness/records/retro/2026-08-12/015-issue-19-rpiv-implementer.md` — read back with DL-001, DL-002, and SUGG-001, then buffer clear reported 3.
+- `.harness/records/retro/2026-08-12/015-issue-19-rpiv-implementer.md` — read back with DL-001, DL-002, SUGG-001, and post-commit DL-003. The first clear reported 3; DL-003 was durably appended and read back before its separate clear.
 - Coordinator had no pending observation. Post-clear JSON listings for all four agents reported empty observations.

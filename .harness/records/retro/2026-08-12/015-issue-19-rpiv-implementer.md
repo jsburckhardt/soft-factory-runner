@@ -9,7 +9,7 @@ plan_id: "19-define-rpiv-progress-final-result-ownership-and-integration-instruc
 schema_version: "1.2"
 retro_id: "2026-08-12T08:48:59.773Z-rpiv-implementer-issue19"
 started_at: "2026-08-12T08:31:37.917Z"
-ended_at: "2026-08-12T08:49:30.000Z"
+ended_at: "2026-08-12T08:53:10.000Z"
 summary: "Persisted every pending rpiv-implementer observation from issue #19 before clearing the transient stage buffer."
 entries:
   - id: DL-001
@@ -54,6 +54,20 @@ entries:
         status: open
         source: agent-self
         first_seen_at: "2026-08-12T08:46:28.427Z"
+  - id: DL-003
+    kind: difficulty
+    description: "Root just verify and pre-commit git diff --check ignored untracked Plan artifacts, so a trailing-space defect became visible only when checking the committed diff and required a follow-up commit."
+    target: tooling
+    severity: degrading
+    workaround: "Removed the trailing space, checked HEAD^..working-tree content explicitly, and committed the correction without amending."
+    suggested_encoding: "Make the commit harness run diff hygiene over staged and untracked pathspec content before creating the commit."
+    fp: "2c16ba13ebe6"
+    disposition: kept
+    system:
+      compound:
+        status: open
+        source: agent-self
+        first_seen_at: "2026-08-12T08:52:46.838Z"
 ---
 
 # Retro — Issue #19 rpiv-implementer

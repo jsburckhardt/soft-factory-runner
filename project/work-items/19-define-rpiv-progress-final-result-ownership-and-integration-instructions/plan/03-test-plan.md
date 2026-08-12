@@ -225,7 +225,7 @@ Completed implementation, clean feature worktree, root justfile unchanged as aut
 Run `just verify` and retain lint, format, type, test, coverage, build, and diff-check output.
 
 ### Expected Result
-Command exits 0 and global statements/branches/functions/lines remain at least 80%. 
+Command exits 0 and global statements/branches/functions/lines remain at least 80%.
 
 ### Expected Evidence
 Full command transcript, exit 0, coverage summary, clean diff check.
