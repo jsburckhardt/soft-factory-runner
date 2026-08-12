@@ -109,6 +109,7 @@ rpiv:
       labelTypes: { feature: "feat" },
       promptTemplate: "Implement #{issue}",
       maxConcurrentRuns: 1,
+      copilotEnvironment: {},
     });
     expect(renderPrompt(configuration.promptTemplate, 3)).toBe("Implement #3");
     expect(parseConfiguration(null).labelTypes).toEqual({ feature: "feat" });
@@ -123,7 +124,7 @@ rpiv:
       ).toThrow("max_concurrent_runs");
     }
     expect(() => parseConfiguration("bad line")).toThrow(
-      "Unsupported configuration line",
+      "line has malformed mapping syntax",
     );
     expect(() =>
       parseConfiguration(` repository:
@@ -133,7 +134,7 @@ rpiv:
       parseConfiguration(`branch_types:
   feature: nope
 `),
-    ).toThrow("Invalid branch type mapping");
+    ).toThrow("branch type must be an allowed Conventional Commit type");
   });
 
   it("renders stable error categories and exit codes", () => {

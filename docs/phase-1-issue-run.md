@@ -36,6 +36,29 @@ rpiv:
   prompt: "Deliver issue #{issue}"
 ```
 
+### Copilot-only launch environment
+
+The only configurable child mapping is `copilot.environment`:
+
+```yaml
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    COPILOT_OTEL_EXPORTER_TYPE: "otlp"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.example.invalid"
+    OTEL_SERVICE_NAME: "soft-factory-rpiv"
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+    OPTIONAL_EMPTY: ""
+```
+
+Environment names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, with `""` preserving an explicit empty string. Quote text that YAML would otherwise interpret as a boolean, number, or null. Runner passes each string literally through the Copilot argument-array spawn with `shell: false`, without shell evaluation, command substitution, or implicit variable expansion. The executable and argument order remain `copilot --yolo --name issue-<number> --agent rpiv --prompt "Deliver issue #<number>"`.
+
+Every new or resumed launch parses the then-current file into a fresh immutable map before launch intent or spawn. Existing allowlisted inherited entries are applied first, configured entries second, and Runner-owned `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project-name>,issue.id=issue-<number>` last. Therefore configuration overrides inherited collisions while current-issue resource attributes always win. Absent `copilot`, absent `environment`, and an empty environment mapping all add no entries.
+
+Strict parsing rejects duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, and malformed syntax before Copilot starts. Errors expose the field and reason with no value included. A corrected later invocation is read fresh; rejected data is not cached. Configured names and values cross only `ProcessPort.spawnCopilot`: they do not alter Git, `gh`, tmux, the Runner worker, Doctor, generic commands, or ambient `process.env`, and they are absent from snapshots, events, launch intents, retained logs, and human/JSON rendering.
+
+Existing configuration remains valid when the mapping is absent. This additive option changes no persisted schema, result contract, API, deployment model, or data; no migration is required.
+
 Doctor requires normalized repository-relative, non-overlapping roots contained physically by the primary worktree; absolute paths, traversal, file or Git-common-directory collisions, and symlink escape fail safely. See [the Phase 4 repository Doctor guide](phase-4-repository-doctor.md).
 
 Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. `repository.base_branch` must equal the advertised default branch. The default `feature: feat` mapping is available, and exactly one issue label must map to an allowed Conventional Commit type.

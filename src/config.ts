@@ -1,16 +1,20 @@
 import type { RunConfiguration } from "./domain";
 import { RunnerError } from "./errors";
 
-export const DEFAULT_CONFIGURATION: RunConfiguration = {
+const EMPTY_ENVIRONMENT: Readonly<Record<string, string>> = Object.freeze({});
+
+export const DEFAULT_CONFIGURATION: RunConfiguration = Object.freeze({
   protocolVersion: null,
   remote: null,
   baseBranch: null,
   worktreeRoot: ".trees",
   stateRoot: ".soft-factory",
-  labelTypes: { feature: "feat" },
+  labelTypes: Object.freeze({ feature: "feat" }),
   promptTemplate: "Deliver issue #{issue}",
   maxConcurrentRuns: 1,
-};
+  copilotEnvironment: EMPTY_ENVIRONMENT,
+});
+
 const allowedTypes = new Set([
   "feat",
   "fix",
@@ -29,6 +33,8 @@ const MAPPING_KEYS = new Set([
   "rpiv",
   "execution",
   "branch_types",
+  "copilot",
+  "copilot.environment",
 ]);
 const FIXED_KEYS = new Set([
   "protocol_version",
@@ -39,48 +45,68 @@ const FIXED_KEYS = new Set([
   "rpiv.prompt",
   "execution.max_concurrent_runs",
 ]);
+const ENVIRONMENT_PREFIX = "copilot.environment.";
+const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+interface ParsedScalar {
+  readonly raw: string;
+  readonly value: string;
+  readonly quoted: boolean;
+}
 
 export function parseConfiguration(text: string | null): RunConfiguration {
   if (text === null || text.trim() === "") return DEFAULT_CONFIGURATION;
-  const values = new Map<string, string>();
+  const values = new Map<string, ParsedScalar>();
   const mappings = new Set<string>();
+  const seen = new Set<string>();
   const levels: string[] = [];
   for (const rawLine of text.split(/\r?\n/)) {
     const uncommented = stripComment(rawLine);
     if (uncommented.trim() === "") continue;
-    const match = /^(\s*)([a-zA-Z_][\w-]*):(?:\s*(.*))?$/.exec(uncommented);
+    if (/^\s*/.exec(uncommented)?.[0].includes("\t"))
+      throw invalidConfiguration(
+        ".soft-factory/config.yml",
+        "indentation must use two-space levels",
+      );
+    const match = /^(\s*)([^:\s][^:]*?):(?:\s*(.*))?$/.exec(uncommented);
     if (match === null)
-      throw new RunnerError(
-        "CONFIG_INVALID",
-        "Unsupported configuration line: " + rawLine,
-        "Use simple YAML mappings documented in docs/phase-1-issue-run.md.",
+      throw invalidConfiguration(
+        ".soft-factory/config.yml",
+        "line has malformed mapping syntax",
       );
     const indent = match[1].length;
     if (indent % 2 !== 0)
-      throw new RunnerError(
-        "CONFIG_INVALID",
-        "Configuration indentation must use two-space levels.",
-        "Indent nested .soft-factory/config.yml keys with two spaces.",
+      throw invalidConfiguration(
+        ".soft-factory/config.yml",
+        "indentation must use two-space levels",
       );
     const depth = indent / 2;
+    if (depth > levels.length)
+      throw invalidConfiguration(
+        ".soft-factory/config.yml",
+        "indentation skips a mapping level",
+      );
     levels.splice(depth);
-    const key = match[2];
+    const key = match[2].trim();
+    const field = [...levels, key].join(".");
+    if (seen.has(field))
+      throw invalidConfiguration(field, "field is duplicated");
+    seen.add(field);
     const rawValue = (match[3] ?? "").trim();
+    if (key === "<<")
+      throw invalidConfiguration(field, "YAML merge keys are not supported");
+    if (rawValue.startsWith("&"))
+      throw invalidConfiguration(field, "YAML anchors are not supported");
+    if (rawValue.startsWith("*"))
+      throw invalidConfiguration(field, "YAML aliases are not supported");
     if (rawValue === "") {
-      const fullKey = [...levels.slice(0, depth), key].join(".");
-      mappings.add(fullKey);
+      mappings.add(field);
       levels[depth] = key;
       continue;
     }
-    const fullKey = [...levels.slice(0, depth), key].join(".");
-    if (values.has(fullKey))
-      throw new RunnerError(
-        "CONFIG_INVALID",
-        "Duplicate configuration key: " + fullKey,
-        "Keep exactly one value for each configuration key.",
-      );
-    values.set(fullKey, unquote(rawValue));
+    values.set(field, parseScalar(rawValue, field));
   }
+
   validateKnownKeys(values, mappings);
   const protocolValue = optional(values, "protocol_version");
   const protocolVersion =
@@ -100,10 +126,9 @@ export function parseConfiguration(text: string | null): RunConfiguration {
     "repository.state_root",
   );
   if (pathsOverlap(worktreeRoot, stateRoot))
-    throw new RunnerError(
-      "CONFIG_INVALID",
-      "repository.worktree_root and repository.state_root must not overlap.",
-      "Configure distinct repository-relative roots.",
+    throw invalidConfiguration(
+      "repository.worktree_root,repository.state_root",
+      "configured repository roots must not overlap",
     );
   const promptTemplate =
     optional(values, "rpiv.prompt") ?? DEFAULT_CONFIGURATION.promptTemplate;
@@ -115,85 +140,170 @@ export function parseConfiguration(text: string | null): RunConfiguration {
   const labelTypes: Record<string, string> = {
     ...DEFAULT_CONFIGURATION.labelTypes,
   };
-  for (const [key, value] of values) {
-    if (!key.startsWith("branch_types.")) continue;
-    const label = key.slice("branch_types.".length).toLowerCase();
-    if (label === "" || !allowedTypes.has(value))
-      throw new RunnerError(
-        "CONFIG_INVALID",
-        "Invalid branch type mapping " + key + ": " + value,
-        "Map a nonempty issue label to an allowed Conventional Commit type.",
-      );
-    labelTypes[label] = value;
+  const copilotEnvironment: Record<string, string> = {};
+  for (const [key, scalar] of values) {
+    if (key.startsWith("branch_types.")) {
+      const label = key.slice("branch_types.".length).toLowerCase();
+      if (label === "" || !allowedTypes.has(scalar.value))
+        throw invalidConfiguration(
+          key,
+          "branch type must be an allowed Conventional Commit type",
+        );
+      labelTypes[label] = scalar.value;
+    }
+    if (key.startsWith(ENVIRONMENT_PREFIX)) {
+      const name = key.slice(ENVIRONMENT_PREFIX.length);
+      if (!ENVIRONMENT_NAME.test(name))
+        throw invalidConfiguration(key, "environment name has invalid syntax");
+      if (!isStringScalar(scalar))
+        throw invalidConfiguration(
+          key,
+          "environment value must be a string scalar",
+        );
+      copilotEnvironment[name] = scalar.value;
+    }
   }
-  return {
+  return Object.freeze({
     protocolVersion,
     remote,
     baseBranch,
     worktreeRoot,
     stateRoot,
-    labelTypes,
+    labelTypes: Object.freeze(labelTypes),
     promptTemplate,
     maxConcurrentRuns,
-  };
+    copilotEnvironment: Object.freeze(copilotEnvironment),
+  });
 }
+
 function validateKnownKeys(
-  values: ReadonlyMap<string, string>,
+  values: ReadonlyMap<string, ParsedScalar>,
   mappings: ReadonlySet<string>,
 ): void {
   for (const key of mappings) {
     if (MAPPING_KEYS.has(key)) continue;
+    if (key.startsWith(ENVIRONMENT_PREFIX))
+      throw invalidConfiguration(
+        key,
+        "environment value must be a string scalar",
+      );
     throw unknownConfigurationKey(key);
   }
   for (const key of values.keys()) {
-    if (FIXED_KEYS.has(key) || key.startsWith("branch_types.")) continue;
+    if (
+      FIXED_KEYS.has(key) ||
+      key.startsWith("branch_types.") ||
+      key.startsWith(ENVIRONMENT_PREFIX)
+    )
+      continue;
     throw unknownConfigurationKey(key);
   }
 }
+
 function unknownConfigurationKey(key: string): RunnerError {
+  return invalidConfiguration(key, "field is not supported");
+}
+
+function invalidConfiguration(field: string, reason: string): RunnerError {
   return new RunnerError(
     "CONFIG_INVALID",
-    "Unknown configuration key: " + key,
-    "Remove unsupported keys from .soft-factory/config.yml.",
+    "Invalid configuration field " + field + ": " + reason + ".",
+    "Correct the named field using the documented .soft-factory/config.yml schema.",
+    { details: { field, reason } },
   );
 }
+
 function stripComment(line: string): string {
-  let quoted = false;
+  let doubleQuoted = false;
+  let singleQuoted = false;
   for (let index = 0; index < line.length; index += 1) {
-    if (line[index] === '"' && line[index - 1] !== "\\") quoted = !quoted;
+    const current = line[index];
+    if (current === '"' && !singleQuoted && line[index - 1] !== "\\")
+      doubleQuoted = !doubleQuoted;
+    if (current === "\u0027" && !doubleQuoted) {
+      if (singleQuoted && line[index + 1] === "\u0027") {
+        index += 1;
+        continue;
+      }
+      singleQuoted = !singleQuoted;
+    }
     if (
-      !quoted &&
-      line[index] === "#" &&
+      !doubleQuoted &&
+      !singleQuoted &&
+      current === "#" &&
       (index === 0 || /\s/.test(line[index - 1]))
     )
       return line.slice(0, index).trimEnd();
   }
   return line;
 }
+
+function parseScalar(raw: string, field: string): ParsedScalar {
+  if (raw.startsWith("[") || raw.startsWith("{"))
+    throw invalidConfiguration(
+      field,
+      "nested or flow values are not supported",
+    );
+  if (raw === "|" || raw === ">" || raw.startsWith("!"))
+    throw invalidConfiguration(
+      field,
+      "non-scalar YAML values are not supported",
+    );
+  if (raw.startsWith('"')) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== "string") throw new Error("not string");
+      return { raw, value: parsed, quoted: true };
+    } catch {
+      throw invalidConfiguration(field, "quoted string syntax is malformed");
+    }
+  }
+  if (raw.startsWith("\u0027")) {
+    if (!raw.endsWith("\u0027") || raw.length < 2)
+      throw invalidConfiguration(field, "quoted string syntax is malformed");
+    return {
+      raw,
+      value: raw.slice(1, -1).replaceAll("\u0027\u0027", "\u0027"),
+      quoted: true,
+    };
+  }
+  if (raw.includes("\t"))
+    throw invalidConfiguration(field, "scalar contains unsupported tab syntax");
+  return { raw, value: raw, quoted: false };
+}
+
+function isStringScalar(scalar: ParsedScalar): boolean {
+  if (scalar.quoted) return true;
+  const value = scalar.raw;
+  if (/^(?:null|~|true|false|yes|no|on|off)$/i.test(value)) return false;
+  if (/^[-+]?(?:\d[\d_]*)(?:\.\d[\d_]*)?(?:e[-+]?\d+)?$/i.test(value))
+    return false;
+  if (/^[-+]?(?:\.inf|\.nan)$/i.test(value)) return false;
+  if (/^\d{4}-\d{2}-\d{2}(?:[Tt]|\s)/.test(value)) return false;
+  return true;
+}
+
 function optional(
-  values: ReadonlyMap<string, string>,
+  values: ReadonlyMap<string, ParsedScalar>,
   key: string,
 ): string | null {
-  const value = values.get(key);
+  const value = values.get(key)?.value;
   return value === undefined || value === "" ? null : value;
 }
-function unquote(value: string): string {
-  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"'))
-    return value.slice(1, -1);
-  return value;
-}
+
 export function renderPrompt(template: string, issueNumber: number): string {
   return template.replaceAll("{issue}", String(issueNumber));
 }
+
 function parsePositiveInteger(value: string, key: string): number {
   if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)))
-    throw new RunnerError(
-      "CONFIG_INVALID",
-      key + " must be a strict positive safe integer: " + value,
-      "Set " + key + " to a positive safe integer.",
+    throw invalidConfiguration(
+      key,
+      "value must be a strict positive safe integer",
     );
   return Number(value);
 }
+
 function parseRepositoryPath(value: string, key: string): string {
   if (
     value === "" ||
@@ -201,21 +311,19 @@ function parseRepositoryPath(value: string, key: string): string {
     value.startsWith("\\\\") ||
     /^[a-zA-Z]:[\\/]/.test(value)
   )
-    throw invalidPath(key, value);
+    throw invalidConfiguration(
+      key,
+      "path must be normalized and repository-relative",
+    );
   const parts = value.replaceAll("\\", "/").split("/");
   if (parts.some((part) => part === "" || part === "." || part === ".."))
-    throw invalidPath(key, value);
+    throw invalidConfiguration(
+      key,
+      "path must be normalized and repository-relative",
+    );
   return parts.join("/");
 }
-function invalidPath(key: string, value: string): RunnerError {
-  return new RunnerError(
-    "CONFIG_INVALID",
-    key + " must be a normalized repository-relative path: " + value,
-    "Set " +
-      key +
-      " to a contained path without traversal or absolute prefixes.",
-  );
-}
+
 function pathsOverlap(left: string, right: string): boolean {
   return (
     left === right ||

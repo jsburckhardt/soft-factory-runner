@@ -10,6 +10,10 @@ Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolate
 - [Issue run and completion proof](phase-1-issue-run.md) — readiness, configuration, fetched-base proof, ownership, visible RPIV launch, `AgentResultV1`, authoritative remote proof, and terminal-state semantics.
 - [Phase 3 recovery and concurrency operations](phase-3-recovery-operations.md) — complete CLI reference, JSON/exit behavior, concurrency configuration, reconciliation, resume, bounded stop, retained logs, guarded cleanup, schema migration, troubleshooting, and local deployment limitations.
 
+## Copilot child configuration
+
+The issue-run, recovery, and Doctor guides share one `copilot.environment` contract: strict string values and environment-name grammar, explicit empty strings, literal shell-free transport, inherited/configured/Runner-owned precedence, Copilot-only scope, fresh per-launch reads, value-free failures, and non-persistence. The mapping is additive and requires no data, API, persisted-schema, or deployment migration when absent.
+
 Use only root `justfile` recipes for local operation and project validation:
 
 ```text

@@ -969,7 +969,7 @@ class LiveProcessPort implements ProcessPort {
         shell: false,
         detached: true,
         stdio: "inherit",
-        env: { ...allowedEnvironment(), ...input.environment },
+        env: copilotChildEnvironment(input.environment),
       });
       const completion = new Promise<{ readonly exitCode: number }>(
         (complete) =>
@@ -1275,7 +1275,16 @@ function sameProcessIdentity(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function allowedEnvironment(): NodeJS.ProcessEnv {
+export function copilotChildEnvironment(
+  explicit: Readonly<Record<string, string>>,
+  inherited: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  return Object.freeze({ ...allowedEnvironment(inherited), ...explicit });
+}
+
+function allowedEnvironment(
+  source: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
   const keys = [
     "PATH",
     "HOME",
@@ -1291,7 +1300,7 @@ function allowedEnvironment(): NodeJS.ProcessEnv {
   ];
   return Object.fromEntries(
     keys.flatMap((key) =>
-      process.env[key] === undefined ? [] : [[key, process.env[key]]],
+      source[key] === undefined ? [] : [[key, source[key]]],
     ),
   );
 }

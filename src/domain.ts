@@ -381,6 +381,7 @@ export interface RunConfiguration {
   readonly labelTypes: Readonly<Record<string, string>>;
   readonly promptTemplate: string;
   readonly maxConcurrentRuns: number;
+  readonly copilotEnvironment: Readonly<Record<string, string>>;
 }
 
 export interface PreparedIssue {

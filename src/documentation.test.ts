@@ -228,7 +228,7 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
       "worktree_root: .trees",
       "state_root: .soft-factory",
       "unknown empty mapping keys are rejected",
-      "Known empty `repository`, `rpiv`, `execution`, and `branch_types`",
+      "Known empty `repository`, `rpiv`, `execution`, `branch_types`, `copilot`, and `copilot.environment`",
       "configuration compatibility migration",
       "repository-relative",
       "non-overlapping",
@@ -283,6 +283,81 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("soft-factory doctor [--json]");
     expect(help.stdout).toContain("repository readiness only");
+  });
+});
+
+describe("V-9 Copilot child environment documentation", () => {
+  const guides = [readme, issueRun, operations, doctorGuide];
+
+  it("documents the mapping, example, grammar, explicit empty strings, and defaults", () => {
+    for (const guide of guides) {
+      expect(guide).toContain("copilot.environment");
+      expect(guide).toContain("[A-Za-z_][A-Za-z0-9_]*");
+      expect(guide).toContain("string scalar");
+      expect(guide).toContain("explicit empty");
+      expect(guide).toContain("absent");
+      expect(guide).toContain("empty environment mapping");
+    }
+    for (const guide of [readme, issueRun, operations, doctorGuide]) {
+      expect(guide).toContain("COPILOT_OTEL_ENABLED");
+      expect(guide).toContain("OPTIONAL_EMPTY");
+    }
+    expect(docsIndex).toContain("Copilot child configuration");
+    expect(docsIndex).toContain("copilot.environment");
+  });
+
+  it("documents literal transport and both precedence rules consistently", () => {
+    for (const guide of guides) {
+      expect(guide).toContain("shell: false");
+      expect(guide).toContain("literal");
+      expect(guide).toContain("OTEL_RESOURCE_ATTRIBUTES");
+      expect(guide).toContain("inherited");
+      expect(guide).toContain("configured");
+      expect(guide).toContain("Runner-owned");
+    }
+    expect(issueRun).toContain("command substitution");
+    expect(operations).toContain("$VAR");
+    expect(operations).toContain("backticks");
+    expect(readme).toContain("variable expansion");
+  });
+
+  it("documents invalid classes, value-free errors, fresh correction, and confidentiality", () => {
+    for (const guide of guides) {
+      for (const invalidClass of [
+        "Duplicate",
+        "invalid names",
+        "non-string",
+        "nested",
+        "aliases",
+        "anchors",
+        "merge keys",
+        "unsupported keys",
+        "malformed",
+      ])
+        expect(guide.toLowerCase()).toContain(invalidClass.toLowerCase());
+      expect(guide).toContain("field");
+      expect(guide).toContain("reason");
+      expect(guide).toContain("no value");
+      expect(guide).toContain("fresh");
+      expect(guide).toContain("snapshots");
+      expect(guide).toContain("events");
+    }
+    expect(readme).toContain("applies only to Copilot");
+    expect(issueRun).toContain("do not alter Git");
+    expect(operations).toContain("Concurrent issue launches");
+    expect(doctorGuide).toContain("never launches Copilot");
+  });
+
+  it("documents additive migration and unchanged API, deployment, schemas, and arguments", () => {
+    for (const guide of guides) {
+      expect(guide).toContain("additive");
+      expect(guide).toContain("no migration");
+      expect(guide).toContain("API");
+      expect(guide).toContain("deployment");
+    }
+    expect(readme).toContain("Copilot argument order");
+    expect(issueRun).toContain("argument order remain");
+    expect(docsIndex).toContain("persisted-schema");
   });
 });
 

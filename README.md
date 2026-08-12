@@ -86,6 +86,29 @@ execution:
   max_concurrent_runs: 2
 ```
 
+## Copilot child environment configuration
+
+Configure literal variables for Runner-launched Copilot children under the single `copilot.environment` mapping:
+
+```yaml
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    COPILOT_OTEL_EXPORTER_TYPE: "otlp"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.example.invalid"
+    OTEL_SERVICE_NAME: "soft-factory-rpiv"
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+    OPTIONAL_EMPTY: ""
+```
+
+Names must match `[A-Za-z_][A-Za-z0-9_]*`. Values must be string scalars; quote YAML booleans, numbers, and null-like text, and use `""` for an explicit empty string. Values are passed literally with `shell: false`: Runner performs no shell evaluation, command substitution, or variable expansion.
+
+Each new or resumed Copilot launch reads the current file and creates a fresh immutable environment snapshot. The merge order is the existing allowlisted inherited environment, then `copilot.environment`, then Runner-owned `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project-name>,issue.id=issue-<number>`. Configured entries override inherited names, but cannot override Runner-owned resource attributes. An absent `copilot` mapping, absent `environment`, or empty environment mapping adds nothing and preserves prior behavior.
+
+The mapping applies only to Copilot. It never changes Runner, Git, `gh`, tmux, worker, Doctor, or generic subprocess environments. Duplicate or invalid names, non-string or nested values, aliases, anchors, merge keys, unsupported keys, and malformed syntax fail before launch. Diagnostics identify only the field and reason, with no value included. A rejected launch leaves no cached environment; correct the file and explicitly retry to use the new configuration. Runner never writes configured names or values to snapshots, events, launch intents, retained logs, or human/JSON output. External Copilot output remains outside this Runner confidentiality boundary.
+
+This option is additive. Existing files need no migration when no Copilot overrides are wanted. Persisted schemas, Copilot argument order, network APIs, deployment, and runtime state have no migration impact.
+
 The canonical `.github/agents/rpiv.agent.md` must declare `runner_protocol: 1` and `result_contract: agent-result-v1`. See [`docs/phase-4-repository-doctor.md`](docs/phase-4-repository-doctor.md) for all check IDs, schema, fixtures, timing, path safety, operations, and troubleshooting.
 
 Every product run names one explicit positive issue number. Runner never queries for, queues, ranks, or selects a next issue. `run` creates new state only; existing state returns `RUN_EXISTS` and must be inspected with reconciliation or control commands. Human and JSON output derive from the same state, outcome code, reconciliation observation states/codes/facts, safe actions, control facts, and remediation; human control output includes the same shared report carried by JSON.
