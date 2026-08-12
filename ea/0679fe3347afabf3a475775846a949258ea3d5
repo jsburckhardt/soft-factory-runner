@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-11/026-issue-5-rpiv-verifier.md
+  s_f503e9670297e0::t_80591d7ba9b250 7-8,10-13,17-23,25-109,112,114
+  s_f503e9670297e0::t_f8cb36fc4113b2 1-6,9,14-16,24,110-111,113
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/verify/summary.md
+  s_f503e9670297e0::t_9df7726b89a2c1 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ea0679fe3347afabf3a475775846a949258ea3d5",
+  "prompts": {},
+  "sessions": {
+    "s_f503e9670297e0": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_6g2TO4rJeXtSTMuiUEdRngdF",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
