@@ -2,7 +2,7 @@
 
 ## Task T-1: Replace the concrete Section 27 launch values
 
-- **Status:** Ready
+- **Status:** Complete
 - **Complexity:** XS
 - **Dependencies:** None
 - **Acceptance Criteria:** AC-1, AC-2, AC-3
@@ -31,7 +31,7 @@ Edit only the fenced launch example in `PRD.md` Section 27. Replace `jsburckhard
 
 ## Task T-2: Validate the documentation-only patch
 
-- **Status:** Blocked until T-1
+- **Status:** Complete
 - **Complexity:** S
 - **Dependencies:** T-1
 - **Acceptance Criteria:** AC-1, AC-2, AC-3
