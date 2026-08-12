@@ -116,3 +116,18 @@ Follow-up task T-6 is complete after recovery of the removed implementation chec
 ## Architecture and plan conformance
 
 Implementation stays within the accepted child-environment ADR and core-component boundaries. Application persistence schemas and Copilot argument order are unchanged. No architecture or plan deviation occurred. Final acceptance remains owned by Verify.
+
+## Restored PR head safe-TMPDIR validation resume
+
+- Restored baseline: branch `copilot-fix`, commit `cdac69f47c23dad4510f656d2d1fb434d089f5c7`, tracking `origin/pr-22`, with a clean tree before validation.
+- Cleanup inspection confirmed `src/integration.test.ts` creates disposable Git fixtures under `os.tmpdir()` and recursively removes only each fixture parent. The default macOS `TMPDIR` is the `/var/folders/...` alias while this checkout resolves under `/private/var/folders/...`; `/private/tmp` resolves canonically to itself and is outside the checkout.
+- Canonical safe invocation: `TMPDIR=/private/tmp just verify-focused` and `TMPDIR=/private/tmp just verify`. No root recipe or product behavior changed.
+- Targeted cleanup proof: `TMPDIR=/private/tmp just verify-focused src/integration.test.ts -t "observes staged, unstaged, and untracked dirtiness and refuses forced worktree removal"` passed 1 selected test with 20 skipped. The checkout and restored HEAD remained present afterward.
+- V-11 command proof: `TMPDIR=/private/tmp just verify-focused src/documentation.test.ts -t invocations` passed the exact generic/concrete PRD regression. The generic line remained present exactly once after full validation.
+- Focused proof: direct `TMPDIR=/private/tmp just verify-focused` passed 19 suites and 248 tests; `TMPDIR=/private/tmp harness checks --focused --json` returned `status: ok`, scope `focused`, delegated command `just verify-focused`, and exit code 0.
+- Full proof: direct `TMPDIR=/private/tmp just verify` passed lint, formatting, typecheck, 19 suites/248 tests, coverage, build, and diff check. Coverage remained statements 87.67%, branches 82.32%, functions 93.99%, and lines 89.44%. `TMPDIR=/private/tmp harness checks --json` returned `status: ok`, scope `full`, delegated command `just verify`, and exit code 0.
+- Checkout persistence proof succeeded after the targeted cleanup test, complete focused gate, direct full gate, and harness full gate; each check found `.git` and the exact restored HEAD. The generic invocation also remained exactly once after the direct full gate.
+- Hidden setup/backtracking: the restored checkout had no dependencies. Ambient npm 11 `just setup` produced an unusable Jest tree, so `package-lock.json` was restored and the committed dependencies were reinstalled with npm 10.9.2 before successful validation. No tracked dependency file changed.
+- Documentation impact: this resume changes implementation evidence and the generated RPIV retro only. README, API, configuration, usage, migration, architecture, operations, and deployment contracts remain unchanged because no application behavior or public contract changed.
+- New friction record: `.harness/records/retro/2026-08-12/019-issue-17-rpiv-implementer-safe-tmpdir-resume.md`; all four observations were read back under schema 1.2 and cleared only after persistence.
+- AC evidence impact: AC-5 and AC-13 receive refreshed PRD regression and safe validation evidence. Existing AC-1 through AC-12 implementation evidence remains unchanged. Final acceptance remains owned by Verify.
