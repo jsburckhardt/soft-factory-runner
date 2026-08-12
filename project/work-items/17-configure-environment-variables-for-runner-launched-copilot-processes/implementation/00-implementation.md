@@ -113,6 +113,16 @@ Follow-up task T-6 is complete after recovery of the removed implementation chec
 - Implementer observations, including the signal-11 full-gate retry, were persisted with schema 1.2 and matching plan/agent identity in `.harness/records/retro/2026-08-12/015-issue-17-rpiv-implementer-validation-return.md`.
 - Retro read-back preserved every pending observation ID/fingerprint with `disposition: kept`; buffers were cleared only after persistence.
 
+## Rebuilt Implement handoff evidence
+
+- The restored branch started at `cdac69f47c23dad4510f656d2d1fb434d089f5c7`; inspection confirmed T-1 through T-6 remain complete and the prior AC-1 through AC-13 evidence above remains applicable.
+- AC-5 / V-11: `PRD.md` still contains exactly one line equal to `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`, and `src/documentation.test.ts` retains the singular-line assertion plus the concrete Runner-command assertion. No PRD, application, API, configuration, usage, migration, architecture, operations, or deployment documentation change was needed for this evidence-only rebuild.
+- AC-13 / V-10 and V-11: canonical-temp `harness checks --focused --json` returned `status: ok`, scope `focused`, delegated command `just verify-focused`, and exit 0; direct `just verify-focused` then passed 19 suites and 248 tests with `git diff --check`.
+- AC-13 / V-10 and V-11: canonical-temp `harness checks --json` returned `status: ok`, scope `full`, delegated command `just verify`, and exit 0; direct `just verify` passed lint, formatting, typecheck, 19 suites/248 tests, coverage, build, and `git diff --check`. Coverage remained statements 87.67%, branches 82.32%, functions 93.99%, and lines 89.44%.
+- Boot orientation initially exposed missing checkout dependencies and then an npm 11 root-resolution gap for `jest-util`; both were handled as local setup without tracked product changes. The application stage subsequently produced the exact bootstrap signal, while final focused/full harness envelopes and direct root gates supplied the handoff validation evidence.
+- Five rebuilt-handoff observations were persisted with schema 1.2, matching plan/agent identity, fingerprints, and `disposition: kept` in `.harness/records/retro/2026-08-12/019-issue-17-rpiv-implementer-rebuilt-handoff.md`; read-back completed before a successful JSON clear reporting `cleared: 5`. Coordinator, Research, and Plan buffers were empty.
+- This rebuilt handoff refreshes evidence and friction records only. It does not change Issue #17 runtime behavior or claim final acceptance.
+
 ## Architecture and plan conformance
 
 Implementation stays within the accepted child-environment ADR and core-component boundaries. Application persistence schemas and Copilot argument order are unchanged. No architecture or plan deviation occurred. Final acceptance remains owned by Verify.
