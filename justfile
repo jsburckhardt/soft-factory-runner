@@ -1,7 +1,10 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
+default:
+    @just --list
+
 setup:
-    npm install
+    npm ci --include=dev
 
 run *args:
     npm run dev -- {{args}}
