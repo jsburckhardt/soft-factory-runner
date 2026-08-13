@@ -42,9 +42,9 @@ Application documentation passed independent review. README, CONTRIBUTING, docs 
 
 ## Verifier friction and harvest
 
-- Generated verifier retros: `.harness/records/retro/2026-08-13/005-issue-25-rpiv-verifier.md` , `.harness/records/retro/2026-08-13/006-issue-25-rpiv-verifier-postcommit.md`, and `.harness/records/retro/2026-08-13/007-issue-25-rpiv-verifier-publication.md`
-- Publication binding discovery: Runner status returned `STATE_NOT_FOUND`; the no-clobber helper attempt remains required after final metadata and CI.
+- Generated verifier retros: `.harness/records/retro/2026-08-13/005-issue-25-rpiv-verifier.md` , `.harness/records/retro/2026-08-13/006-issue-25-rpiv-verifier-postcommit.md`, , `.harness/records/retro/2026-08-13/007-issue-25-rpiv-verifier-publication.md`, and `.harness/records/retro/2026-08-13/008-issue-25-rpiv-verifier-result-publication.md`
+- Publication binding discovery: Runner status and the strict no-clobber publication attempt returned `STATE_NOT_FOUND` because no coordinator-bound Runner snapshot exists in this checkout; no immutable result was created or replaced.
 - Verifier commit attribution: commit `8403183c061ea988de19a5e941971cfc83c75832` succeeded in degraded harness-buffered mode; trace2 attribution remains deferred in the harness-named buffer.
 - Read-back-before-clear: passed for the two initial entries and the post-commit entry; both clear envelopes returned status `ok` (2 then 1 cleared).
 - Harvest command: `harness retro insights --plan 25-make-clean-installs-and-delivery-verification-reproducible --json`
-- Harvest: status `ok`, schema `harness.retro-insights/v1`, 6 records, 24 entries, agents rpiv-research/rpiv-planner/rpiv-implementer/rpiv-verifier, 0 malformed, 0 unsupported, 0 pending buffer entries.
+- Harvest: status `ok`, schema `harness.retro-insights/v1`, 7 records, 25 entries, agents rpiv-research/rpiv-planner/rpiv-implementer/rpiv-verifier, 0 malformed, 0 unsupported, 0 pending buffer entries.
