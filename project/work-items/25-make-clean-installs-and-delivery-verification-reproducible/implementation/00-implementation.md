@@ -89,4 +89,4 @@ No application-documentation change was required. Existing `README.md`, `CONTRIB
 - `.harness/records/retro/2026-08-13/003-issue-25-rpiv-research.md`
 - `.harness/records/retro/2026-08-13/004-issue-25-rpiv-implementer.md`
 
-All four records were read back before their successful JSON-envelope clears. Final acceptance and hosted CI evidence remain owned by Verify.
+All four records were read back before their successful JSON-envelope clears. The initial implementation commit then completed in degraded buffered-attribution mode with commit SHA `3b9a2061352b51e8d2411962d301f3daa2ce8bba`; that post-commit observation was appended to the Implement retro, read back, and cleared before a follow-up evidence commit. Final acceptance and hosted CI evidence remain owned by Verify.

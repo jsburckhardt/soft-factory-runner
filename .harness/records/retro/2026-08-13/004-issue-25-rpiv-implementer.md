@@ -9,8 +9,8 @@ plan_id: 25-make-clean-installs-and-delivery-verification-reproducible
 schema_version: '1.2'
 retro_id: '2026-08-13T03:32:45Z-rpiv-implementer-423f33ed500e'
 started_at: '2026-08-13T02:47:00.790Z'
-ended_at: '2026-08-13T03:32:45.000Z'
-summary: Implementation review validated the existing dirty tree; isolated runtime proof required host and container setup and cleanup retries.
+ended_at: '2026-08-13T03:36:50.000Z'
+summary: Implementation review validated the existing dirty tree; isolated runtime proof and commit attribution required recorded retries.
 entries:
   - id: DL-001
     kind: difficulty
@@ -153,6 +153,19 @@ entries:
         status: open
         source: agent-self
         first_seen_at: '2026-08-13T03:32:31.816Z'
+  - id: POST-001
+    kind: difficulty
+    description: harness commit completed in degraded buffered-attribution mode because no git trace2 collector target was configured; the implementation commit succeeded and named the deferred buffer.
+    target: tooling
+    severity: degrading
+    workaround: Retained the successful commit SHA and named deferred trace2 buffer for unsandboxed telemetry recovery.
+    fp: c3f30d447884
+    disposition: kept
+    system:
+      compound:
+        status: open
+        source: agent-self
+        first_seen_at: '2026-08-13T03:36:36.140Z'
 ---
 
 # Retro — issue 25 Implement
