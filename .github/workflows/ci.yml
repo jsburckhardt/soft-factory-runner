@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 22.x
+          - 24.x
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+        with:
+          just-version: 1.42.4
+
+      - name: Install dependencies
+        run: just setup
+
+      - name: Run full verification
+        run: just verify
+
+      - name: Check committed whitespace
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            git diff --check "$BASE_SHA...$HEAD_SHA"
+          elif [[ -n "$BEFORE_SHA" && ! "$BEFORE_SHA" =~ ^0+$ ]]; then
+            git diff --check "$BEFORE_SHA..$HEAD_SHA"
+          else
+            git diff --check "$HEAD_SHA^..$HEAD_SHA"
+          fi
+
+      - name: Confirm clean working tree
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git status --short
+            exit 1
+          fi
+
+  package:
+    name: Package smoke test
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+        with:
+          just-version: 1.42.4
+
+      - name: Install dependencies and build
+        run: |
+          just setup
+          just build
+
+      - name: Create and inspect package
+        run: |
+          npm pack --json --pack-destination "$RUNNER_TEMP" > "$RUNNER_TEMP/npm-pack.json"
+          node - "$RUNNER_TEMP/npm-pack.json" <<'NODE'
+          const fs = require("node:fs");
+
+          const [pack] = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const allowedRoots = ["assets/official/", "dist/", "docs/"];
+          const allowedFiles = new Set(["README.md", "package.json"]);
+          const unexpected = pack.files
+            .map(({ path }) => path)
+            .filter(
+              (path) =>
+                !allowedFiles.has(path) &&
+                !allowedRoots.some((root) => path.startsWith(root)),
+            );
+
+          if (unexpected.length > 0) {
+            throw new Error(`Unexpected packaged files: ${unexpected.join(", ")}`);
+          }
+          if (!pack.files.some(({ path }) => path === "dist/index.js")) {
+            throw new Error("Package does not contain dist/index.js");
+          }
+          NODE
+
+      - name: Install and run packaged CLI
+        run: |
+          tarball="$(
+            node -e '
+              const fs = require("node:fs");
+              const [pack] = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              process.stdout.write(pack.filename);
+            ' "$RUNNER_TEMP/npm-pack.json"
+          )"
+          npm install \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            --omit=dev \
+            --prefix "$RUNNER_TEMP/package-smoke" \
+            "$RUNNER_TEMP/$tarball"
+
+          expected="Soft Factory Runner is bootstrapped. Product commands will be delivered through RPIV."
+          actual="$("$RUNNER_TEMP/package-smoke/node_modules/.bin/soft-factory")"
+          [[ "$actual" == "$expected" ]]
