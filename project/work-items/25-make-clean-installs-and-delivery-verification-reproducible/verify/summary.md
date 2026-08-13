@@ -42,7 +42,8 @@ Application documentation passed independent review. README, CONTRIBUTING, docs 
 
 ## Verifier friction and harvest
 
-- Generated verifier retro: `.harness/records/retro/2026-08-13/005-issue-25-rpiv-verifier.md`
-- Read-back-before-clear: passed for DL-001 and DL-002; clear envelope status `ok`, cleared 2.
+- Generated verifier retros: `.harness/records/retro/2026-08-13/005-issue-25-rpiv-verifier.md` and `.harness/records/retro/2026-08-13/006-issue-25-rpiv-verifier-postcommit.md`
+- Verifier commit attribution: commit `8403183c061ea988de19a5e941971cfc83c75832` succeeded in degraded harness-buffered mode; trace2 attribution remains deferred in the harness-named buffer.
+- Read-back-before-clear: passed for the two initial entries and the post-commit entry; both clear envelopes returned status `ok` (2 then 1 cleared).
 - Harvest command: `harness retro insights --plan 25-make-clean-installs-and-delivery-verification-reproducible --json`
-- Harvest: status `ok`, schema `harness.retro-insights/v1`, 4 records, 21 entries, agents rpiv-research/rpiv-planner/rpiv-implementer/rpiv-verifier, 0 malformed, 0 unsupported, 0 pending buffer entries.
+- Harvest: status `ok`, schema `harness.retro-insights/v1`, 5 records, 22 entries, agents rpiv-research/rpiv-planner/rpiv-implementer/rpiv-verifier, 0 malformed, 0 unsupported, 0 pending buffer entries.
