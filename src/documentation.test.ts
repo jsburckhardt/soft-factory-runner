@@ -498,6 +498,74 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
       expect(assetGuide).toContain(phrase);
   });
 
+  it("locks every current PRD official-agent surface to delivery-only dispatch", () => {
+    const start = prd.indexOf("# 15. Soft Factory Delivery Agent");
+    const end = prd.indexOf("# 18. Repository Doctor", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const currentAgent = prd.slice(start, end);
+
+    for (const phrase of [
+      "exactly one explicitly selected GitHub issue dispatch",
+      "Before any terminal use",
+      "exactly one canonical positive base-10 issue number",
+      "missing, multiple, zero or nonpositive, signed, fractional, leading-zero, unsafe-range, and otherwise invalid",
+      "soft-factory instructions --json",
+      "soft-factory doctor --json",
+      "soft-factory run --issue <number> --json",
+      "only when Doctor explicitly reports ready",
+      "applicable structured instructions, Doctor, or run output unchanged and byte-for-byte",
+      "report dispatch acceptance separately from issue completion",
+      "keep completion `unknown` unless",
+      "does not retry or query status",
+      "not a general Runner operator or lifecycle control plane",
+      "official Delivery Agent is authorized only for the one validated dispatch sequence",
+    ])
+      expect(currentAgent).toContain(phrase);
+
+    const instructions = currentAgent.indexOf(
+      "soft-factory instructions --json",
+    );
+    const doctor = currentAgent.indexOf("soft-factory doctor --json");
+    const run = currentAgent.indexOf(
+      "soft-factory run --issue <number> --json",
+    );
+    expect(instructions).toBeLessThan(doctor);
+    expect(doctor).toBeLessThan(run);
+    expect(currentAgent.match(/soft-factory run --issue/g)).toHaveLength(1);
+
+    for (const command of [
+      "install",
+      "list",
+      "status",
+      "attach",
+      "logs",
+      "reconcile",
+      "resume",
+      "stop",
+      "clean",
+      "internal",
+    ])
+      expect(currentAgent).not.toContain("soft-factory " + command);
+    for (const stale of [
+      "Operator Agent",
+      "The Delivery Agent MAY invoke",
+      "lifecycle, state model, failure modes",
+      "reconcile interrupted runs",
+      "inspect logs",
+      "help the user attach",
+      "Which Runner command should be used?",
+      "both humans and agents can operate",
+    ])
+      expect(prd).not.toContain(stale);
+    expect(prd).toContain(
+      "The official Delivery Agent may perform only one validated issue dispatch",
+    );
+    expect(prd).toContain(
+      "The complete Runner CLI remains available to humans",
+    );
+  });
+
   it("documents complete migration, refusal, sibling, idempotency, and rollback behavior", () => {
     for (const phrase of [
       ".agents/agents/soft-factory.agent.md",

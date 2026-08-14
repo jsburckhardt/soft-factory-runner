@@ -38,7 +38,7 @@
 | AC-14 | `fixtures/install/issue-27-scenarios.json` uniquely declares stable V3-V9 and V11 scenarios. The executable V5 case `executes declared unrelated-content-preservation across both managed roots` binds the declared scenario and independently proves byte, inode, and exact path preservation for files under `.github/agents`, `.agents/agents`, and `.agents/skills` during successful convergence. |
 | AC-15 | V8 derives the fault count from each successful concrete transaction trace and faults every before/after boundary. A dedicated case covers the post-current-write and pre-old-retirement window. V9 covers uncertain rollback for every required plan shape. |
 | AC-16 | V1 package inspection finds exactly the delivery-agent source and no assessor, skill, or reference source. V2 checks the actual trusted agent, and V11 repeats the static contract against packed bytes. |
-| AC-17 | `README.md`, `docs/README.md`, `docs/phase-5-official-assets.md`, `PRD.md`, and live CLI help describe the one-agent package and safety contract. The Phase 5 migration table now states that Runner installs trusted current packaged bytes at the current destination and independently retires the digest-proved old file; V10 requires that wording and rejects the former move claim. |
+| AC-17 | Current PRD delivery-agent surfaces now authorize exactly one validated issue dispatch: strict input rejection before tools, instructions before Doctor, ready-only direct run, unchanged applicable Runner output, separate dispatch/completion facts, and no lifecycle commands. V10 slices PRD §§15–17, asserts the command order and required clauses, rejects every lifecycle command form in that surface, and rejects stale Operator/lifecycle authorization phrases across the PRD. |
 
 ## Validation evidence
 
@@ -135,5 +135,36 @@ Friction drain:
 - `.harness/records/retro/2026-08-14/007-issue-27-rpiv-implementer-correction-evidence.md` records the later evidence-authoring retry; it was independently read back with the same schema/identity/entry checks before a second successful `cleared: 1` envelope.
 
 Changed correction files are limited to `src/asset-installation.test.ts`, `src/documentation.test.ts`, `docs/phase-5-official-assets.md`, T5/T6/T7 evidence in `plan/02-task-breakdown.md`, this implementation evidence, and generated retro records.
+
+
+## Second Verification Return Correction — 2026-08-14
+
+Verify returned the remaining AC-17 defect: PRD §§15–16 still described the official agent as a general lifecycle operator.
+
+Surgical documentation correction:
+
+- Renamed current PRD Operator references to Delivery Agent where they identify the packaged official agent.
+- Replaced PRD §§15–17 with the exact delivery-only contract: exactly one canonical explicit issue, pre-terminal rejection of every invalid input class, direct instructions then Doctor then ready-only run, no retry or status query, unchanged applicable structured output, dispatch acceptance separate from completion, and completion `unknown` unless Runner explicitly reports it.
+- Removed current authorization for install, list, status, attach, logs, reconcile, resume, stop, clean, internal, direct RPIV, and resource manipulation. Runner lifecycle commands remain documented only as capabilities of the human-facing deterministic CLI, not the official agent.
+- Aligned the executive model, product vision, core model, product principles, AC-019, Prototype 5 success criterion, recommended user journey, product boundary, success metric, and final product definition with the same one-dispatch boundary.
+- No runtime source, packaged agent bytes, package metadata, API, configuration, architecture, or deployment behavior changed.
+
+Regression evidence:
+
+- V10 test `locks every current PRD official-agent surface to delivery-only dispatch` extracts PRD §§15–17, requires all delivery-only clauses and command ordering, proves exactly one run command, rejects every lifecycle command form in that surface, and rejects stale authorization phrases globally.
+- Targeted `just verify-focused src/documentation.test.ts`: exit 0; 1 suite and 22 tests.
+- `harness checks --focused --json`: status `ok`; delegated `just verify-focused`; 21 suites and 354 tests.
+- Direct `just verify-focused`: exit 0; 21 suites and 354 tests.
+- Direct `just verify`: exit 0; lint, format, type check, 21 suites and 354 tests, coverage, build, and diff check passed.
+- `harness checks --json`: status `ok`; delegated `just verify`; exit 0; 21 suites and 354 tests.
+- Package dry-run remains 63 entries with exact official inventory `assets/official/soft-factory.agent.md` and excludes both protected files.
+
+Friction drain:
+
+- `.harness/records/retro/2026-08-14/008-issue-27-rpiv-implementer-second-verify-return.md` contains both pending `rpiv-implementer` observations with schema 1.2, matching plan and agent identity, and `disposition: kept`.
+- The record was read back and checked against both pending IDs/descriptions before `harness observe --clear` returned status `ok` with `cleared: 2`.
+- `.harness/records/retro/2026-08-14/009-issue-27-rpiv-implementer-second-return-evidence.md` records the two subsequent evidence read-back observations; it was independently read back against both IDs/descriptions before a second successful `cleared: 2` envelope.
+
+Changed files are limited to `PRD.md`, `src/documentation.test.ts`, T6/T7 evidence in `plan/02-task-breakdown.md`, this implementation evidence, and the generated retro record.
 
 No GitHub acceptance checkbox was changed. Verify independently owns final acceptance.

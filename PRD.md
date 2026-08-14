@@ -43,7 +43,7 @@ Runner itself is **not an AI agent**.
 
 Runner is deterministic application code.
 
-Agents may operate Runner, but agents do not constitute Runner.
+Humans may operate the complete Runner CLI, while the official Delivery Agent may perform only one validated issue dispatch.
 
 The product therefore separates three responsibilities:
 
@@ -55,7 +55,7 @@ Human
   │      ▼
   │   Runner
   │
-  └── Soft Factory Operator Agent
+  └── Soft Factory Delivery Agent
             │
             ▼
           Runner
@@ -86,7 +86,7 @@ Make autonomous issue delivery as simple as:
 Deliver issue 123 using Soft Factory.
 ```
 
-The user's agent should know how to invoke Runner.
+The installed Delivery Agent should know how to dispatch exactly one explicitly selected issue through Runner.
 
 Runner should know how to safely operate the delivery process.
 
@@ -114,8 +114,8 @@ The developer should not need to manually:
                     │
                     ▼
 ┌───────────────────────────────────────┐
-│ Soft Factory Operator Agent           │
-│ Understands how to operate Runner     │
+│ Soft Factory Delivery Agent           │
+│ Dispatches one explicit issue only    │
 └───────────────────┬───────────────────┘
                     │
                     │ CLI
@@ -151,7 +151,7 @@ The developer should not need to manually:
              Pull Request
 ```
 
-The Operator Agent is optional.
+The Delivery Agent is optional.
 
 A human can always directly run:
 
@@ -169,7 +169,7 @@ Runner owns operational control.
 
 RPIV owns software engineering.
 
-The Operator Agent owns natural-language interaction with Runner.
+The Delivery Agent owns only the validated natural-language request for one explicit issue dispatch.
 
 These responsibilities must remain separate.
 
@@ -575,73 +575,54 @@ Package-local bytes MUST match the compiled SHA-256 digest. The exact npm allowl
 
 ---
 
-# 15. Soft Factory Operator Agent
+# 15. Soft Factory Delivery Agent
 
-The official Operator Agent provides a natural-language interface to Runner.
+The sole official agent is an optional natural-language adapter for exactly one explicitly selected GitHub issue dispatch through Runner. Its primary goal is delivery of that one issue; it is not a general Runner operator or lifecycle control plane.
 
-Example:
+Example caller request:
 
 ```text
-User:
-
 Deliver issue 123 using Soft Factory.
 ```
 
-The Operator Agent translates that into:
+Before any terminal use, the Delivery Agent requires exactly one canonical positive base-10 issue number matching `[1-9][0-9]*`. It rejects missing, multiple, zero or nonpositive, signed, fractional, leading-zero, unsafe-range, and otherwise invalid issue input.
 
-```bash
-soft-factory run --issue 123
-```
+For valid input it invokes only these direct JSON commands, in this order:
 
-The agent understands Runner's CLI, lifecycle, state model, failure modes, and recovery model.
+1. `soft-factory instructions --json`
+2. `soft-factory doctor --json`
+3. `soft-factory run --issue <number> --json`, only when Doctor explicitly reports ready
+
+The agent stops after an instructions failure, a non-ready Doctor result, or the single run result. It does not retry or query status.
 
 ---
 
-# 16. Operator Agent Responsibilities
+# 16. Delivery Agent Contract
 
-The Operator Agent MAY invoke:
+The Delivery Agent MUST:
 
-```text
-doctor
-run
-list
-status
-attach
-logs
-reconcile
-resume
-stop
-clean
-```
+* use Runner as the sole operational and completion authority;
+* preserve the applicable structured instructions, Doctor, or run output unchanged and byte-for-byte, without summary or reinterpretation;
+* report dispatch acceptance separately from issue completion;
+* keep completion `unknown` unless the applicable Runner output explicitly reports completion;
+* leave worktrees, locks, state, snapshots, events, logs, tmux windows, processes, cleanup, and completion decisions to Runner.
 
-The Operator Agent MAY:
+The Delivery Agent MUST NOT:
 
-* explain Runner status;
-* diagnose failures;
-* suggest remediation;
-* start explicitly requested issues;
-* reconcile interrupted runs;
-* inspect logs;
-* help the user attach to active execution.
-
-The Operator Agent MUST NOT:
-
+* install assets or invoke any lifecycle, status-follow-up, resource-inspection, control, cleanup, internal, or direct RPIV command;
+* select, rank, queue, infer, or combine issues;
 * implement the issue instead of RPIV;
-* circumvent Runner;
-* create competing worktrees manually;
-* bypass locks;
-* manually write successful run state;
-* declare completion based on model prose;
-* delete worktrees behind Runner;
-* override Runner invariants.
+* create, inspect, alter, or delete Runner-owned worktrees, locks, leases, state, results, logs, tmux resources, or processes;
+* infer completion from dispatch acceptance, prose, terminal output, or process exit;
+* override, weaken, retry, or reinterpret a structured Runner result.
 
-The Runner CLI is authoritative.
+The complete Runner CLI remains available to humans and deterministic Runner workflows, but the official Delivery Agent is authorized only for the one validated dispatch sequence above.
 
 ---
 
 # 17. Delivery Agent Readiness Boundary
 
-The sole official delivery agent invokes `soft-factory doctor --json` after reading Runner instructions and dispatches only when the complete result explicitly reports ready. It does not replace, reinterpret, or weaken Doctor. The removed Assessor is not a current catalog or package asset.
+The Delivery Agent reads `soft-factory instructions --json` before `soft-factory doctor --json` and dispatches only when the complete Doctor result explicitly reports ready. It never independently infers readiness and does not replace, reinterpret, or weaken Doctor. The removed Assessor is not a current catalog or package asset.
 
 ---
 # 18. Repository Doctor
@@ -1785,7 +1766,7 @@ merge or ownership evidence leaves the worktree intact.
 
 ## AC-019
 
-The Operator Agent delegates issue execution to Runner rather than directly performing RPIV implementation.
+The Delivery Agent performs only the validated instructions, Doctor, and ready-only issue dispatch sequence; Runner remains authoritative and RPIV performs implementation.
 
 ---
 
@@ -1969,7 +1950,7 @@ Add `soft-factory install agent soft-factory` and `soft-factory install --recomm
 
 Success criterion:
 
-> A user can install Runner and interact through one delivery agent without memorising lifecycle commands or weakening Runner authority.
+> A user can install Runner and ask one delivery agent to dispatch exactly one explicit issue without weakening Runner authority.
 
 ---
 # 47. Recommended User Journey
@@ -2054,10 +2035,10 @@ Deliver issue 123 using Soft Factory.
 
 ## Step 6
 
-The Operator Agent invokes:
+The Delivery Agent performs its only authorized dispatch:
 
 ```bash
-soft-factory run --issue 123
+soft-factory run --issue 123 --json
 ```
 
 Runner responds:
@@ -2149,14 +2130,14 @@ The following are intentionally deferred:
 
 The central architectural principle of Soft Factory Runner is:
 
-> **Agents may operate Runner. Runner itself remains deterministic.**
+> **Humans may operate the complete Runner CLI. The official Delivery Agent may perform only one validated issue dispatch. Runner remains deterministic.**
 
 The responsibilities are:
 
 ```text
-Operator Agent
+Delivery Agent
     │
-    │ "Which Runner command should be used?"
+    │ "Dispatch exactly this explicit issue through Runner."
     ▼
 
 Runner
@@ -2186,7 +2167,7 @@ evidence
 recovery
 ```
 
-Agents own reasoning.
+RPIV owns software-engineering reasoning. The Delivery Agent only validates one explicit issue request and preserves the applicable Runner output.
 
 This boundary should remain intact as the product evolves.
 
@@ -2203,7 +2184,7 @@ This boundary should remain intact as the product evolves.
 | Completed runs containing required evidence   |   100% |
 | Recovery scenarios with deterministic outcome |   100% |
 | Doctor checks available as structured data    |   100% |
-| Operator Agent bypassing Runner orchestration |      0 |
+| Delivery Agent bypassing Runner orchestration |      0 |
 | Commands needed to start issue delivery       |      1 |
 
 ---
@@ -2224,14 +2205,14 @@ It survives interruption.
 
 It verifies the result.
 
-It exposes a stable CLI that both humans and agents can operate.
+It exposes a stable CLI that humans can operate completely while the official Delivery Agent uses only the delivery-only dispatch sequence.
 
-And it deliberately leaves reasoning about software implementation to RPIV and reasoning about user intent to the optional Operator Agent.
+And it deliberately leaves software implementation to RPIV while the optional Delivery Agent handles only one explicit validated issue dispatch.
 
 ```text
 Human
   ↓
-Operator Agent     ← optional
+Delivery Agent     ← optional
   ↓
 Soft Factory Runner
   ↓

@@ -204,6 +204,12 @@ Document exact local install and invocation commands, schema-v1 manifest locatio
 - AC-17: corrected the migration table to state that Runner installs trusted current packaged bytes and independently retires digest-proved legacy bytes; coupled documentation assertions require the corrected behavior and reject the inaccurate move wording.
 - Targeted Jest evidence: `src/documentation.test.ts` passed.
 
+### Second Verification Return Correction (2026-08-14)
+
+- AC-17: rewrote PRD §§15–17 as an exact delivery-only contract and aligned the executive model, product principles, AC-019, user journey, product boundary, success metric, and final product definition.
+- Added V10 assertions that require strict pre-terminal input rejection, instructions-before-Doctor, ready-only one-run dispatch, unchanged applicable output, dispatch/completion separation, and no lifecycle command authorization in current PRD agent sections.
+- Targeted `src/documentation.test.ts`: 1 suite and 22 tests passed.
+
 ## Task T7: Run full validation and record acceptance evidence
 
 - **Status:** Complete
@@ -245,3 +251,13 @@ Use harness checks as structured delegates but retain direct root recipe evidenc
 - `harness checks --json`: status `ok`, delegated `just verify`, exit 0.
 - Verification-return friction was read back from `.harness/records/retro/2026-08-14/006-issue-27-rpiv-implementer-verify-return.md` before the one-entry buffer was cleared successfully.
 - The correction-evidence authoring retry was read back from `.harness/records/retro/2026-08-14/007-issue-27-rpiv-implementer-correction-evidence.md` before its one-entry buffer was cleared successfully.
+
+### Second Verification Return Correction (2026-08-14)
+
+- Targeted `just verify-focused src/documentation.test.ts`: 1 suite, 22 tests, exit 0.
+- `harness checks --focused --json`: status `ok`, delegated `just verify-focused`, 21 suites and 354 tests.
+- Direct `just verify-focused`: 21 suites and 354 tests, exit 0.
+- Direct `just verify`: lint, format, type check, 21 suites and 354 tests, coverage, build, and diff check passed.
+- `harness checks --json`: status `ok`, delegated `just verify`, exit 0.
+- `.harness/records/retro/2026-08-14/008-issue-27-rpiv-implementer-second-verify-return.md` was read back with both pending observations before `harness observe --clear` returned status `ok` and `cleared: 2`.
+- `.harness/records/retro/2026-08-14/009-issue-27-rpiv-implementer-second-return-evidence.md` was read back with both later evidence observations before a second status `ok`, `cleared: 2` envelope.
