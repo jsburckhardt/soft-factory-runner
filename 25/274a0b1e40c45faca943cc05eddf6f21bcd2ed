@@ -1,0 +1,23 @@
+.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md
+  s_f9b9868f5d7fc2::t_c8bcb83d4c7d08 1-6,9,14-16,24,85-86,88
+  s_f9b9868f5d7fc2::t_fd54c4aa91be88 12,57-84
+  s_f9b9868f5d7fc2::t_6531e205954af5 7-8,10-11,13,17-23,25-56,87,89
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/verify/summary.md
+  s_f9b9868f5d7fc2::t_64ec5a02cf8541 5,7,9,12,15-17,19,25-31,33-34,36,38,40,42,44,46,48,55-61,63-69,73-75,77,79,81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "25274a0b1e40c45faca943cc05eddf6f21bcd2ed",
+  "prompts": {},
+  "sessions": {
+    "s_f9b9868f5d7fc2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_S72DaOKtIM4Ugs4yxo6coFml",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
