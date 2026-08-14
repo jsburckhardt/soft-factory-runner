@@ -1,0 +1,37 @@
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/implementation/00-implementation.md
+  s_3ebebdefe45fbb::t_637402e245528c 41,139-141,143-146,148-153,155-165,167-168
+  s_3ebebdefe45fbb::t_3e8cf239a5e454 166
+  s_3ebebdefe45fbb::t_2f94578be0760a 142,147,154
+  s_3ebebdefe45fbb::t_6618afeed06edd 169
+.harness/records/retro/2026-08-14/008-issue-27-rpiv-implementer-second-verify-return.md
+  s_3ebebdefe45fbb::t_c3bbc6bfea07b7 7-8,10-13,15-26,29-34,36-39,42,44
+  s_3ebebdefe45fbb::t_c184538d6aa8f5 1-6,9,14,27-28,35,40-41,43
+src/documentation.test.ts
+  s_3ebebdefe45fbb::t_08177fcad7480b 501-568
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/plan/02-task-breakdown.md
+  s_3ebebdefe45fbb::t_3e8cf239a5e454 263
+  s_3ebebdefe45fbb::t_637402e245528c 207-212,254-262
+.harness/records/retro/2026-08-14/009-issue-27-rpiv-implementer-second-return-evidence.md
+  s_3ebebdefe45fbb::t_24a30a953c2ed7 1-6,9,14-16,23,41-42,44
+  s_3ebebdefe45fbb::t_95471f37b059c2 7-8,10-13,17-22,24-40,43,45
+PRD.md
+  s_3ebebdefe45fbb::t_ede307faa0d951 118
+  s_3ebebdefe45fbb::t_c5b2a5091021af 46,89
+  s_3ebebdefe45fbb::t_3e502d18e8098b 58,117,154,172,578,580,582,588,590-594,596,600,602,604-608,610,612-613,615-617,619,625,1769,1953,2038,2041,2133,2138,2140,2170,2187,2208,2210,2215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5bdc52cd732f98ea0312097329728ffe487e142c",
+  "prompts": {},
+  "sessions": {
+    "s_3ebebdefe45fbb": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_C0FwcF4W8amjpjAQ1dPtjEbi",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
