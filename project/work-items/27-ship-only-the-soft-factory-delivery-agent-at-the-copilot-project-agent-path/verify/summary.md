@@ -2,7 +2,7 @@
 
 ## Outcome
 
-PASS — accepted and shipped for review without merge.
+ACCEPTANCE PASS; CLOSEOUT FAIL — immutable AgentResultV1 publication is blocked.
 
 - Work item: project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path
 - Issue: #27 — Ship only the Soft Factory delivery agent at the Copilot project-agent path
@@ -73,8 +73,9 @@ Verifier buffers were cleared only after durable read-back of every pending ID a
 - .harness/records/retro/2026-08-14/010-issue-27-rpiv-verifier.md — 7 observations.
 - .harness/records/retro/2026-08-14/011-issue-27-rpiv-verifier-push.md — 1 observation.
 - .harness/records/retro/2026-08-14/012-issue-27-rpiv-verifier-closeout.md — 1 observation.
+- .harness/records/retro/2026-08-14/013-issue-27-rpiv-verifier-publication-blocker.md — 1 observation.
 
-Final harvest PASS: schema harness.retro-insights/v1, exact plan scope, 13 records, 42 entries, five RPIV agents, 42 kept dispositions, zero malformed records, zero unsupported versions, and zero pending buffer entries.
+Final harvest PASS: schema harness.retro-insights/v1, exact plan scope, 14 records, 43 entries, five RPIV agents, 43 kept dispositions, zero malformed records, zero unsupported versions, and zero pending buffer entries.
 
 ## GitHub and protected-file proof
 
@@ -83,4 +84,8 @@ Final harvest PASS: schema harness.retro-insights/v1, exact plan scope, 13 recor
 - Protected assets/official/theoutsideone.agent.md: SHA-256 149f0bc7bbdc85ca9fa9a0b7dfa11ae58839311de78696ba29a6099e756695c3; untracked, excluded, uncommitted, and absent from package.
 - Protected soft-factory-runner-0.1.0.tgz: SHA-256 cbca56b3c27e5ced504cf9cea974c2e4b9ec93de805ad98b2b779768a59da06d; untracked, excluded, uncommitted, and absent from package.
 
-No blockers remain for review. The coordinator, not Verify, owns merge.
+## Closeout blocker
+
+Application acceptance, validation, issue update, branch push, and pull-request creation all succeeded. Strict AgentResultV1 candidate schema and final identity were locally validated, but Runner publication returned STATE_NOT_FOUND: no bound v4 Runner snapshot exists for the RPIV helper. The existing issue-25 candidate remained byte-identical at SHA-256 c83e3741bc7af059d9c45fe6fb33eccd82aa51a7eb5fb98465f781d3ea8b4051, the immutable destination remained absent, and no snapshot was read or changed. The coordinator must provide the injected bound no-clobber helper/run binding and rerun result publication; Verify did not bypass Runner ownership.
+
+The coordinator, not Verify, owns merge.
