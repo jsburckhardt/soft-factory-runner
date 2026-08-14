@@ -81,6 +81,7 @@ export interface DoctorManagedProcessPort {
 }
 
 export interface DoctorHelperSearch {
+  readonly executable: string;
   readonly helperPath: string;
   readonly cwd: string;
   readonly launchedAfterMs: number;
@@ -205,8 +206,8 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
     let activeOperation: DoctorTmuxProbeOperationV1 = "workspace";
     let creation: ParsedTmuxIdentityOutput | null = null;
     const helpers: DoctorProcessIdentity[] = [];
-    let dashboardHelperCreated = false;
-    let issueHelperCreated = false;
+    let dashboardHelperMayExist = false;
+    let issueHelperMayExist = false;
     const launchStartedAtMs = this.dependencies.clock.now();
     let cleanupFacts: CleanupFacts = {
       server: "unknown",
@@ -262,6 +263,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
 
       if (failure === null) {
         activeOperation = "session-create";
+        dashboardHelperMayExist = true;
         const result = await this.client(input, workspace, [
           "new-session",
           "-d",
@@ -275,7 +277,6 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           workspace.helperPath,
         ]);
         failure = classifyCommand(activeOperation, result);
-        dashboardHelperCreated = failure === null;
       }
 
       if (failure === null) {
@@ -349,6 +350,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
 
       if (failure === null) {
         activeOperation = "window-create";
+        issueHelperMayExist = true;
         const result = await this.client(input, workspace, [
           "new-window",
           "-d",
@@ -365,7 +367,6 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           workspace.helperPath,
         ]);
         failure = classifyCommand(activeOperation, result);
-        issueHelperCreated = failure === null;
         if (failure === null) {
           try {
             creation = parseTmuxIdentityResult(
@@ -503,8 +504,8 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
         server,
         helpers,
         launchStartedAtMs,
-        dashboardHelperCreated,
-        issueHelperCreated,
+        dashboardHelperMayExist,
+        issueHelperMayExist,
       });
       const serverStreams = server?.streamResult() ?? EMPTY_RESULT;
       if (failure === null && streamsTruncated(serverStreams))
@@ -560,8 +561,8 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
     readonly server: DoctorManagedProcessHandle | null;
     readonly helpers: DoctorProcessIdentity[];
     readonly launchStartedAtMs: number;
-    readonly dashboardHelperCreated: boolean;
-    readonly issueHelperCreated: boolean;
+    readonly dashboardHelperMayExist: boolean;
+    readonly issueHelperMayExist: boolean;
   }): Promise<{
     readonly proved: boolean;
     readonly failureOperation: DoctorTmuxProbeOperationV1;
@@ -574,21 +575,24 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
     let cleanupFailed = false;
 
     if (input.workspace !== null && input.server !== null) {
-      try {
-        const candidates = await this.dependencies.processes.findHelpers({
-          helperPath: input.workspace.helperPath,
-          cwd: input.workspace.root,
-          launchedAfterMs: input.launchStartedAtMs,
-          launchedBeforeMs: this.dependencies.clock.now(),
-          server: input.server.identity,
-        });
-        for (const candidate of candidates)
-          if (!helpers.some((helper) => sameIdentity(helper, candidate)))
-            helpers.push(candidate);
-      } catch {
-        cleanupFailed = true;
-        cleanupOperation = "helper-stop";
-        cleanupReason = "process-identity-unknown";
+      if (input.dashboardHelperMayExist || input.issueHelperMayExist) {
+        try {
+          const candidates = await this.dependencies.processes.findHelpers({
+            executable: this.dependencies.helperExecutable,
+            helperPath: input.workspace.helperPath,
+            cwd: input.workspace.root,
+            launchedAfterMs: input.launchStartedAtMs,
+            launchedBeforeMs: this.dependencies.clock.now(),
+            server: input.server.identity,
+          });
+          for (const candidate of candidates)
+            if (!helpers.some((helper) => sameIdentity(helper, candidate)))
+              helpers.push(candidate);
+        } catch {
+          cleanupFailed = true;
+          cleanupOperation = "helper-stop";
+          cleanupReason = "process-identity-unknown";
+        }
       }
 
       const killTimeout = remaining(
@@ -711,7 +715,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
       ),
     );
     const paneProcessesState: DoctorTmuxCleanupStateV1 =
-      !input.dashboardHelperCreated && !input.issueHelperCreated
+      !input.dashboardHelperMayExist && !input.issueHelperMayExist
         ? "not-created"
         : helperStates.some((state) => state === "present")
           ? "present"

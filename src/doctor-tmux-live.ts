@@ -30,6 +30,8 @@ import {
 } from "./doctor-tmux";
 
 const MAX_PRIVATE_SOCKET_BYTES = 100;
+const MAX_DOCTOR_DESCENDANTS = 64;
+const MAX_DOCTOR_DESCENDANT_DEPTH = 8;
 const HELPER_SOURCE = "setInterval(() => {}, 2147483647);\n";
 
 export class LiveDoctorProbeWorkspacePort implements DoctorProbeWorkspacePort {
@@ -168,31 +170,46 @@ export class LiveDoctorSocketWaiter implements DoctorSocketWaiterPort {
 }
 
 export class LiveDoctorProcessPort implements DoctorProcessObservationPort {
+  public constructor(private readonly procRoot = "/proc") {}
+
   public identify(
     pid: number,
     launchedAtMs: number,
   ): Promise<DoctorProcessIdentity | null> {
-    return readIdentity(pid, launchedAtMs);
+    return readIdentity(this.procRoot, pid, launchedAtMs);
   }
 
   public async observe(
     identity: DoctorProcessIdentity,
   ): Promise<DoctorProcessIdentity | null> {
-    return readIdentity(identity.pid, identity.launchedAtMs);
+    return readIdentity(this.procRoot, identity.pid, identity.launchedAtMs);
   }
 
   public async findHelpers(
     search: DoctorHelperSearch,
   ): Promise<readonly DoctorProcessIdentity[]> {
-    const entries = await fs.readdir("/proc");
+    const observedServer = await readIdentity(
+      this.procRoot,
+      search.server.pid,
+      search.server.launchedAtMs,
+    );
+    if (observedServer === null || !sameIdentity(search.server, observedServer))
+      throw new Error("managed Doctor server identity is unavailable");
+
+    const descendants = await findDescendantPids(
+      this.procRoot,
+      search.server.pid,
+    );
     const helpers: DoctorProcessIdentity[] = [];
-    for (const entry of entries) {
-      if (!/^[1-9]\d*$/.test(entry)) continue;
-      const pid = Number(entry);
-      if (!(await isDescendant(pid, search.server.pid))) continue;
-      const identity = await readIdentity(pid, search.launchedAfterMs);
+    for (const pid of descendants) {
+      const identity = await readIdentity(
+        this.procRoot,
+        pid,
+        search.launchedAfterMs,
+      );
+      if (identity === null) continue;
       if (
-        identity !== null &&
+        identity.executable === search.executable &&
         identity.cwd === search.cwd &&
         identity.args.length === 1 &&
         identity.args[0] === search.helperPath &&
@@ -208,7 +225,7 @@ export class LiveDoctorProcessPort implements DoctorProcessObservationPort {
     identity: DoctorProcessIdentity,
     server: DoctorProcessIdentity,
   ): Promise<boolean> {
-    return isDescendant(identity.pid, server.pid);
+    return isDescendant(this.procRoot, identity.pid, server.pid);
   }
 
   public async signal(
@@ -424,18 +441,77 @@ export function nextDoctorProbeToken(): string {
   return randomUUID();
 }
 
+async function findDescendantPids(
+  procRoot: string,
+  serverPid: number,
+): Promise<readonly number[]> {
+  const queue: Array<{ readonly pid: number; readonly depth: number }> = [
+    { pid: serverPid, depth: 0 },
+  ];
+  const visited = new Set<number>([serverPid]);
+  const descendants: number[] = [];
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index];
+    if (current === undefined)
+      throw new Error("managed Doctor descendant traversal failed");
+    let childrenText: string;
+    try {
+      childrenText = await fs.readFile(
+        path.join(
+          procRoot,
+          String(current.pid),
+          "task",
+          String(current.pid),
+          "children",
+        ),
+        "utf8",
+      );
+    } catch (cause: unknown) {
+      if (current.depth > 0 && nodeErrorCode(cause) === "ENOENT") continue;
+      throw cause;
+    }
+    const childPids = parseProcessChildren(childrenText);
+    if (current.depth >= MAX_DOCTOR_DESCENDANT_DEPTH && childPids.length > 0)
+      throw new Error("managed Doctor descendant depth exceeded");
+    for (const childPid of childPids) {
+      if (visited.has(childPid))
+        throw new Error("malformed managed Doctor descendant tree");
+      if (descendants.length >= MAX_DOCTOR_DESCENDANTS)
+        throw new Error("managed Doctor descendant count exceeded");
+      visited.add(childPid);
+      descendants.push(childPid);
+      queue.push({ pid: childPid, depth: current.depth + 1 });
+    }
+  }
+  return descendants;
+}
+
+function parseProcessChildren(value: string): readonly number[] {
+  const trimmed = value.trim();
+  if (trimmed === "") return [];
+  return trimmed.split(/\s+/).map((token) => {
+    if (!/^[1-9]\d*$/.test(token))
+      throw new Error("malformed managed Doctor descendant tree");
+    const pid = Number(token);
+    if (!Number.isSafeInteger(pid))
+      throw new Error("malformed managed Doctor descendant tree");
+    return pid;
+  });
+}
+
 async function readIdentity(
+  procRoot: string,
   pid: number,
   fallbackLaunchMs: number,
 ): Promise<DoctorProcessIdentity | null> {
   try {
     const [statText, executable, cwd, commandLine, procStat] =
       await Promise.all([
-        fs.readFile(`/proc/${pid}/stat`, "utf8"),
-        fs.readlink(`/proc/${pid}/exe`),
-        fs.readlink(`/proc/${pid}/cwd`),
-        fs.readFile(`/proc/${pid}/cmdline`),
-        fs.stat(`/proc/${pid}`),
+        fs.readFile(path.join(procRoot, String(pid), "stat"), "utf8"),
+        fs.readlink(path.join(procRoot, String(pid), "exe")),
+        fs.readlink(path.join(procRoot, String(pid), "cwd")),
+        fs.readFile(path.join(procRoot, String(pid), "cmdline")),
+        fs.stat(path.join(procRoot, String(pid))),
       ]);
     const parsed = parseProcStat(statText);
     const argv = commandLine.toString("utf8").split("\0").filter(Boolean);
@@ -483,6 +559,7 @@ function parseProcStat(value: string): {
 }
 
 async function isDescendant(
+  procRoot: string,
   pid: number,
   ancestorPid: number,
 ): Promise<boolean> {
@@ -492,7 +569,10 @@ async function isDescendant(
     if (current === ancestorPid) return pid !== ancestorPid;
     visited.add(current);
     try {
-      const stat = await fs.readFile(`/proc/${current}/stat`, "utf8");
+      const stat = await fs.readFile(
+        path.join(procRoot, String(current), "stat"),
+        "utf8",
+      );
       current = parseProcStat(stat).parentPid;
     } catch (cause: unknown) {
       if (nodeErrorCode(cause) === "ENOENT") return false;

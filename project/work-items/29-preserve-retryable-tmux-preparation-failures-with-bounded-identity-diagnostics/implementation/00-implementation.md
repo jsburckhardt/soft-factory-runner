@@ -322,3 +322,60 @@ No application documentation changed because public setup, behavior, output, sch
 - One final `rpiv-implementer` command-shape observation was persisted and read back in `.harness/records/retro/2026-08-14/032-issue-29-rpiv-implementer-commit-guidance.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`; the post-clear list was empty.
 - One final `rpiv-implementer` evidence-edit observation was persisted and read back in `.harness/records/retro/2026-08-14/033-issue-29-rpiv-implementer-final-evidence-command.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`.
 - One post-commit `rpiv-implementer` evidence-review observation was persisted and read back in `.harness/records/retro/2026-08-14/034-issue-29-rpiv-implementer-final-evidence-review.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`.
+
+## Hosted CI cleanup portability correction
+
+This correction is implemented on top of clean local/remote baseline `6f2656ef59fa20a7e0f9f8e68d6be79e7766a968`. It preserves all prior product, fixture, verification, and retro history. It does not amend/reset commits, edit PR #30 or Issue #29, or claim independent acceptance.
+
+### Exact product root cause and fix
+
+- Hosted runs `31814521678` and `31816018556` proved that dashboard and issue helpers reached two stable full identity reads with every readiness category true. Product cleanup then replaced READY, nonfunctional, malformed-create, and malformed-observe outcomes with `helper-stop/process-identity-unknown`.
+- `LiveDoctorProcessPort.findHelpers` unconditionally enumerated every `/proc` PID and called strict `isDescendant` before applying helper filters. `isDescendant` used `parseProcStat`, which requires PPID, positive PGID, and numeric start token. Any unrelated restricted, malformed, or disappearing system process could therefore throw and make global cleanup observation unknown. This was an overbroad host scan, not a helper mismatch or fixture-readiness race.
+- `src/doctor-tmux-live.ts` now re-observes the exact managed server identity and walks only Linux `/proc/<pid>/task/<pid>/children`, breadth first from that server. Traversal is bounded to 64 descendants and depth 8, rejects duplicate/cyclic entries and malformed/nonpositive/unsafe PIDs, and never reads unrelated process directories.
+- The managed root children file must be readable and valid. Any non-ENOENT tree error, malformed tree, malformed owned descendant identity, server identity mismatch, duplicate/cycle, or bound overflow throws and maps to the existing safe cleanup-unknown result. Exact ENOENT for a descendant children file or descendant identity is treated as a process that disappeared during observation; no other error is skipped.
+- Candidate retention requires exact physical executable, one exact helper script argument, exact physical workspace cwd, accepted launch interval, and membership in the managed descendant tree. `readIdentity` still captures PID, positive process group, start token, physical executable, arguments, cwd, and launch time. Existing signal paths still re-observe every full identity and refuse any mismatch before SIGTERM or SIGKILL.
+- `src/doctor-tmux.ts` records that a dashboard or issue helper may exist before awaiting each helper-creating command, so nonzero, timeout, overflow, and notably malformed-create paths can discover a helper created before pane-PID acceptance. Fallback discovery is skipped only when no helper creation command was attempted; private kill-server, managed foreground server wait/escalation, workspace removal, and final absence proof remain unconditional.
+- Production functional observation remains one-pass. The 1000ms/10ms/two-stable-read barrier and value-free built diagnostics from `eca87ad` remain fixture-only and unchanged. Private `-S`, session/window targeting, byte caps, deadlines, 24 checks, DoctorResultV2, and cleanup milestones are unchanged.
+
+### Acceptance evidence
+
+#### AC-1 through AC-8
+
+No parser, persistence, preparation recovery, same-name refusal, logs, rendering, or documentation behavior changed. Prior independently passed evidence remains authoritative.
+
+#### AC-9
+
+- **Controlled tests:** `src/doctor-tmux.test.ts` uses temporary synthetic procfs roots and injected Doctor ports. Tests never read ambient `/proc` outside the explicit live built fixture, never contact ambient/default tmux, and use no Sparkta, consumer, credential, network, GitHub, or live Copilot resource.
+- **Portable process regressions:** An unrelated malformed process directory with an unreadable-shape children entry cannot affect exact server cleanup. Direct and nested helpers are found; a nonmatching descendant is ignored. Managed-root unavailable/malformed, owned candidate malformed, 65th descendant, and ninth nesting edge fail safely. Exact descendant ENOENT returns absence.
+- **Validation:** Targeted, repeated, direct focused/full, and harness focused/full gates all pass with 23 suites/456 tests in repository gates.
+
+#### AC-10
+
+- **Owned-tree discovery:** Cleanup observes only the exact foreground server descendant tree and applies physical executable, argument, cwd, launch, and lineage constraints before retaining compound identities.
+- **Safe failure:** Unproved managed-tree or candidate facts remain `helper-stop/process-identity-unknown`; only exact ENOENT for a disappearing descendant is absence. Unknown is never converted to absence or authorization.
+- **Unrecorded helper recovery:** A deterministic malformed-create test creates the issue helper before returning malformed identity bytes, withholds pane-PID acceptance, leaves helpers after kill-server, then proves fallback descendant recovery and exact SIGTERM removal of the issue helper.
+- **No-helper behavior:** A socket-readiness failure before any helper-creating command makes zero fallback scans while still issuing exactly one private kill-server and completing managed cleanup.
+- **Preserved safeguards:** Equivalent physical executable aliases remain accepted; a distinct executable remains refused. Exact PID/PGID/start-token/executable/args/cwd identity and pre-signal re-observation remain mandatory. Built READY, nonfunctional, malformed-create, and malformed-observe reach their intended outcomes with final absence proof.
+
+### Documentation evidence and no-impact rationale
+
+No application documentation changed. The correction makes implementation conform to the existing ADR/core-component statement that cleanup enumerates exact private-helper candidates with foreground-server lineage. Public Doctor setup, behavior, output schema, 24 checks, configuration, usage, troubleshooting, migration, API, data/database, service, container, deployment, operations, and normal issue-run behavior are unchanged. No README, API reference/specification, configuration guide, usage guide, migration note, architecture explanation, deployment guide, or runbook update is applicable. ADR-260812, CORE-COMPONENT-260812, and decisions 135-143 remain unchanged and authoritative.
+
+### Validation evidence
+
+- Required `harness boot --json`: process exit 0, envelope `status: ok`; application exit 0, exact bootstrap signal observed, composed baseline full checks exit 0 with 23 suites/447 tests.
+- Targeted `just verify-focused src/doctor-tmux.test.ts`: exit 0; 1 suite/43 tests; diff check passed.
+- Targeted `just verify-focused src/doctor-tmux.test.ts src/doctor-integration.test.ts`: exit 0; 2 suites/52 tests; diff check passed.
+- Repeated built regression: three `controlled.ready` selected-suite runs and three `malformed-create` selected-suite runs each exited 0. Every READY invocation executed three built processes; every malformed-create invocation reached its intended value-free outcome and cleanup proof.
+- Direct `just verify-focused`: exit 0; 23 suites/456 tests; diff check passed.
+- `harness checks --focused --json`: process exit 0; envelope `status: ok`, `scope: focused`, delegated `just verify-focused`, delegated exit 0; 23 suites/456 tests.
+- First direct `just verify`: lint passed, then root format-check failed only for the three changed TypeScript files. The files were formatter-normalized and the direct gate was rerun.
+- Corrected direct `just verify`: exit 0; lint, formatting, strict TypeScript, 23 suites/456 tests, build, and diff check passed. Coverage: 88.90% statements, 84.01% branches, 95.42% functions, and 90.50% lines.
+- `harness checks --json`: process exit 0; envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit 0; matching 23 suites/456 tests and coverage.
+- Isolation/resource proof: final `soft-factory-doctor-*`, `doctor-controlled-proc-*`, `doctor-ready-process-*`, `doctor-built-process-*`, and `doctor-executable-identity-*` directory inventories were empty; the matching process inventory was empty. Changed-line scanning found no Sparkta, credential, network, or ambient tmux dependency.
+
+### Implement friction drain
+
+- `rpiv`, `rpiv-research`, and `rpiv-planner` list envelopes returned exit 0, `status: ok`, and empty observations.
+- Five `rpiv-implementer` observations (`DL-001`, `DL-002`, `INS-001`, `DL-003`, and `DL-004`) were persisted and read back in `.harness/records/retro/2026-08-14/037-issue-29-rpiv-implementer-owned-descendant-cleanup.md`. Read-back proved schema 1.2, matching plan/agent, all IDs/fingerprints, and `disposition: kept`. The agent-scoped clear returned exit 0, `status: ok`, and `cleared: 5`; the post-clear list was empty.
+- No command listed, drained, cleared, or rewrote `rpiv-verifier`. Prior verifier harvest, records, and verification summaries remain untouched.

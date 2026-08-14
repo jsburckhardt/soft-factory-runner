@@ -10,6 +10,7 @@ import {
   DoctorTmuxProbe,
   DoctorTmuxWorkspaceError,
   type DoctorClock,
+  type DoctorHelperSearch,
   type DoctorManagedProcessHandle,
   type DoctorManagedProcessPort,
   type DoctorManagedProcessSpec,
@@ -21,6 +22,7 @@ import {
 } from "./doctor-tmux";
 import {
   LiveDoctorProbeWorkspacePort,
+  LiveDoctorProcessPort,
   resolveDoctorHelperExecutable,
 } from "./doctor-tmux-live";
 
@@ -113,6 +115,8 @@ class FakeProcesses implements DoctorProcessObservationPort {
   public lineage = true;
   public failNextTerm = false;
   public readonly waitTimeouts: number[] = [];
+  public readonly helperSearches: DoctorHelperSearch[] = [];
+  public failFindHelpers = false;
   public identify(pid: number): Promise<DoctorProcessIdentity | null> {
     return Promise.resolve(this.alive.get(pid) ?? null);
   }
@@ -121,7 +125,12 @@ class FakeProcesses implements DoctorProcessObservationPort {
   ): Promise<DoctorProcessIdentity | null> {
     return Promise.resolve(this.alive.get(expected.pid) ?? null);
   }
-  public findHelpers(): Promise<readonly DoctorProcessIdentity[]> {
+  public findHelpers(
+    search: DoctorHelperSearch,
+  ): Promise<readonly DoctorProcessIdentity[]> {
+    this.helperSearches.push(search);
+    if (this.failFindHelpers)
+      return Promise.reject(new Error("controlled helper search failure"));
     return Promise.resolve(
       [...this.alive.values()].filter((entry) => entry.pid !== 500),
     );
@@ -237,6 +246,11 @@ class ProtocolRunner implements DoctorCommandRunner {
       return result({ exitCode: null, cancelled: true });
     }
     if (operation === this.fault) {
+      if (operation === "window-create" && this.faultMode === "malformed")
+        this.processes.alive.set(102, {
+          ...identity(102),
+          executable: this.helperExecutable,
+        });
       if (this.faultMode === "timeout")
         return result({ exitCode: null, timedOut: true });
       if (this.faultMode === "overflow")
@@ -349,6 +363,74 @@ function operationFor(args: readonly string[]): Fault {
   throw new Error("unexpected controlled tmux command");
 }
 
+interface ControlledProcProcess {
+  readonly pid: number;
+  readonly parentPid: number;
+  readonly processGroupId?: number;
+  readonly startToken?: string;
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly children?: string;
+  readonly childrenAvailable?: boolean;
+  readonly malformedStat?: boolean;
+}
+
+async function writeControlledProcProcess(
+  procRoot: string,
+  input: ControlledProcProcess,
+): Promise<void> {
+  const processRoot = path.join(procRoot, String(input.pid));
+  const taskRoot = path.join(processRoot, "task", String(input.pid));
+  await fs.mkdir(taskRoot, { recursive: true });
+  const statFields = [
+    "S",
+    String(input.parentPid),
+    String(input.processGroupId ?? input.pid),
+    ...Array.from({ length: 16 }, () => "0"),
+    input.startToken ?? String(input.pid * 10),
+  ];
+  await Promise.all([
+    fs.writeFile(
+      path.join(processRoot, "stat"),
+      input.malformedStat
+        ? "malformed"
+        : `${input.pid} (controlled) ${statFields.join(" ")}`,
+    ),
+    fs.writeFile(
+      path.join(processRoot, "cmdline"),
+      Buffer.from([input.executable, ...input.args, ""].join("\0")),
+    ),
+    fs.symlink(input.executable, path.join(processRoot, "exe")),
+    fs.symlink(input.cwd, path.join(processRoot, "cwd")),
+  ]);
+  if (input.childrenAvailable !== false)
+    await fs.writeFile(path.join(taskRoot, "children"), input.children ?? "");
+}
+
+async function requireControlledServer(
+  processes: LiveDoctorProcessPort,
+  pid: number,
+): Promise<DoctorProcessIdentity> {
+  const server = await processes.identify(pid, 0);
+  if (server === null)
+    throw new Error("controlled server identity is unavailable");
+  return server;
+}
+
+function controlledHelperSearch(
+  server: DoctorProcessIdentity,
+): DoctorHelperSearch {
+  return {
+    executable: "/physical/node",
+    helperPath: "/private/workspace/helper.js",
+    cwd: "/private/workspace",
+    launchedAfterMs: 0,
+    launchedBeforeMs: Date.now() + 5_000,
+    server,
+  };
+}
+
 async function run(probe: DoctorTmuxProbe) {
   return probe.run({
     tmuxExecutable: "/tools/tmux",
@@ -356,6 +438,221 @@ async function run(probe: DoctorTmuxProbe) {
     doctorStartedAtMs: 0,
   });
 }
+
+describe("Live Doctor managed descendant discovery", () => {
+  it("finds exact direct and nested helpers without reading unrelated process facts", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await Promise.all([
+        writeControlledProcProcess(procRoot, {
+          pid: 500,
+          parentPid: 1,
+          executable: "/physical/tmux",
+          args: ["-D"],
+          cwd: "/private/workspace",
+          children: "501 502 ",
+        }),
+        writeControlledProcProcess(procRoot, {
+          pid: 501,
+          parentPid: 500,
+          executable: "/physical/node",
+          args: ["/private/workspace/helper.js"],
+          cwd: "/private/workspace",
+        }),
+        writeControlledProcProcess(procRoot, {
+          pid: 502,
+          parentPid: 500,
+          executable: "/physical/wrapper",
+          args: ["not-the-helper"],
+          cwd: "/private/workspace",
+          children: "503 ",
+        }),
+        writeControlledProcProcess(procRoot, {
+          pid: 503,
+          parentPid: 502,
+          executable: "/physical/node",
+          args: ["/private/workspace/helper.js"],
+          cwd: "/private/workspace",
+        }),
+      ]);
+      await fs.mkdir(path.join(procRoot, "999", "task", "999", "children"), {
+        recursive: true,
+      });
+      await fs.writeFile(path.join(procRoot, "999", "stat"), "malformed");
+
+      const server = await requireControlledServer(processes, 500);
+      const helpers = await processes.findHelpers(
+        controlledHelperSearch(server),
+      );
+      expect(helpers.map((entry) => entry.pid)).toEqual([501, 503]);
+      expect(
+        helpers.every(
+          (entry) =>
+            entry.executable === "/physical/node" &&
+            entry.args.length === 1 &&
+            entry.args[0] === "/private/workspace/helper.js" &&
+            entry.cwd === "/private/workspace",
+        ),
+      ).toBe(true);
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safely when the managed server descendant tree is unavailable", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await writeControlledProcProcess(procRoot, {
+        pid: 500,
+        parentPid: 1,
+        executable: "/physical/tmux",
+        args: ["-D"],
+        cwd: "/private/workspace",
+        childrenAvailable: false,
+      });
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).rejects.toThrow();
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safely when the managed descendant tree is malformed", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await writeControlledProcProcess(procRoot, {
+        pid: 500,
+        parentPid: 1,
+        executable: "/physical/tmux",
+        args: ["-D"],
+        cwd: "/private/workspace",
+        children: "not-a-process",
+      });
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).rejects.toThrow("malformed managed Doctor descendant tree");
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safely when an owned descendant identity is malformed", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await Promise.all([
+        writeControlledProcProcess(procRoot, {
+          pid: 500,
+          parentPid: 1,
+          executable: "/physical/tmux",
+          args: ["-D"],
+          cwd: "/private/workspace",
+          children: "501",
+        }),
+        writeControlledProcProcess(procRoot, {
+          pid: 501,
+          parentPid: 500,
+          executable: "/physical/node",
+          args: ["/private/workspace/helper.js"],
+          cwd: "/private/workspace",
+          malformedStat: true,
+        }),
+      ]);
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).rejects.toThrow("malformed operating-system process identity");
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("treats an exact ENOENT disappearing descendant as absent", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await writeControlledProcProcess(procRoot, {
+        pid: 500,
+        parentPid: 1,
+        executable: "/physical/tmux",
+        args: ["-D"],
+        cwd: "/private/workspace",
+        children: "501",
+      });
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).resolves.toEqual([]);
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safely when the managed descendant count exceeds 64", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      await writeControlledProcProcess(procRoot, {
+        pid: 500,
+        parentPid: 1,
+        executable: "/physical/tmux",
+        args: ["-D"],
+        cwd: "/private/workspace",
+        children: Array.from({ length: 65 }, (_, index) =>
+          String(501 + index),
+        ).join(" "),
+      });
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).rejects.toThrow("managed Doctor descendant count exceeded");
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safely when the managed descendant depth exceeds 8", async () => {
+    const procRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-controlled-proc-"),
+    );
+    const processes = new LiveDoctorProcessPort(procRoot);
+    try {
+      for (let pid = 500; pid <= 509; pid += 1)
+        await writeControlledProcProcess(procRoot, {
+          pid,
+          parentPid: pid === 500 ? 1 : pid - 1,
+          executable: pid === 500 ? "/physical/tmux" : "/physical/wrapper",
+          args: pid === 500 ? ["-D"] : ["not-the-helper"],
+          cwd: "/private/workspace",
+          children: pid === 509 ? "" : String(pid + 1),
+        });
+      const server = await requireControlledServer(processes, 500);
+      await expect(
+        processes.findHelpers(controlledHelperSearch(server)),
+      ).rejects.toThrow("managed Doctor descendant depth exceeded");
+    } finally {
+      await fs.rm(procRoot, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("V-11/V-12 isolated Doctor tmux probe", () => {
   it("creates the private workspace with exact modes and removes every file", async () => {
@@ -639,6 +936,45 @@ describe("V-13 Doctor tmux failure and confidentiality matrix", () => {
       operation: "dashboard-pane-identify",
       reason: "process-identity-unknown",
     });
+  });
+
+  it("skips fallback enumeration before any helper creation attempt", async () => {
+    const f = fixture();
+    f.sockets.ready = false;
+    f.processes.failFindHelpers = true;
+    const observed = await run(f.probe);
+    expect(observed.evidence).toMatchObject({
+      operation: "socket-ready",
+      reason: "socket-unavailable",
+    });
+    expect(f.processes.helperSearches).toHaveLength(0);
+    expect(
+      f.runner.calls.filter(
+        (call) => operationFor(call.args) === "server-stop",
+      ),
+    ).toHaveLength(1);
+    expect(f.processes.alive.size).toBe(0);
+  });
+
+  it("recovers and stops an unrecorded malformed-create helper", async () => {
+    const f = fixture();
+    f.runner.fault = "window-create";
+    f.runner.faultMode = "malformed";
+    f.runner.leaveHelpersOnStop = true;
+    const observed = await run(f.probe);
+    expect(observed.evidence).toMatchObject({
+      operation: "window-create",
+      reason: "malformed-output",
+    });
+    expect(f.processes.helperSearches).toEqual([
+      expect.objectContaining({
+        executable: process.execPath,
+        helperPath: workspace.helperPath,
+        cwd: workspace.root,
+      }),
+    ]);
+    expect(f.processes.signals).toContainEqual({ pid: 102, signal: "SIGTERM" });
+    expect(f.processes.alive.size).toBe(0);
   });
 
   it("rejects identity and cwd mismatches independently", async () => {
