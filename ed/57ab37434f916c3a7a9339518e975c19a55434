@@ -1,0 +1,39 @@
+project/architecture/core-components/CORE-COMPONENT-260812-official-asset-installation-contract.md
+  s_e1a3d59400e4cf::t_5eec744362a4b5 9,13,18-36,39-46,49-56,60,65,68-74,79-85,89,101
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/plan/01-action-plan.md
+  s_e1a3d59400e4cf::t_d6faa777e48e0d 1-121
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/plan/03-test-plan.md
+  s_e1a3d59400e4cf::t_7c582abcc4a045 1-333
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/research/00-research.md
+  s_42fdb21e728bd5::t_2f2c9fe442025f 1-99
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/plan/02-task-breakdown.md
+  s_e1a3d59400e4cf::t_ba2b940d254800 1-227
+project/architecture/ADR/ADR-260812-official-asset-distribution-installation.md
+  s_e1a3d59400e4cf::t_5eec744362a4b5 9-11,15-19,21,23,25,27,29,35-40,45-48,51-53,56-58,63,70,72
+project/architecture/ADR/DECISION-LOG.md
+  s_e1a3d59400e4cf::t_e123d556049e78 141-142,165-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ed57ab37434f916c3a7a9339518e975c19a55434",
+  "prompts": {},
+  "sessions": {
+    "s_42fdb21e728bd5": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_WVtzKZNTAiwPlzw50BCsLRWk",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_e1a3d59400e4cf": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_Kst9CVaQMqxgtb6T4VRnrPo0",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
