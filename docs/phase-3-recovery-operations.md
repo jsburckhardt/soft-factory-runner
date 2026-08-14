@@ -66,7 +66,7 @@ Unknown leases consume capacity. An occupied, malformed, unknown, or stale lease
 
 ## Reconciliation and persisted history
 
-New transitions use `RunSnapshotV4` and `TransitionEventV2`. A v4 snapshot records one final-validation requirement plus monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
+New transitions use `RunSnapshotV5` and `TransitionEventV2`. A v5 snapshot preserves the v4 final-validation/integration binding and records monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
 
 On load, only a complete, contiguous, issue/run-identity-matching v2 chain may advance an event-ahead snapshot. Malformed, truncated, duplicate-conflicting, wrong-run, noncontiguous, and legacy-v1-ahead histories return `STATE_HISTORY_INVALID` without inferred mutation. Repetition over unchanged bytes returns the same normalized result.
 
@@ -82,7 +82,8 @@ Every report keeps persisted facts separate from exactly one bounded observation
 8. mutable RPIV progress phase and classification (non-authorizing);
 9. strictly parsed result artifact identity, content, and snapshotted final-validation binding;
 10. authoritative remote branch state; and
-11. GitHub pull-request and immutable source-head facts.
+11. GitHub pull-request and immutable source-head facts; and
+12. for `starting_tmux` without a persisted identity, name-only same-window presence with no candidate identity, cwd, or process detail.
 
 Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, permission-denied process metadata, and unavailable commands are `unknown`, never inferred absence. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
 
@@ -93,13 +94,17 @@ A long-running process matches only when positive PID, process-group ID, OS star
 | Persisted/reconciled state | Resume outcome |
 | --- | --- |
 | Exact active process | `ACTIVE_PRESERVED`; no launch and no attempt change. |
-| Exact partial preparation | Continue fetched-base/worktree/tmux preparation under the same owner. |
+| Exact partial preparation | Continue only when lock/lease, worktree path/registration/branch, fetched-base advertised HEAD, staged/unstaged/untracked cleanliness, no persisted tmux identity, and zero same-name candidates all match. The adapter rechecks name absence immediately before one creation attempt. |
 | `finalizing`, or interrupted with a valid result | Retry completion finalization without RPIV. |
 | Interrupted execution, no result, exact inactive resources | Increment attempt once and restart the worker in the same owned worktree/tmux pane. |
 | `completed` | `COMPLETED_NOOP`. |
 | `failed`, `blocked`, `cancelled`, legacy-unmigratable, unknown, mismatched, or ambiguous | `RESUME_REFUSED`; preserve resources. |
 
 Completion requires strict AgentResultV1, local Git, fresh remote, GitHub PR, acceptance, and the one snapshotted evidence-bound final validation. Focused validation evidence is completion-neutral. Recovery cannot infer completion from process or tmux presence.
+
+Tmux creation/observation identity bytes follow the exact transport in the [issue-run guide](phase-1-issue-run.md): one record, horizontal tab fields, one optional final LF, strict `^@[0-9]+$` window and `^%[0-9]+$` pane IDs, and valid nonempty observation cwd. Malformed identity evidence yields a bounded `TmuxIdentityDiagnosticV1` with original byte counts, at most 8 records/fields, and at most 32 value-free structural tokens. Raw output, paths/cwd, arguments, environment/field values, issue/owner/run IDs, hashes/byte values, and other-run bytes are never retained. A later failure replaces it; absence/rendering retains it; valid identity proof clears it. Malformed zero-exit observation is unknown; nonzero observation remains absence. Each reconciliation collects only one observation and never recollects after persisting the returned diagnostic.
+
+Any same-name candidate without a persisted identity produces unknown ownership, no resume action, no create/worker/RPIV operation, and no adoption from name, cwd, identity, or process command. A candidate that appears during the action race is refused by the immediate name-only recheck. The diagnostic is non-authorizing: identical ownership observations produce identical safe actions whether it is present or absent.
 
 ## Stop, terminal evidence, and logs
 
@@ -114,7 +119,7 @@ Completion requires strict AgentResultV1, local Git, fresh remote, GitHub PR, ac
 7. only after inactivity is proved, persist stop facts and `cancelled`, then release the exact inactive slot;
 8. if the process remains active after both waits, return `STOP_PROCESS_STILL_ACTIVE` nonzero and retain its process identity, running state, issue lock, slot lease, worktree, tmux, and logs.
 
-Already absent or terminal is idempotent. PID reuse, pane mismatch, multiple candidates, or unknown observation sends no signal. Stop never removes the worktree or tmux target. Issue panes use remain-on-exit. Attempt transcripts live at `.soft-factory/logs/<issue>/<attempt>.log`, are redacted, capped at 2 MiB with an explicit truncation marker, and retained with snapshots/events through cleanup. `logs` returns retained attempts and includes current pane capture only for an exact live target.
+Already absent or terminal is idempotent. PID reuse, pane mismatch, multiple candidates, or unknown observation sends no signal. Stop never removes the worktree or tmux target. Issue panes use remain-on-exit. Attempt transcripts live at `.soft-factory/logs/<issue>/<attempt>.log`, are redacted, capped at 2 MiB with an explicit truncation marker, and retained with snapshots/events through cleanup. `logs` returns retained attempts and includes current pane capture only for an exact live target. A retained tmux identity diagnostic is not a transcript or persisted tmux identity; with neither identity nor transcript, `LOG_NOT_FOUND` remains unchanged.
 
 ## Explicit and automatic cleanup
 
@@ -128,12 +133,12 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 
 ## Migration and upgrade notes
 
-- Valid `RunSnapshotV1`, `RunSnapshotV2`, and `RunSnapshotV3` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation`, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
-- Legacy snapshots do not contain the complete v4 integration binding. They are never silently treated as v4 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
+- Valid `RunSnapshotV1` through `RunSnapshotV5` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation` preserved unchanged in v5, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4/v5 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
+- Legacy snapshots do not contain the complete v4/v5 integration binding. They are never silently treated as v4 or v5 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
 - Existing version-1 events remain append-only history. A v2 event ahead of a legacy snapshot is not replayed because the prior revision cannot be proved.
-- New runs write schema v4 and event v2 with one immutable final-validation requirement. No destructive data migration or purge is performed.
+- New runs write schema v5 and event v2. Supported v4 snapshots normalize only through one explicit revisioned v5 transition with `tmuxIdentityDiagnostic: null`; v1-v3 continue through the existing explicit v4 transition first. ReconciliationReportV2 and status schema v4 expose the latest diagnostic separately from authorization. No destructive data migration or purge is performed.
 - `execution.max_concurrent_runs` defaults to 1, preserving prior single-run behavior. Configure a higher strict value only after inspecting current leases; unsafe reductions block rather than evict.
-- This release adds local CLI/configuration and persisted-schema behavior but no network API contract, server, daemon, database, container, or deployment procedure. API migration is not applicable.
+- Tmux identity recovery changes persisted schema and local CLI rendering but adds no configuration option/default and requires no configuration migration. It adds no network API contract, server, daemon, database, container, or deployment procedure; there is no deployment change. API migration is not applicable.
 
 ## Troubleshooting
 
@@ -149,7 +154,9 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 | `STOP_PROCESS_STILL_ACTIVE` | The exact RPIV process survived SIGTERM 10 seconds and SIGKILL 5 seconds | Keep ownership/capacity intact, inspect retained logs, and retry only while exact identity remains observable. |
 | `CLEANUP_ACTIVE`, `CLEANUP_DIRTY_WORKTREE`, `CLEANUP_OWNERSHIP_UNPROVED` | Cleanup safety conjunction failed | Stop safely or reconcile/preserve the named resource. |
 | `CLEANUP_MERGE_NOT_PROVED` | PR is closed-unmerged or merge/source proof is incomplete | Preserve worktree; restore exact GitHub evidence or use explicit clean only when otherwise eligible. |
-| `LOG_NOT_FOUND` | No retained attempt or exact live capture exists | Inspect snapshot attempt/log references and tmux identity. |
+| `TMUX_IDENTITY_MALFORMED` | Completed creation or zero-exit observation returned malformed or ambiguous identity evidence | Inspect only the bounded structural diagnostic; preserve resources and explicitly retry under exact proof. |
+| `RESOURCE_OWNERSHIP_UNKNOWN` | A same-name tmux candidate exists without persisted identity | Preserve every candidate; do not inspect or adopt by name, cwd, identity, or process command. |
+| `LOG_NOT_FOUND` | No retained attempt or exact live capture exists; a diagnostic alone is not a log | Inspect snapshot attempt/log references and persisted tmux identity. |
 
 ## Validation and deterministic fixtures
 
@@ -162,7 +169,7 @@ just verify
 harness checks --json
 ```
 
-Repository fixtures use temporary roots, exclusive file creation, fixed clocks/IDs, fake `gh`/tmux/process adapters, and no ambient credentials, Copilot, or tmux resources. They repeat interruption and three-explicit-issue capacity races, assert no duplicate launch or owner, verify disjoint resource identities, exercise graceful/escalated/still-active stop ordering, inject snapshot failure after every cleanup step, retry from durable same-owner progress, refuse unrelated replacements, and prove cleanup retention/refusal.
+Repository fixtures use temporary roots, exclusive file creation, fixed clocks/IDs, fake `gh`/byte-aware tmux/process adapters, and no ambient credentials, Copilot, or tmux resources. They repeat interruption and three-explicit-issue capacity races, assert no duplicate launch or owner, verify disjoint resource identities, exercise graceful/escalated/still-active stop ordering, inject snapshot failure after every cleanup step, retry from durable same-owner progress, refuse unrelated replacements, and prove cleanup retention/refusal, exact tmux 3.7b bytes, full malformed matrices, diagnostic caps/confidentiality, one-pass lifecycle, zero-candidate retry, HEAD/cleanliness refusal, same-name action races, call-count invariants, and `LOG_NOT_FOUND` independence.
 
 
 ## Repository readiness preflight

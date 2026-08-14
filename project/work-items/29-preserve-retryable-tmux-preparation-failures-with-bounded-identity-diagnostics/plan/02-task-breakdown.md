@@ -4,7 +4,8 @@ Tasks are dependency-ordered. Every task carries stable acceptance IDs, explicit
 
 ## Task T-1: Implement original-byte identity parsing and bounded diagnostic construction
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/tmux-identity.ts`, command byte capture in `src/live.ts`, and `src/tmux-identity.test.ts` cover strict parsing, exact counts/caps, typed failures, and confidentiality; direct `just verify-focused` passed 22 suites/401 tests.
 - **Complexity:** High
 - **Dependencies:** None
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-9
@@ -37,7 +38,8 @@ No application documentation is edited in this task. T-6 documents the stabilize
 
 ## Task T-2: Add v5 diagnostic persistence and common rendering
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/domain.ts`, `src/persistence.ts`, `src/reconciliation.ts`, `src/orchestrator.ts`, and `src/render.ts` implement v5 migration/replay/lifecycle and common rendering; persistence/reconciliation/recovery tests passed in the focused gate.
 - **Complexity:** High
 - **Dependencies:** T-1
 - **Acceptance Criteria:** AC-4, AC-5, AC-6, AC-8, AC-9
@@ -70,7 +72,8 @@ No application documentation is edited in this task. T-6 owns schema migration, 
 
 ## Task T-3: Tighten preparation reconciliation and resume authorization
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/reconciliation.ts`, `src/live.ts`, and `src/orchestrator.ts` enforce exact preparation proof, name-only refusal, and the immediate pre-create recheck; recovery-control tests passed in the focused gate.
 - **Complexity:** High
 - **Dependencies:** T-1, T-2
 - **Acceptance Criteria:** AC-6, AC-7, AC-8, AC-9
@@ -101,7 +104,8 @@ No application documentation is edited in this task. T-6 documents exact resume 
 
 ## Task T-4: Cover live tmux adapter and diagnostic boundaries
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/tmux-identity.test.ts` exercises byte-aware `createLivePorts` fixtures, exact arguments/timeouts, malformed matrices, bounds, exit semantics, and sentinels without live tmux; the focused gate passed.
 - **Complexity:** Medium
 - **Dependencies:** T-1, T-2
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-9
@@ -131,7 +135,8 @@ No direct documentation edits. T-6 cites the proven byte fixtures and controlled
 
 ## Task T-5: Prove recovery, ownership preservation, logs independence, and one-pass behavior
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/recovery-control.test.ts`, `src/recovery-persistence.test.ts`, `src/orchestration.test.ts`, and `src/integration.test.ts` prove retry/refusal, one-pass lifecycle, resource counts, logs independence, and human/JSON surfaces; the focused gate passed.
 - **Complexity:** High
 - **Dependencies:** T-2, T-3, T-4
 - **Acceptance Criteria:** AC-2, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9
@@ -164,7 +169,8 @@ No direct application documentation edits. Produce behavior/output evidence cons
 
 ## Task T-6: Update affected operator and schema documentation
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** README, PRD, docs index, issue-run/recovery/RPIV guides, and `src/documentation.test.ts` document and enforce transport, diagnostics, migration, refusal, logs, and no-impact boundaries; the documentation suite passed 25 tests and the focused gate passed.
 - **Complexity:** Medium
 - **Dependencies:** T-2, T-3, T-5
 - **Acceptance Criteria:** AC-1, AC-5, AC-6, AC-7, AC-8, AC-9
@@ -195,7 +201,8 @@ This is the bounded documentation task. README, PRD, and existing issue-run/reco
 
 ## Task T-7: Run authoritative focused and full repository validation
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** Direct `just verify-focused` passed 22 suites/401 tests with `git diff --check`; direct `just verify` passed lint, formatting, strict type-check, 22 suites/401 tests, 88.66% statements/85.04% branches/94.62% functions/90.23% lines, build, and diff check. Focused and full harness JSON envelopes returned `status: ok` and delegated exit code 0.
 - **Complexity:** Medium
 - **Dependencies:** T-1, T-2, T-3, T-4, T-5, T-6
 - **Acceptance Criteria:** AC-9

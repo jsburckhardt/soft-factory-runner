@@ -937,6 +937,12 @@ The issue window must start in:
 .trees/123
 ```
 
+Tmux identity output is parsed from original bytes. Window creation accepts one nonempty record with exactly a `^@[0-9]+$` window ID and `^%[0-9]+$` pane ID separated by horizontal tab; observation adds one nonempty valid UTF-8 cwd field. LF is the only record terminator and one optional final LF is permitted. Extra records/fields, CR/CRLF, invalid UTF-8, empty fields, and partial identifiers are malformed or ambiguous.
+
+Runner may persist only a bounded value-free structural diagnostic: phase, exit code, original stdout/stderr byte counts, at most 8 record and field summaries, and at most 32 tokens distinguishing strict IDs, horizontal tabs, CR/LF, backslashes, and other runs. Raw output, cwd/path components, command/environment/field values, issue/owner/run identities, hashes/byte values, and other-run bytes must never enter that diagnostic.
+
+A `starting_tmux` retry requires exact lock/lease, worktree path/registration/branch, fetched-base HEAD, all cleanliness dimensions, no persisted tmux identity, and zero same-name candidates. Name presence never proves ownership and must not cause identity/cwd/process inspection or adoption. A name-only absence check is repeated immediately before one create attempt. Diagnostics remain separate from authorization and logs; a diagnostic alone does not prevent `LOG_NOT_FOUND`.
+
 ---
 
 # 27. RPIV Execution
@@ -1210,6 +1216,8 @@ This artifact is the formal handoff between RPIV and Runner.
 ---
 
 # 36. Completion Reconciliation
+
+New runs persist `RunSnapshotV5`; supported v4 state normalizes through an explicit revisioned transition, while v1-v5 remain versioned compatibility inputs. `ReconciliationReportV2` and status schema v4 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
 
 A successful RPIV artifact is necessary but not sufficient.
 

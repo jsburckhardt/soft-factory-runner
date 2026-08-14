@@ -16,6 +16,7 @@ import type {
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
+import { parseTmuxIdentityResult } from "./tmux-identity";
 import type {
   FilePort,
   GitHubPort,
@@ -31,6 +32,10 @@ export interface CommandResult {
   readonly signal: NodeJS.Signals | null;
   readonly stdout: string;
   readonly stderr: string;
+  readonly stdoutBuffer: Buffer;
+  readonly stderrBuffer: Buffer;
+  readonly stdoutByteCount: number;
+  readonly stderrByteCount: number;
 }
 
 export interface CommandRunner {
@@ -100,11 +105,17 @@ class CommandExecutor implements CommandRunner {
           );
           return;
         }
+        const stdoutBuffer = Buffer.concat(stdout);
+        const stderrBuffer = Buffer.concat(stderr);
         resolve({
           exitCode: exitCode ?? 1,
           signal,
-          stdout: Buffer.concat(stdout).toString("utf8"),
-          stderr: Buffer.concat(stderr).toString("utf8"),
+          stdout: stdoutBuffer.toString("utf8"),
+          stderr: stderrBuffer.toString("utf8"),
+          stdoutBuffer,
+          stderrBuffer,
+          stdoutByteCount: stdoutBuffer.byteLength,
+          stderrByteCount: stderrBuffer.byteLength,
         });
       });
     });
@@ -133,7 +144,16 @@ class CommandExecutor implements CommandRunner {
         ),
       );
       child.on("close", (exitCode, signal) =>
-        resolve({ exitCode: exitCode ?? 1, signal, stdout: "", stderr: "" }),
+        resolve({
+          exitCode: exitCode ?? 1,
+          signal,
+          stdout: "",
+          stderr: "",
+          stdoutBuffer: Buffer.alloc(0),
+          stderrBuffer: Buffer.alloc(0),
+          stdoutByteCount: 0,
+          stderrByteCount: 0,
+        }),
       );
     });
   }
@@ -919,15 +939,13 @@ class LiveTmuxPort implements TmuxPort {
       if (created.exitCode !== 0)
         throw commandFailure("tmux session creation", created);
     }
-    const existing = await this.commands.run(
-      "tmux",
-      ["list-windows", "-t", input.sessionName, "-F", "#{window_name}"],
-      input.cwd,
-      15_000,
-    );
-    if (existing.exitCode !== 0)
-      throw commandFailure("tmux window observation", existing);
-    if (existing.stdout.split(/\r?\n/).includes(input.windowName))
+    if (
+      await this.observeIssueWindowName({
+        sessionName: input.sessionName,
+        windowName: input.windowName,
+        cwd: input.cwd,
+      })
+    )
       throw new RunnerError(
         "RESOURCE_OWNERSHIP_UNKNOWN",
         `tmux window ${input.windowName} already exists.`,
@@ -953,24 +971,36 @@ class LiveTmuxPort implements TmuxPort {
       input.cwd,
       15_000,
     );
-    if (created.exitCode !== 0)
-      throw commandFailure("tmux issue-window creation", created);
-    const [windowId, paneId] = created.stdout.trim().split("\t");
-    if (!windowId || !paneId)
-      throw new RunnerError(
-        "EXTERNAL_COMMAND_FAILED",
-        "tmux returned malformed window identity.",
-        "Upgrade tmux and retry after preserving existing resources.",
-      );
-    const identity = {
+    const parsed = parseTmuxIdentityResult("create", created);
+    return {
       sessionName: input.sessionName,
       windowName: input.windowName,
-      windowId,
-      paneId,
+      windowId: parsed.windowId,
+      paneId: parsed.paneId,
       cwd: input.cwd,
     };
-    await this.setRemainOnExit(identity);
-    return identity;
+  }
+  public async observeIssueWindowName(input: {
+    readonly sessionName: string;
+    readonly windowName: string;
+    readonly cwd: string;
+  }): Promise<boolean> {
+    const existing = await this.commands.run(
+      "tmux",
+      ["list-windows", "-t", input.sessionName, "-F", "#{window_name}"],
+      input.cwd,
+      15_000,
+    );
+    if (existing.exitCode !== 0) {
+      if (
+        /no server running|can.t find session|no sessions/i.test(
+          existing.stderr,
+        )
+      )
+        return false;
+      throw commandFailure("tmux window observation", existing);
+    }
+    return existing.stdout.split(/\r?\n/).includes(input.windowName);
   }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
     const result = await this.commands.run(
@@ -986,20 +1016,13 @@ class LiveTmuxPort implements TmuxPort {
       15_000,
     );
     if (result.exitCode !== 0) return null;
-    const rows = result.stdout.trim().split(/\r?\n/).filter(Boolean);
-    if (rows.length !== 1)
-      throw new RunnerError(
-        "TMUX_TARGET_MISMATCH",
-        "tmux observation was ambiguous.",
-        "Preserve all panes and reconcile the recorded target.",
-      );
-    const [windowId, paneId, cwd] = rows[0].split("\t");
+    const parsed = parseTmuxIdentityResult("observe", result);
     return {
       sessionName: target.sessionName,
       windowName: target.windowName,
-      windowId,
-      paneId,
-      cwd,
+      windowId: parsed.windowId,
+      paneId: parsed.paneId,
+      cwd: parsed.cwd ?? target.cwd,
     };
   }
   public async panePid(target: TmuxIdentity): Promise<number | null> {

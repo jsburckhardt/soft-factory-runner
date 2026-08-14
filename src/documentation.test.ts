@@ -15,6 +15,9 @@ const integrationGuide = read("docs/rpiv-integration-contract.md");
 const runReconciliationContract = read(
   "project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md",
 );
+const tmuxIdentityContract = read(
+  "project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md",
+);
 const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
@@ -27,7 +30,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "IntegrationContractV1",
       "rpiv.final_validation",
       "just <recipe>",
-      "RunSnapshotV4",
+      "RunSnapshotV5",
       "sole `just verify`",
       "just verify-focused",
       "RpivStatusV1",
@@ -54,7 +57,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Every progress classification",
       "exact historical AgentResult shape",
       "only at the version-aware legacy persistence/recovery boundary",
-      "Current AgentResultV1 publication and v4 snapshot parsing still require the strict new shape",
+      "Current AgentResultV1 publication and v4/v5 snapshot parsing still require the strict new shape",
     ])
       expect(integrationGuide).toContain(phrase);
     expect(readme).toContain("just run instructions --json");
@@ -99,13 +102,13 @@ describe("V-11 Phase 3 operator documentation", () => {
     );
   });
 
-  it("guards corrected v4 architecture and final publication ordering against stale contracts", () => {
+  it("guards corrected v5 architecture and final publication ordering against stale contracts", () => {
     for (const phrase of [
-      "Persist new runs as `RunSnapshotV4`",
-      "snapshot versions 1 through 4",
-      "explicit version 4 reconciliation transition",
-      "a complete resulting `RunSnapshotV3` or `RunSnapshotV4`",
-      "strictly snapshot-bound `IntegrationLaunchV1`",
+      "Persist new runs as `RunSnapshotV5`",
+      "snapshot versions 1 through 5",
+      "explicit revisioned v5 transition",
+      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, or `RunSnapshotV5`",
+      "nullable `tmuxIdentityDiagnostic`",
     ])
       expect(runReconciliationContract).toContain(phrase);
     expect(runReconciliationContract).not.toContain(
@@ -115,7 +118,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Read valid snapshot versions 1 through 3",
     );
     expect(decisionLog).toContain(
-      "Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions",
+      "Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5",
     );
     for (const phrase of [
       "commits and pushes the required verification summary and verifier retro records",
@@ -177,7 +180,7 @@ describe("V-11 Phase 3 operator documentation", () => {
 
   it("documents recovery, exact process identity, resume decisions, and migration", () => {
     for (const phrase of [
-      "RunSnapshotV4",
+      "RunSnapshotV5",
       "TransitionEventV2",
       "complete, contiguous",
       "STATE_HISTORY_INVALID",
@@ -191,14 +194,13 @@ describe("V-11 Phase 3 operator documentation", () => {
       "ACTIVE_PRESERVED",
       "COMPLETED_NOOP",
       "RESUME_REFUSED",
-      "RunSnapshotV1",
-      "RunSnapshotV2",
-      "never silently treated as v4",
+      "`RunSnapshotV1` through `RunSnapshotV5`",
+      "never silently treated as v4 or v5",
       "concurrency slot lease",
       "strictly parsed result artifact identity, content",
       "permission-denied process metadata",
       "exact historical AgentResult parser only at the legacy boundary",
-      "historical result shape remains invalid for current publication and v4 snapshots",
+      "historical result shape remains invalid for current publication and v4/v5 snapshots",
     ])
       expect(operations).toContain(phrase);
     expect(issueRun).toContain("Phase 3 continuation");
@@ -282,6 +284,84 @@ describe("V-11 Phase 3 operator documentation", () => {
     });
     expect(inventory.status).toBe(0);
     expect(inventory.stdout).toContain("INVENTORY_READY");
+  });
+});
+
+describe("V-8 Issue 29 tmux identity recovery documentation", () => {
+  it("documents exact transport, diagnostic bounds, lifecycle, and rendering", () => {
+    for (const document of [readme, issueRun, operations, prd]) {
+      for (const phrase of [
+        "horizontal tab",
+        "optional final LF",
+        "^@[0-9]+$",
+        "^%[0-9]+$",
+        "malformed or ambiguous",
+      ])
+        expect(document).toContain(phrase);
+      expect(document).not.toContain("Upgrade tmux");
+    }
+    for (const phrase of [
+      "TmuxIdentityDiagnosticV1",
+      "8",
+      "32",
+      "value-free",
+      "raw stdout/stderr",
+      "other-run",
+      "replaced by a later identity failure",
+      "clears only after valid create/observe identity proof",
+      "Malformed zero-exit observation is unknown",
+      "nonzero observation remains absence",
+      "only one observation",
+    ])
+      expect(operations + issueRun).toContain(phrase);
+    for (const phrase of [
+      "RunSnapshotV5",
+      "ReconciliationReportV2",
+      "status schema v4",
+      "explicit revisioned v5 transition",
+      "tmuxIdentityDiagnostic: null",
+    ])
+      expect(readme + operations + prd).toContain(phrase);
+    expect(tmuxIdentityContract).toContain(
+      "window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
+    );
+  });
+
+  it("documents exact zero-candidate retry, same-name refusal, and logs independence", () => {
+    for (const phrase of [
+      "fetched-base advertised HEAD",
+      "staged/unstaged/untracked cleanliness",
+      "zero same-name candidates",
+      "immediately before one creation attempt",
+      "unknown ownership",
+      "never inspected or adopted",
+      "name, cwd, identity, or process command",
+      "non-authorizing",
+      "LOG_NOT_FOUND",
+    ])
+      expect(readme + operations + prd).toContain(phrase);
+    expect(issueRun).toContain("TMUX_IDENTITY_MALFORMED");
+    expect(operations).toContain("RESOURCE_OWNERSHIP_UNKNOWN");
+  });
+
+  it("documents controlled validation and no API configuration or deployment impact", () => {
+    for (const command of [
+      "just verify-focused",
+      "just verify",
+      "harness checks --focused --json",
+      "harness checks --json",
+    ])
+      expect(issueRun + operations + readme).toContain(command);
+    for (const phrase of [
+      "no configuration option/default",
+      "no configuration migration",
+      "no network API",
+      "no API specification",
+      "no deployment",
+    ])
+      expect(readme + docsIndex + operations).toContain(phrase);
+    expect(operations).toContain("byte-aware tmux/process adapters");
+    expect(operations).toContain("exact tmux 3.7b bytes");
   });
 });
 

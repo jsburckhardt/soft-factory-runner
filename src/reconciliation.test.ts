@@ -170,7 +170,7 @@ describe("V-2 full reconciliation matrix", () => {
     const second = buildReconciliationReport(snapshot, matchingObservations());
     expect(first).toEqual(second);
     expect(first).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       decisionCode: "active_preserved",
       activity: "active",
       safeActions: ["preserve_active", "attach", "stop"],

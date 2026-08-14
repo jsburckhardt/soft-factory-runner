@@ -68,6 +68,14 @@ Before ownership, the issue must be open, unblocked, conflict-free, and contain 
 
 After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, fetches the selected remote, and persists `FetchedBaseProofV1` before creating `<type>/<issue>-<slug>` and `.trees/<issue>`. Existing unowned resources, including `/workspaces/soft-factory-runner/.trees/3`, are preserved and blocked with `RESOURCE_OWNERSHIP_UNKNOWN`. For Issue 3, telemetry remains `project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3`.
 
+## Strict tmux identity transport and diagnostics
+
+Runner parses original command bytes before UTF-8 decoding. Creation accepts exactly one nonempty record with exactly two horizontal tab (`HT`, byte `09`) fields: a window ID matching `^@[0-9]+$` and a pane ID matching `^%[0-9]+$`. Observation accepts exactly one nonempty record with those IDs and a third nonempty valid UTF-8 cwd field. LF (byte `0a`) is the only record terminator and one optional final LF is permitted. CR/CRLF, invalid UTF-8 cwd, empty required fields, extra fields, multiple records, and partial identifiers are malformed or ambiguous.
+
+For completed create failures and malformed zero-exit observations, `TmuxIdentityDiagnosticV1` retains only `phase`, exit code, original stdout/stderr byte counts, record count and up to 8 record field summaries with field counts capped at 8, truncation flags, and up to 32 value-free tokens from `window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, and `other`. It never stores raw stdout/stderr, cwd/path components, command arguments, environment or field values, issue/owner/run identifiers, hashes/byte values, or another run data. Nonzero observation remains target absence and creates no diagnostic; spawn/timeout failures retain no invented byte facts.
+
+The latest diagnostic is replaced by a later identity failure, survives rendering and absence, and clears only after valid create/observe identity proof. Human output calls it malformed or ambiguous and gives no tmux-version recommendation.
+
 ## RPIV result artifact
 
 After acceptance, the snapshotted final validation, final-head push, and pull-request creation, the Verifier commits and pushes the required verification summary and verifier retro records, then independently confirms that the pull request points at the resulting final head. Only after that confirmation does the Verifier publish this immutable owned path through the injected Runner helper:
@@ -120,9 +128,9 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 ## Persistence and status
 
-Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV4` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
+Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV5` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
-Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Supported v1-v3 inputs normalize to sole `just verify` and never consult later configuration; malformed persistence fails safe.
+Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Supported v1-v3 inputs normalize through v4 and supported v4 inputs normalize through an explicit revisioned v5 transition; all supported inputs to sole `just verify` and never consult later configuration; malformed persistence fails safe.
 
 The explicit terminal states are:
 
@@ -144,12 +152,13 @@ Human and `--json` status derive from the same snapshot and reconciliation facts
 | `COMPLETION_PROOF_INCOMPLETE` | Git or GitHub completion facts are unavailable or malformed | Restore the named observation and start a new bounded attempt. |
 | `RESULT_*_MISMATCH`, `PR_*_MISMATCH` | Identity, branch, SHA, or PR evidence contradicts the run | Reconcile the exact expected and observed facts. |
 | `AC_*_MISMATCH`, `RESULT_FINAL_VALIDATION_MISMATCH` | Required acceptance or root validation proof failed | Correct evidence and rerun RPIV validation. |
+| `TMUX_IDENTITY_MALFORMED` | Creation or zero-exit observation returned malformed or ambiguous identity structure | Inspect the bounded value-free diagnostic; preserve unknown resources and explicitly retry only after exact ownership is proved. |
 | `TMUX_TARGET_MISSING`, `TMUX_TARGET_MISMATCH` | Attach target is absent or contradictory | Preserve resources and inspect status. |
 | `EXTERNAL_COMMAND_FAILED` | Git, tmux, filesystem, or Copilot failed | Use redacted diagnostics to repair the tool. |
 
 ## Deterministic evidence fixtures
 
-`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
+`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/tmux-identity.test.ts` proves exact tmux 3.7b bytes, malformed matrices, byte/count caps, and sentinel confidentiality through a controlled command adapter. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
 
 Run:
 
@@ -166,4 +175,4 @@ Restart reconciliation, deterministic resume, bounded stop, guarded cleanup, ret
 
 Use [`phase-3-recovery-operations.md`](phase-3-recovery-operations.md) for the full command grammar, separately observed RPIV progress, `execution.max_concurrent_runs`, process identity, schema-v1/v2 migration, stop bounds, cleanup refusal categories, automatic trigger, and retained-resource behavior.
 
-For the authoritative integration command, progress classifications, no-clobber result publication, coordinator gate, v4 migration, API applicability, and deployment boundaries, see [the RPIV integration guide](rpiv-integration-contract.md).
+For the authoritative integration command, progress classifications, no-clobber result publication, coordinator gate, v5/v4 migration, API applicability, and deployment boundaries, see [the RPIV integration guide](rpiv-integration-contract.md).
