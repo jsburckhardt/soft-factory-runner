@@ -1,0 +1,46 @@
+src/doctor-tmux.test.ts
+  s_724e01f654f4f9::t_43fd48b9d9af1c 397-449
+PRD.md
+  s_724e01f654f4f9::t_46d664c45764a7 1136-1137,1142,1144,1148,1151-1159,1164-1165,1168-1174,1177-1226
+.harness/records/retro/2026-08-14/022-issue-29-rpiv-planner.md
+  s_724e01f654f4f9::t_c0261cc97bdabc 1-6,9,14-16,24,85-86,88
+  s_724e01f654f4f9::t_d0062dc8bc75a1 7-8,10-13,17-23,25-84,87,89
+.harness/records/retro/2026-08-14/023-issue-29-rpiv-implementer.md
+  s_724e01f654f4f9::t_d0062dc8bc75a1 7-8,10-13,17-23,25-70,73,75
+  s_724e01f654f4f9::t_c0261cc97bdabc 1-6,9,14-16,24,71-72,74
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/implementation/00-implementation.md
+  s_724e01f654f4f9::t_98db614efa0b19 216
+  s_724e01f654f4f9::t_13be837ae78585 160-215,217
+docs/phase-1-issue-run.md
+  s_724e01f654f4f9::t_46d664c45764a7 133
+src/documentation.test.ts
+  s_724e01f654f4f9::t_96cfc7d6b0469d 36-38,390-392,493-495
+  s_724e01f654f4f9::t_e872c4b65cfc10 4,28-35,39-58,379-389,393-492,496-517
+  s_724e01f654f4f9::t_34c26bac58678d 518
+src/doctor-tmux.ts
+  s_724e01f654f4f9::t_43fd48b9d9af1c 438
+.harness/records/retro/2026-08-14/024-issue-29-rpiv-implementer-evidence-eof.md
+  s_724e01f654f4f9::t_398b12c2d35680 7-8,10-13,17-23,25-28,31,33
+  s_724e01f654f4f9::t_f63f41cf208a9f 1-6,9,14-16,24,29-30,32
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_724e01f654f4f9::t_98db614efa0b19 484
+  s_724e01f654f4f9::t_657e857324e683 445-446
+  s_724e01f654f4f9::t_13be837ae78585 483
+  s_724e01f654f4f9::t_07e20302596960 411-412
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8ffd7eaf6910c1ee179553609e0721bd9d7fdddc",
+  "prompts": {},
+  "sessions": {
+    "s_724e01f654f4f9": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_NTJ7ptVyU28j3BH6NxrKBvxC",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
