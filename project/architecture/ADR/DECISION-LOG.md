@@ -15,6 +15,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260812-official-asset-distribution-installation | Official Asset Distribution and Installation | Accepted | 2026-08-12 |
 | ADR-260812-copilot-child-environment | Copilot Child Environment Configuration | Accepted | 2026-08-12 |
 | ADR-260812-rpiv-integration-completion-contract | RPIV Integration and Completion Contract | Accepted | 2026-08-12 |
+| ADR-260814-tmux-identity-failure-recovery | Tmux Identity Failure Recovery | Accepted | 2026-08-14 |
 
 ## Core-Components
 
@@ -41,6 +42,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260812-official-asset-installation-contract | Official Asset Installation Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-copilot-child-environment-contract | Copilot Child Environment Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-rpiv-integration-handoff | RPIV Integration Handoff | Adopted | 2026-08-12 |
+| CORE-COMPONENT-260814-tmux-identity-diagnostics | Tmux Identity Diagnostics | Adopted | 2026-08-14 |
 
 ## Decisions
 
@@ -170,3 +172,15 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 120 | Retire legacy files only when bytes match their recorded manifest digests | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
 | 121 | Require qualified Copilot terminal tools and validate one issue before terminal use | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
 | 122 | Run instructions before Doctor and preserve exact dispatch output without claiming completion | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
+| 123 | Use original command bytes for tmux identity parsing and pre-decode byte counts | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
+| 124 | Persist only bounded value-free tmux identity structure in RunSnapshotV5 | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
+| 125 | Retry starting_tmux creation only after exact clean fetched-HEAD ownership and zero same-name candidates | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
+| 126 | Treat nonzero tmux observation as absence and malformed zero-exit output as unknown | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
+| 127 | Require exact tab-separated LF-terminated tmux identity records and strict identifier grammars | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
+| 128 | Cap tmux identity diagnostics at eight records, eight fields, and 32 tokens | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
+| 129 | Retain the latest tmux identity diagnostic until valid identity proof clears it | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
+| 130 | Prohibit raw tmux output and field values in durable identity diagnostics | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
+| 131 | Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5 | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
+| 132 | Authorize preparation resume only with exact clean fetched-HEAD ownership and zero same-name candidates | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
+| 133 | Preserve one-pass reconciliation while persisting returned tmux identity failure diagnostics | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
+| 134 | Preserve v4 completion evidence unchanged within RunSnapshotV5 | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-14 |
