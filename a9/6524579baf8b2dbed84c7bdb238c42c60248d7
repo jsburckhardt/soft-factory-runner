@@ -1,0 +1,28 @@
+.harness/records/retro/2026-08-14/012-issue-27-rpiv-verifier-closeout.md
+  s_b532a83b96f257::t_99f2f871e80f5d 1,14-16,25,30-31,33
+  s_b532a83b96f257::t_197a75fb95d3da 2-13,17-24,26-29,32,34
+.harness/records/retro/2026-08-14/010-issue-27-rpiv-verifier.md
+  s_b532a83b96f257::t_15656509e6f90a 1,14,29,104,113,118-119,121
+  s_b532a83b96f257::t_bfee4a77b9217c 2-13,15-28,30-103,105-112,114-117,120,122
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/verify/summary.md
+  s_b532a83b96f257::t_f1a61562d1f8d7 1-86
+.harness/records/retro/2026-08-14/011-issue-27-rpiv-verifier-push.md
+  s_b532a83b96f257::t_4551721ec71166 1,14-16,25,30-31,33
+  s_b532a83b96f257::t_67b35ac8f8ee35 2-13,17-24,26-29,32,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a96524579baf8b2dbed84c7bdb238c42c60248d7",
+  "prompts": {},
+  "sessions": {
+    "s_b532a83b96f257": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_4804Jjj9DPGik2mrOpeVrE5c",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
