@@ -1,0 +1,60 @@
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/01-action-plan.md
+  s_e13845ad59a297::t_b384af5f1d3d50 47
+  s_e13845ad59a297::t_38341931f1dc68 48
+  s_e13845ad59a297::t_f65d00bbd9be42 50
+  s_e13845ad59a297::t_45118fb1643d05 49
+  s_e13845ad59a297::t_c919e61b79f596 45,51
+  s_e13845ad59a297::t_879b242a486de6 6-7,10-13,16-17,19-22,26-39,41-44,46,52,64,69-78,80,83-94,97-103
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/03-test-plan.md
+  s_e13845ad59a297::t_c919e61b79f596 247
+  s_e13845ad59a297::t_38341931f1dc68 218,248
+  s_e13845ad59a297::t_b384af5f1d3d50 265,319
+  s_e13845ad59a297::t_c8ba37d9267a0d 5-6,210-217,219-246,249-264,266-293,295-318,320-365,369-380
+  s_e13845ad59a297::t_f65d00bbd9be42 294
+project/architecture/core-components/CORE-COMPONENT-260812-repository-doctor-contract.md
+  s_e13845ad59a297::t_bb620ab569ad76 13,20-26,28,30-32,34-36,41,48-49,51,53-54,58-64,67,69-73,77,90-93,95-98,102,114
+  s_e13845ad59a297::t_c919e61b79f596 27,52
+  s_e13845ad59a297::t_9e7f1f71e6fe56 37,85
+  s_e13845ad59a297::t_b384af5f1d3d50 29,33,50
+  s_e13845ad59a297::t_45118fb1643d05 38-40
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/research/00-research.md
+  s_c7c7c44ea14cfd::t_48f633879783b5 13,15,29,34-57,61-71,75-87,91-102
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_e13845ad59a297::t_faa4dd938f6c4d 277
+  s_e13845ad59a297::t_f65d00bbd9be42 244
+  s_e13845ad59a297::t_ec3d90c99c464d 5-6,233-243,245-276,280-351,353-400
+  s_e13845ad59a297::t_38341931f1dc68 278
+  s_e13845ad59a297::t_b384af5f1d3d50 279,352
+project/architecture/ADR/ADR-260812-repository-doctor-readiness.md
+  s_e13845ad59a297::t_b384af5f1d3d50 30,34,38
+  s_e13845ad59a297::t_45118fb1643d05 31,36
+  s_e13845ad59a297::t_c919e61b79f596 22,25,40
+  s_e13845ad59a297::t_8b0723819155ec 9-11,15-21,23-24,26-29,32-33,35,42,44,46,52-60,65-68,71-73,76-77,83,90,92-93
+  s_e13845ad59a297::t_57a571af805a84 37
+project/architecture/ADR/DECISION-LOG.md
+  s_e13845ad59a297::t_1670a9ae9085a1 187-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "26e16a4a617fbbddaf5dc822d4c1c906a37c8566",
+  "prompts": {},
+  "sessions": {
+    "s_c7c7c44ea14cfd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_7MkEyLwyb2vnYLIcc7Ra3fgZ",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_e13845ad59a297": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_ppK0v5hZD7dTbVrkzaZW393F",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
