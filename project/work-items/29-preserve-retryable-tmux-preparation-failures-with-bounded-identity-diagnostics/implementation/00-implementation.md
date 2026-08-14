@@ -141,6 +141,19 @@ AC-1 through AC-9 were implemented and committed before the Doctor requirement i
 - The first safe commit exposed one additional trailer confusion. It was persisted/read back in `.harness/records/retro/2026-08-14/020-issue-29-rpiv-implementer-commit-trailer.md` with schema 1.2, matching agent/plan, and `disposition: kept`; its clear envelope returned `status: ok`, `cleared: 1` before recommit.
 - Post-clear JSON listings for all four agents returned exit 0, `status: ok`, and empty observation arrays; the Implement buffer was also re-cleared after the trailer observation.
 
+## Verify-return documentation correction
+
+- **Returned defect:** Verify stopped before acceptance testing because PRD Section 12 incorrectly showed the unrelated official asset manifest as schema v2. Commit `717dfec4521a886cdd145c4593399922985d7131` was not amended.
+- **Application documentation:** `PRD.md` Section 12 now again shows strict `.agents/manifest.json` `schemaVersion: 1`, matching product code, README, the official-asset ADR, and its core-component. PRD Section 21 remains the strict `DoctorResultV2` `schemaVersion: 2` example. No other application documentation changed.
+- **Regression test:** the existing V10 documentation test now slices both PRD sections and asserts asset manifest v1/not-v2 and Doctor result v2/not-v1, preventing another global schema-replacement regression.
+- **Acceptance mapping:** this correction reinforces AC-9 controlled validation and AC-10 documentation accuracy while preserving the unchanged official-asset contract; AC-1 through AC-8 product behavior is unaffected.
+- **Documentation no-impact rationale:** no README, API, configuration, usage workflow, run-state/data/database migration, explanatory architecture, service, container, deployment, or operational procedure changed. No ADR/core-component change was needed.
+- **Targeted validation:** final `just verify-focused src/documentation.test.ts` exited 0 with 1 suite/27 tests and diff check passed.
+- **Focused validation:** final direct `just verify-focused` exited 0 with 23 suites/442 tests and diff check passed; `harness checks --focused --json` returned `status: ok`, delegated exit 0, and 23 suites/442 tests.
+- **Full validation:** the first direct full attempt exposed only Prettier drift in `src/documentation.test.ts`; after formatting, final direct `just verify` exited 0 with lint, format, strict types, 23 suites/442 tests, 88.90% statements/83.99% branches/95.42% functions/90.50% lines, build, and diff check. `harness checks --json` returned `status: ok` with delegated exit 0 and matching results.
+- **Implement friction drain:** two correction observations were persisted and read back in `.harness/records/retro/2026-08-14/021-issue-29-rpiv-implementer-verify-return.md` with schema 1.2, matching agent/plan, and `disposition: kept`; the clear envelope returned `status: ok`, `cleared: 2`. Coordinator, Research, Plan, and Implement listings then returned empty arrays.
+- **Verifier ownership preserved:** `rpiv-verifier` remained untouched with exactly `DL-001` and `COORD-001` buffered for resumed Verify; Implement neither recorded, drained, nor cleared them.
+
 ## Divergence and blockers
 
 No architecture or Plan divergence was required. AC-10 conforms to the revised Doctor ADR/core-component and decisions 135–143 while leaving the tmux identity architecture unchanged. All implementation/validation friction was corrected within the accepted contract; no blocker remains for Verify handoff.

@@ -648,6 +648,20 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
       "protocol 1",
     ])
       expect(assetGuide).toContain(phrase);
+    const manifestStart = prd.indexOf("# 12. Asset Manifest");
+    const manifestEnd = prd.indexOf("# 13. Installation Safety", manifestStart);
+    expect(manifestStart).toBeGreaterThanOrEqual(0);
+    expect(manifestEnd).toBeGreaterThan(manifestStart);
+    const manifestSection = prd.slice(manifestStart, manifestEnd);
+    expect(manifestSection).toContain('"schemaVersion": 1');
+    expect(manifestSection).not.toContain('"schemaVersion": 2');
+    const doctorStart = prd.indexOf("# 21. Doctor JSON Output");
+    const doctorEnd = prd.indexOf("# 22. Issue Execution", doctorStart);
+    expect(doctorStart).toBeGreaterThanOrEqual(0);
+    expect(doctorEnd).toBeGreaterThan(doctorStart);
+    const doctorSection = prd.slice(doctorStart, doctorEnd);
+    expect(doctorSection).toContain('"schemaVersion": 2');
+    expect(doctorSection).not.toContain('"schemaVersion": 1');
   });
 
   it("locks every current PRD official-agent surface to delivery-only dispatch", () => {

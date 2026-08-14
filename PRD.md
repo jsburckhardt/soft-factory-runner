@@ -508,7 +508,7 @@ Example:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "assets": [
     {
       "type": "agent",
