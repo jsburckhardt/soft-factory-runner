@@ -43,39 +43,24 @@ just run logs 5 --json
 
 `just run instructions [--json]` deterministically reports the Runner-owned progress/result handoff. New runs require the root `justfile` to prove and snapshot one declared `rpiv.final_validation`, defaulting to `just verify`; a missing root file fails before ownership, and focused validation is implementation feedback only. RPIV publishes mutable `.soft-factory/rpiv-status.json`, while Verify publishes immutable no-clobber `.soft-factory/agent-result.json` only after PR creation, the tracked verification summary/retro commit is pushed, and the PR is independently confirmed at the final head. Runner binds the helper to those observed PR facts, and the coordinator validates that bound result before zero exit; every failure path first attempts terminal failed progress. Status/list report phase separately from operational state, and every progress classification remains diagnostic-only. See [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) for configuration grammar, schemas, classifications, atomicity, v4/legacy migration, redaction, troubleshooting, API applicability, and local deployment boundaries.
 
-## Official agent assets
+## Official delivery agent
 
-Install one packaged official asset or the complete recommended set from the
-target repository root:
+Soft Factory Runner publishes exactly one official asset. From the target repository root, both supported install forms run the same convergence:
 
 ```text
 just run install agent soft-factory
-just run install agent soft-factory-assessor
-just run install skill soft-factory
 just run install --recommended
 ```
 
-The recommended batch installs the Operator at
-`.agents/agents/soft-factory.agent.md`, the Assessor at
-`.agents/agents/soft-factory-assessor.agent.md`, and the skill at
-`.agents/skills/soft-factory/SKILL.md`. Strict `.agents/manifest.json` schema v1
-records each asset’s type, name, package-coupled version, Runner protocol 1,
-fixed destination, and catalog SHA-256 digest.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
-Sources are package-local under `assets/official/`; install performs no network
-or subprocess operation. It validates protocol and integrity before writes,
-preserves unrelated content, adopts identical unmanaged bytes, and is a stable
-no-op after convergence. Differing bytes require exact prior manifest digest
-proof; otherwise the complete batch refuses with no changes. Staged atomic
-replacement writes the manifest last and either rolls back exactly or reports
-uncertain rollback with direct remediation.
+Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 
-The Operator delegates explicit issue execution and every lifecycle operation
-to Runner. The Assessor preserves the complete `soft-factory doctor --json`
-readiness result as authoritative. Doctor’s canonical 24 checks and sole
-`.github/agents/rpiv.agent.md` authority are unchanged. See
-[`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) for schema,
-metadata, safety, errors, packaging, migration, and local deployment details.
+Every mutation is one manifest-last transaction across `.github/` and `.agents/`. A caught failure either restores exact pre-invocation bytes and path kinds or returns `ASSET_ROLLBACK_UNCERTAIN` with every affected path; stop, inspect and restore all listed paths from version control or backup, then retry only after restoration.
+
+Invoke the installed agent with an explicit canonical issue, for example `soft-factory run --issue 27 --json`. It reads `soft-factory instructions --json` before `soft-factory doctor --json`, dispatches only when Doctor is ready, preserves applicable Runner output unchanged, and separates dispatch acceptance from ticket completion. Runner remains the only authority for worktrees, locks, state, processes, cleanup, and completion. Doctor keeps its canonical 24 checks and sole `.github/agents/rpiv.agent.md` readiness authority.
+
+See [`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) for the closed migration vocabulary, both-destination rules, package inventory, errors, rollback, and no-API/service/deployment scope.
 
 ## Repository readiness Doctor
 

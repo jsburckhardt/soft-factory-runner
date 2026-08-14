@@ -105,8 +105,12 @@ jobs:
           const fs = require("node:fs");
 
           const [pack] = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-          const allowedRoots = ["assets/official/", "dist/", "docs/"];
-          const allowedFiles = new Set(["README.md", "package.json"]);
+          const allowedRoots = ["dist/", "docs/"];
+          const allowedFiles = new Set([
+            "README.md",
+            "package.json",
+            "assets/official/soft-factory.agent.md",
+          ]);
           const unexpected = pack.files
             .map(({ path }) => path)
             .filter(
@@ -120,6 +124,12 @@ jobs:
           }
           if (!pack.files.some(({ path }) => path === "dist/index.js")) {
             throw new Error("Package does not contain dist/index.js");
+          }
+          const official = pack.files
+            .map(({ path }) => path)
+            .filter((path) => path.startsWith("assets/official/"));
+          if (JSON.stringify(official) !== JSON.stringify(["assets/official/soft-factory.agent.md"])) {
+            throw new Error(`Unexpected official asset inventory: ${official.join(", ")}`);
           }
           NODE
 

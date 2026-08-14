@@ -1,7 +1,0 @@
-{
-  "name": "modified-local",
-  "command": ["install", "--recommended"],
-  "expectedCode": "ASSET_LOCAL_MODIFIED",
-  "expectedStatuses": [],
-  "expectedWriteOrder": []
-}

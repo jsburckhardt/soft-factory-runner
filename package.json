@@ -53,7 +53,7 @@
   },
   "files": [
     "dist/",
-    "assets/official/",
+    "assets/official/soft-factory.agent.md",
     "README.md",
     "docs/"
   ]

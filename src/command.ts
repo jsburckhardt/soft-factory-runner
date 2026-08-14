@@ -56,19 +56,13 @@ export function parseCommand(args: readonly string[]): Command {
   if (args[0] === "install" && args.length === 2 && args[1] === "--recommended")
     return {
       kind: "install",
-      assets: [
-        { type: "agent", name: "soft-factory" },
-        { type: "agent", name: "soft-factory-assessor" },
-        { type: "skill", name: "soft-factory" },
-      ],
+      assets: [{ type: "agent", name: "soft-factory" }],
     };
   if (
     args[0] === "install" &&
     args.length === 3 &&
-    (args[1] === "agent" || args[1] === "skill") &&
-    ((args[1] === "agent" &&
-      (args[2] === "soft-factory" || args[2] === "soft-factory-assessor")) ||
-      (args[1] === "skill" && args[2] === "soft-factory"))
+    args[1] === "agent" &&
+    args[2] === "soft-factory"
   )
     return { kind: "install", assets: [{ type: args[1], name: args[2] }] };
   if (args[0] === "doctor" && (args.length === 1 || args.length === 2))
@@ -182,8 +176,6 @@ export const HELP_TEXT = `Soft Factory Runner Phase 5
 
 Usage:
   soft-factory install agent soft-factory
-  soft-factory install agent soft-factory-assessor
-  soft-factory install skill soft-factory
   soft-factory install --recommended
   soft-factory doctor [--json]
   soft-factory instructions [--json]
@@ -197,7 +189,7 @@ Usage:
   soft-factory attach <issue>
   soft-factory logs <issue> [--json]
 
-Install writes verified package-local official assets transactionally beneath .agents/.
+Install converges the verified package-local agent at .github/agents/soft-factory.agent.md and records ownership in .agents/manifest.json.
 Doctor reports repository readiness only; it never selects or assesses an issue.
 Instructions reports the deterministic Runner/RPIV integration contract without mutation.
 Control commands return stable state, code, facts, remediation, and exit status.

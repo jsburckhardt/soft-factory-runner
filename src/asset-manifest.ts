@@ -1,8 +1,10 @@
 import { DOCTOR_PROTOCOL_VERSION } from "./doctor";
 import { RunnerError } from "./errors";
 import {
+  OFFICIAL_ASSET_OWNERSHIP_CATALOG,
   officialAssetKey,
-  type OfficialAssetCatalogEntry,
+  ownershipKey,
+  type OfficialAssetOwnershipDescriptor,
   type OfficialAssetType,
 } from "./official-assets";
 
@@ -35,7 +37,7 @@ export function emptyAssetManifest(): AssetManifestV1 {
 
 export function parseAssetManifest(
   text: string,
-  catalog: readonly OfficialAssetCatalogEntry[],
+  vocabulary: readonly OfficialAssetOwnershipDescriptor[] = OFFICIAL_ASSET_OWNERSHIP_CATALOG,
 ): AssetManifestV1 {
   let value: unknown;
   try {
@@ -54,10 +56,11 @@ export function parseAssetManifest(
     throw manifestError(
       "The official asset manifest must use schemaVersion 1 and an assets array.",
     );
-  const catalogByKey = new Map(
-    catalog.map((entry) => [officialAssetKey(entry), entry]),
+
+  const descriptors = new Map(
+    vocabulary.map((entry) => [ownershipKey(entry), entry]),
   );
-  const identities = new Set<string>();
+  const pairs = new Set<string>();
   const destinations = new Set<string>();
   const assets = value.assets.map((raw, index) => {
     if (!isRecord(raw) || !hasExactKeys(raw, ENTRY_KEYS))
@@ -84,49 +87,54 @@ export function parseAssetManifest(
       destination: raw.destination,
       sha256: raw.sha256,
     };
-    const key = officialAssetKey(entry);
-    const expected = catalogByKey.get(key);
-    if (expected === undefined || expected.destination !== entry.destination)
+    const pair = ownershipKey(entry);
+    if (!descriptors.has(pair))
       throw manifestError(
-        `Manifest asset ${index} is not in the closed official catalog.`,
+        `Manifest asset ${index} is outside the closed ownership vocabulary.`,
       );
-    if (identities.has(key) || destinations.has(entry.destination))
+    if (pairs.has(pair) || destinations.has(entry.destination))
       throw manifestError(
-        `Manifest asset ${index} duplicates an identity or destination.`,
+        `Manifest asset ${index} duplicates an ownership pair or destination.`,
       );
-    identities.add(key);
+    pairs.add(pair);
     destinations.add(entry.destination);
     return entry;
   });
-  const order = new Map(
-    catalog.map((entry, index) => [officialAssetKey(entry), index]),
-  );
+
+  const identities = new Map<string, AssetManifestEntryV1[]>();
+  for (const entry of assets) {
+    const key = officialAssetKey(entry);
+    identities.set(key, [...(identities.get(key) ?? []), entry]);
+  }
+  for (const [identity, entries] of identities) {
+    if (entries.length <= 1) continue;
+    const destinationsForIdentity = new Set(
+      entries.map((entry) => entry.destination),
+    );
+    const validBridge =
+      identity === "agent:soft-factory" &&
+      entries.length === 2 &&
+      destinationsForIdentity.has(".agents/agents/soft-factory.agent.md") &&
+      destinationsForIdentity.has(".github/agents/soft-factory.agent.md");
+    if (!validBridge)
+      throw manifestError(
+        `Manifest identity ${identity} is duplicated or contradictory.`,
+      );
+  }
+
+  const rank = (entry: AssetManifestEntryV1): number =>
+    descriptors.get(ownershipKey(entry))?.rank ?? -1;
   if (
     assets.some(
-      (entry, index) =>
-        index > 0 &&
-        (order.get(officialAssetKey(assets[index - 1])) ?? -1) >=
-          (order.get(officialAssetKey(entry)) ?? -1),
+      (entry, index) => index > 0 && rank(assets[index - 1]) >= rank(entry),
     )
   )
-    throw manifestError("Manifest assets are not in stable catalog order.");
+    throw manifestError("Manifest assets are not in stable migration order.");
   return { schemaVersion: 1, assets };
 }
 
 export function serializeAssetManifest(manifest: AssetManifestV1): string {
   return JSON.stringify(manifest, null, 2) + "\n";
-}
-
-export function orderManifestEntries(
-  entries: readonly AssetManifestEntryV1[],
-  catalog: readonly OfficialAssetCatalogEntry[],
-): readonly AssetManifestEntryV1[] {
-  const byKey = new Map(
-    entries.map((entry) => [officialAssetKey(entry), entry]),
-  );
-  return catalog
-    .map((entry) => byKey.get(officialAssetKey(entry)))
-    .filter((entry): entry is AssetManifestEntryV1 => entry !== undefined);
 }
 
 function manifestError(message: string, cause?: unknown): RunnerError {

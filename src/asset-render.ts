@@ -13,5 +13,10 @@ export function renderAssetInstallation(
       `${asset.type} ${asset.name}: ${asset.status}; destination=${asset.destination}; version=${asset.version}; runnerProtocol=${asset.runnerProtocol}; sha256=${asset.sha256}`,
     );
   }
+  for (const retirement of result.retirements) {
+    lines.push(
+      `${retirement.type} ${retirement.name}: ${retirement.status}; destination=${retirement.destination}`,
+    );
+  }
   return lines.join("\n") + "\n";
 }

@@ -1,7 +1,0 @@
-{
-  "name": "repeated",
-  "command": ["install", "--recommended"],
-  "expectedCode": "ASSETS_UP_TO_DATE",
-  "expectedStatuses": ["up-to-date", "up-to-date", "up-to-date"],
-  "expectedWriteOrder": []
-}
