@@ -1,0 +1,24 @@
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/03-test-plan.md
+  s_fdab6d9d697708::t_365aafbd574cd5 5-7,368-461,465-476
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_fdab6d9d697708::t_81894058c46d25 5-7,408-512
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/01-action-plan.md
+  s_fdab6d9d697708::t_9c7e6b54ae7360 113
+  s_fdab6d9d697708::t_b93cca55c43d77 7-8,31-36,52,61-69,88,93-94,96,106-112,122-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "971eb223c0c44ffac125c09d8c5f340c88d90d47",
+  "prompts": {},
+  "sessions": {
+    "s_fdab6d9d697708": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_1rNAP3PhMzTyLue6vg1qYO0j",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
