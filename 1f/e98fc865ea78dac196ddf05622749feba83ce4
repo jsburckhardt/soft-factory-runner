@@ -1,0 +1,56 @@
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/01-action-plan.md
+  s_080e0b67cf65ec::t_00291efbe6846e 16
+  s_080e0b67cf65ec::t_b9c0c0fc91c73b 1-15,17-38,40-67,69-76
+  s_080e0b67cf65ec::t_d9a17ad56b8deb 68
+  s_080e0b67cf65ec::t_b0c7cd1be97da9 39
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/03-test-plan.md
+  s_080e0b67cf65ec::t_d9a17ad56b8deb 159
+  s_080e0b67cf65ec::t_e3ed7218250da4 1-158,160-221
+project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md
+  s_080e0b67cf65ec::t_8a1fc0b8dfe7b2 18,37,39,46,48,54,56,58,60,67,69,77,79,81,83,87,89
+  s_080e0b67cf65ec::t_01770ea690ca6a 2-4,6-8,10-12,14-17
+  s_080e0b67cf65ec::t_b696a4317700a5 25-26
+  s_080e0b67cf65ec::t_06f4d410e58b1f 1,5,9,13,19-24,27-36,40-45,49-53,70-76,80,84-86,90-92
+  s_080e0b67cf65ec::t_b0c7cd1be97da9 38,47,55,57,59,61-66,68,78,82,88
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/research/00-research.md
+  s_59f8c22c02c521::t_f695d5d1c946d6 1-91
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_080e0b67cf65ec::t_2cd897b92b2147 1-44,46-174,176-188,190-223
+  s_080e0b67cf65ec::t_d9a17ad56b8deb 175,189
+  s_080e0b67cf65ec::t_00291efbe6846e 45
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_080e0b67cf65ec::t_60b72173506026 18-21,24,33-34,36,45,70,91
+project/architecture/ADR/ADR-260814-tmux-identity-failure-recovery.md
+  s_080e0b67cf65ec::t_54fd825d1c403f 1,5,8-9,11,15,17-21,23,25-30,33-38
+  s_080e0b67cf65ec::t_06f4d410e58b1f 43-46,49-51,54-56,60,64-68
+  s_080e0b67cf65ec::t_01770ea690ca6a 2-4,6-7,10,12-14,16,22,24,31-32,39-42,47-48,52-53,57-59,61-63
+project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md
+  s_080e0b67cf65ec::t_00291efbe6846e 23,34,43,69
+project/architecture/ADR/DECISION-LOG.md
+  s_080e0b67cf65ec::t_90f2aa402c02f7 18,45,175-185
+  s_080e0b67cf65ec::t_00291efbe6846e 186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1fe98fc865ea78dac196ddf05622749feba83ce4",
+  "prompts": {},
+  "sessions": {
+    "s_080e0b67cf65ec": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_gflkmVKufUjMzY0k8rzi1KkD",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_59f8c22c02c521": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_mumaGxxPloa0B5neFYakdnMI",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
