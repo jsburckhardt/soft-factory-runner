@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   doctorEnvironment,
+  LiveDoctorCommandRunner,
   type DoctorCommandResult,
   type DoctorCommandRunner,
   type DoctorCommandSpec,
@@ -17,7 +18,14 @@ const ok = (stdout = ""): DoctorCommandResult => ({
   signal: null,
   stdout,
   stderr: "",
+  stdoutBuffer: Buffer.from(stdout),
+  stderrBuffer: Buffer.alloc(0),
+  stdoutByteCount: Buffer.byteLength(stdout),
+  stderrByteCount: 0,
+  stdoutTruncated: false,
+  stderrTruncated: false,
   timedOut: false,
+  cancelled: false,
   launchError: null,
 });
 const bad = (stderr = "failed"): DoctorCommandResult => ({
@@ -25,7 +33,14 @@ const bad = (stderr = "failed"): DoctorCommandResult => ({
   signal: null,
   stdout: "",
   stderr,
+  stdoutBuffer: Buffer.alloc(0),
+  stderrBuffer: Buffer.from(stderr),
+  stdoutByteCount: 0,
+  stderrByteCount: Buffer.byteLength(stderr),
+  stdoutTruncated: false,
+  stderrTruncated: false,
   timedOut: false,
+  cancelled: false,
   launchError: null,
 });
 class RecordingRunner implements DoctorCommandRunner {
@@ -86,6 +101,30 @@ describe("Doctor bounded adapters", () => {
     await fs.chmod(path.join(root, "tmux"), 0o600);
     expect((await resolveDoctorExecutables(root, root)).tmux.ok).toBe(false);
     await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it("caps and counts original command bytes at 4095/4096/4097 while draining overflow", async () => {
+    const runner = new LiveDoctorCommandRunner();
+    for (const size of [4095, 4096, 4097]) {
+      const result = await runner.run({
+        executable: process.execPath,
+        args: [
+          "-e",
+          `process.stdout.write(Buffer.alloc(${size}, 97));process.stderr.write(Buffer.alloc(${size}, 98));`,
+        ],
+        cwd: process.cwd(),
+        timeoutMs: 2000,
+        shell: false,
+        environment: {},
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdoutByteCount).toBe(size);
+      expect(result.stderrByteCount).toBe(size);
+      expect(result.stdoutBuffer).toHaveLength(Math.min(size, 4096));
+      expect(result.stderrBuffer).toHaveLength(Math.min(size, 4096));
+      expect(result.stdoutTruncated).toBe(size > 4096);
+      expect(result.stderrTruncated).toBe(size > 4096);
+    }
   });
 
   it("discovers five independent repository facts with shell-free bounded Git arrays", async () => {
@@ -199,7 +238,14 @@ describe("Doctor bounded adapters", () => {
       signal: "SIGTERM",
       stdout: "",
       stderr: "",
+      stdoutBuffer: Buffer.alloc(0),
+      stderrBuffer: Buffer.alloc(0),
+      stdoutByteCount: 0,
+      stderrByteCount: 0,
+      stdoutTruncated: false,
+      stderrTruncated: false,
       timedOut: true,
+      cancelled: false,
       launchError: null,
     };
     const runner = new RecordingRunner(() => timeout);

@@ -4,6 +4,8 @@ import type {
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
+  RunSnapshotV5,
+  TmuxIdentityDiagnosticV1,
   TransitionEventV2,
 } from "./domain";
 import { REQUIRED_VALIDATIONS } from "./domain";
@@ -155,8 +157,31 @@ function v4(revision = 1): RunSnapshotV4 {
     progress: null,
   };
 }
+const diagnostic: TmuxIdentityDiagnosticV1 = {
+  schemaVersion: 1,
+  phase: "create",
+  exitCode: 0,
+  stdoutByteCount: 6,
+  stderrByteCount: 0,
+  recordCount: 1,
+  recordsTruncated: false,
+  records: [{ fieldCount: 2, truncated: false }],
+  signature: ["window_id", "horizontal_tab", "pane_id", "line_feed"],
+  signatureTruncated: false,
+};
+function v5(
+  revision = 2,
+  tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null = diagnostic,
+): RunSnapshotV5 {
+  return {
+    ...v4(revision),
+    schemaVersion: 5,
+    tmuxIdentityDiagnostic,
+  };
+}
+
 function event(
-  snapshot: RunSnapshotV3,
+  snapshot: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
   prior = snapshot.revision - 1,
 ): TransitionEventV2 {
   return {
@@ -172,6 +197,38 @@ function event(
 }
 
 describe("V-1 revisioned persistence and replay", () => {
+  it("round trips a strict v5 snapshot and complete v5 event", async () => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    files.values.set(store.snapshotPath(5), JSON.stringify(v5()));
+    await expect(store.load(5)).resolves.toEqual(v5());
+    expect(replayHistory(v5(2), [event(v5(3, null))])).toEqual(v5(3, null));
+  });
+
+  it.each([
+    ["record cap", { ...diagnostic, recordCount: 9 }],
+    [
+      "field cap",
+      { ...diagnostic, records: [{ fieldCount: 9, truncated: true }] },
+    ],
+    [
+      "signature cap",
+      { ...diagnostic, signature: Array.from({ length: 33 }, () => "other") },
+    ],
+    ["value-bearing token", { ...diagnostic, signature: ["/secret"] }],
+    ["unknown field", { ...diagnostic, rawStdout: "secret" }],
+  ])("rejects malformed v5 diagnostic %s", async (_label, malformed) => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    files.values.set(
+      store.snapshotPath(5),
+      JSON.stringify({ ...v5(), tmuxIdentityDiagnostic: malformed }),
+    );
+    await expect(store.load(5)).rejects.toMatchObject({
+      code: "STATE_INVALID",
+    });
+  });
+
   it("round trips a strictly bound v4 snapshot", async () => {
     const files = new FaultFiles();
     const store = new RunStore(root, files, clock);

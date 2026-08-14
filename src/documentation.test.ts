@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import path from "node:path";
+import { parseSnapshot } from "./persistence";
 
 const root = path.resolve(__dirname, "..");
 const read = (relative: string) =>
@@ -15,11 +16,45 @@ const integrationGuide = read("docs/rpiv-integration-contract.md");
 const runReconciliationContract = read(
   "project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md",
 );
+const tmuxIdentityContract = read(
+  "project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md",
+);
 const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
 const prd = read("PRD.md");
+
+function sectionBetween(
+  document: string,
+  startHeading: string,
+  endHeading: string,
+): string {
+  const start = document.indexOf(startHeading);
+  const end = document.indexOf(endHeading, start + startHeading.length);
+  if (start < 0 || end <= start)
+    throw new Error(
+      `Missing or reversed documentation section: ${startHeading}`,
+    );
+  return document.slice(start, end);
+}
+
+function firstFencedJson(section: string): unknown {
+  const match = /```json\n([\s\S]*?)\n```/.exec(section);
+  if (match?.[1] === undefined)
+    throw new Error("Documentation section has no fenced JSON object.");
+  return JSON.parse(match[1]);
+}
+
+function requiredObject(value: unknown): object {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("Expected a JSON object.");
+  return value;
+}
+
+function objectValue(value: unknown, key: string): unknown {
+  return Reflect.get(requiredObject(value), key);
+}
 
 describe("V-11 Phase 3 operator documentation", () => {
   it("documents executable RPIV integration, migration, safety, and no API/deployment service", () => {
@@ -27,7 +62,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "IntegrationContractV1",
       "rpiv.final_validation",
       "just <recipe>",
-      "RunSnapshotV4",
+      "RunSnapshotV5",
       "sole `just verify`",
       "just verify-focused",
       "RpivStatusV1",
@@ -54,7 +89,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Every progress classification",
       "exact historical AgentResult shape",
       "only at the version-aware legacy persistence/recovery boundary",
-      "Current AgentResultV1 publication and v4 snapshot parsing still require the strict new shape",
+      "Current AgentResultV1 publication and v4/v5 snapshot parsing still require the strict new shape",
     ])
       expect(integrationGuide).toContain(phrase);
     expect(readme).toContain("just run instructions --json");
@@ -99,13 +134,13 @@ describe("V-11 Phase 3 operator documentation", () => {
     );
   });
 
-  it("guards corrected v4 architecture and final publication ordering against stale contracts", () => {
+  it("guards corrected v5 architecture and final publication ordering against stale contracts", () => {
     for (const phrase of [
-      "Persist new runs as `RunSnapshotV4`",
-      "snapshot versions 1 through 4",
-      "explicit version 4 reconciliation transition",
-      "a complete resulting `RunSnapshotV3` or `RunSnapshotV4`",
-      "strictly snapshot-bound `IntegrationLaunchV1`",
+      "Persist new runs as `RunSnapshotV5`",
+      "snapshot versions 1 through 5",
+      "explicit revisioned v5 transition",
+      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, or `RunSnapshotV5`",
+      "nullable `tmuxIdentityDiagnostic`",
     ])
       expect(runReconciliationContract).toContain(phrase);
     expect(runReconciliationContract).not.toContain(
@@ -115,7 +150,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Read valid snapshot versions 1 through 3",
     );
     expect(decisionLog).toContain(
-      "Read RunSnapshotV1-V4 and expose progress separately without granting recovery or cleanup actions",
+      "Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5",
     );
     for (const phrase of [
       "commits and pushes the required verification summary and verifier retro records",
@@ -177,7 +212,7 @@ describe("V-11 Phase 3 operator documentation", () => {
 
   it("documents recovery, exact process identity, resume decisions, and migration", () => {
     for (const phrase of [
-      "RunSnapshotV4",
+      "RunSnapshotV5",
       "TransitionEventV2",
       "complete, contiguous",
       "STATE_HISTORY_INVALID",
@@ -191,14 +226,13 @@ describe("V-11 Phase 3 operator documentation", () => {
       "ACTIVE_PRESERVED",
       "COMPLETED_NOOP",
       "RESUME_REFUSED",
-      "RunSnapshotV1",
-      "RunSnapshotV2",
-      "never silently treated as v4",
+      "`RunSnapshotV1` through `RunSnapshotV5`",
+      "never silently treated as v4 or v5",
       "concurrency slot lease",
       "strictly parsed result artifact identity, content",
       "permission-denied process metadata",
       "exact historical AgentResult parser only at the legacy boundary",
-      "historical result shape remains invalid for current publication and v4 snapshots",
+      "historical result shape remains invalid for current publication and v4/v5 snapshots",
     ])
       expect(operations).toContain(phrase);
     expect(issueRun).toContain("Phase 3 continuation");
@@ -285,8 +319,226 @@ describe("V-11 Phase 3 operator documentation", () => {
   });
 });
 
-describe("V-11 Phase 4 repository Doctor documentation", () => {
-  it("documents all ordered blocking checks and shared schema-v1 exits", () => {
+describe("V-8 Issue 29 tmux identity recovery documentation", () => {
+  it("documents exact transport, diagnostic bounds, lifecycle, and rendering", () => {
+    for (const document of [readme, issueRun, operations, prd]) {
+      for (const phrase of [
+        "horizontal tab",
+        "optional final LF",
+        "^@[0-9]+$",
+        "^%[0-9]+$",
+        "malformed or ambiguous",
+      ])
+        expect(document).toContain(phrase);
+      expect(document).not.toContain("Upgrade tmux");
+    }
+    for (const phrase of [
+      "TmuxIdentityDiagnosticV1",
+      "8",
+      "32",
+      "value-free",
+      "raw stdout/stderr",
+      "other-run",
+      "replaced by a later identity failure",
+      "clears only after valid create/observe identity proof",
+      "Malformed zero-exit observation is unknown",
+      "nonzero observation remains absence",
+      "only one observation",
+    ])
+      expect(operations + issueRun).toContain(phrase);
+    for (const phrase of [
+      "RunSnapshotV5",
+      "ReconciliationReportV2",
+      "status schema v4",
+      "explicit revisioned v5 transition",
+      "tmuxIdentityDiagnostic: null",
+    ])
+      expect(readme + operations + prd).toContain(phrase);
+    expect(tmuxIdentityContract).toContain(
+      "window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
+    );
+  });
+
+  it("documents exact zero-candidate retry, same-name refusal, and logs independence", () => {
+    for (const phrase of [
+      "fetched-base advertised HEAD",
+      "staged/unstaged/untracked cleanliness",
+      "zero same-name candidates",
+      "immediately before one creation attempt",
+      "unknown ownership",
+      "never inspected or adopted",
+      "name, cwd, identity, or process command",
+      "non-authorizing",
+      "LOG_NOT_FOUND",
+    ])
+      expect(readme + operations + prd).toContain(phrase);
+    expect(issueRun).toContain("TMUX_IDENTITY_MALFORMED");
+    expect(operations).toContain("RESOURCE_OWNERSHIP_UNKNOWN");
+  });
+
+  it("locks the Phase 1 persistence grammar and version semantics to its section", () => {
+    const section = sectionBetween(
+      issueRun,
+      "## Persistence and status",
+      "## Troubleshooting",
+    );
+    expect(section).toContain(
+      "Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.",
+    );
+    expect(section).not.toContain("all supported inputs to sole");
+    expect(section).toContain("new runs use revisioned `RunSnapshotV5`");
+    expect(section).toContain(
+      "Valid Phase 1 `RunSnapshotV1` files remain readable",
+    );
+    expect(section).toContain(
+      "Only an explicit proved versioned transition can carry required evidence",
+    );
+  });
+
+  it("parses the exact current PRD RunSnapshotV5 and distinguishes schema families", () => {
+    const assetSection = sectionBetween(
+      prd,
+      "# 12. Asset Manifest",
+      "# 13. Installation Safety",
+    );
+    const doctorSection = sectionBetween(
+      prd,
+      "# 21. Doctor JSON Output",
+      "# 22. Issue Execution",
+    );
+    const snapshotSection = sectionBetween(
+      prd,
+      "# 33. Run Snapshot",
+      "# 34. Transition Events",
+    );
+    const resultSection = sectionBetween(
+      prd,
+      "# 35. RPIV Result Artifact",
+      "# 36. Completion Reconciliation",
+    );
+    expect(snapshotSection).toContain("New runs write `RunSnapshotV5`");
+    expect(snapshotSection).toContain(
+      "Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.",
+    );
+
+    const assetExample = firstFencedJson(assetSection);
+    const doctorExample = firstFencedJson(doctorSection);
+    const snapshotExample = firstFencedJson(snapshotSection);
+    const resultExample = firstFencedJson(resultSection);
+    expect({
+      asset: objectValue(assetExample, "schemaVersion"),
+      doctor: objectValue(doctorExample, "schemaVersion"),
+      snapshot: objectValue(snapshotExample, "schemaVersion"),
+      result: objectValue(resultExample, "schemaVersion"),
+    }).toEqual({ asset: 1, doctor: 2, snapshot: 5, result: 1 });
+
+    const expectedKeys = [
+      "schemaVersion",
+      "runId",
+      "ownerId",
+      "repository",
+      "issueNumber",
+      "state",
+      "branchType",
+      "branch",
+      "worktreePath",
+      "fetchedBaseProof",
+      "tmux",
+      "copilot",
+      "error",
+      "updatedAt",
+      "revision",
+      "attempt",
+      "admission",
+      "launchIntent",
+      "workerProcess",
+      "rpivProcess",
+      "stop",
+      "cleanup",
+      "logs",
+      "mergedPullRequest",
+      "requiredAcceptanceCriteria",
+      "finalization",
+      "requiredFinalValidation",
+      "integrationLaunch",
+      "progress",
+      "tmuxIdentityDiagnostic",
+    ].sort();
+    expect(Object.keys(requiredObject(snapshotExample)).sort()).toEqual(
+      expectedKeys,
+    );
+    expect(parseSnapshot(JSON.stringify(snapshotExample), 123)).toEqual(
+      snapshotExample,
+    );
+
+    const launch = objectValue(snapshotExample, "integrationLaunch");
+    expect(Object.keys(requiredObject(launch)).sort()).toEqual(
+      [
+        "schemaVersion",
+        "runId",
+        "attempt",
+        "issueNumber",
+        "branch",
+        "startedAt",
+        "progressPath",
+        "resultPath",
+        "requiredFinalValidation",
+        "publishProgressCommand",
+        "publishResultCommand",
+        "validateResultCommand",
+      ].sort(),
+    );
+    expect(objectValue(launch, "schemaVersion")).toBe(1);
+    for (const key of ["runId", "attempt", "issueNumber", "branch"])
+      expect(objectValue(launch, key)).toEqual(
+        objectValue(snapshotExample, key),
+      );
+    expect(objectValue(launch, "startedAt")).toBe(
+      objectValue(snapshotExample, "updatedAt"),
+    );
+    expect(objectValue(launch, "progressPath")).toBe(
+      ".trees/123/.soft-factory/rpiv-status.json",
+    );
+    expect(objectValue(launch, "resultPath")).toBe(
+      ".trees/123/.soft-factory/agent-result.json",
+    );
+    expect(objectValue(launch, "requiredFinalValidation")).toEqual(
+      objectValue(snapshotExample, "requiredFinalValidation"),
+    );
+    expect(objectValue(launch, "publishProgressCommand")).toBe(
+      "soft-factory internal publish-progress --issue 123 --phase <phase> --status <status>",
+    );
+    expect(objectValue(launch, "publishResultCommand")).toBe(
+      "soft-factory internal publish-result --issue 123 --candidate .soft-factory/agent-result.candidate.json",
+    );
+    expect(objectValue(launch, "validateResultCommand")).toBe(
+      "soft-factory internal validate-result --issue 123",
+    );
+  });
+
+  it("documents controlled validation and no API configuration or deployment impact", () => {
+    for (const command of [
+      "just verify-focused",
+      "just verify",
+      "harness checks --focused --json",
+      "harness checks --json",
+    ])
+      expect(issueRun + operations + readme).toContain(command);
+    for (const phrase of [
+      "no configuration option/default",
+      "no configuration migration",
+      "no network API",
+      "no API specification",
+      "no deployment",
+    ])
+      expect(readme + docsIndex + operations).toContain(phrase);
+    expect(operations).toContain("byte-aware tmux/process adapters");
+    expect(operations).toContain("exact tmux 3.7b bytes");
+  });
+});
+
+describe("V-15 Phase 4 repository Doctor documentation", () => {
+  it("documents all ordered blocking checks and shared schema-v2 exits", () => {
     const ids = [
       "repository.git-membership",
       "repository.primary-worktree",
@@ -384,6 +636,78 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
     expect(packageJson).not.toContain("engineering-harness");
     expect(docsIndex).toContain("Phase 4 repository Doctor");
     expect(operations).toContain("Repository readiness preflight");
+  });
+
+  it("documents private functional tmux proof, bounded cleanup, and value-free evidence", () => {
+    for (const phrase of [
+      "mode-0700",
+      "mode-0600",
+      "tmux -D -S <private-socket> -f <empty-config>",
+      "with no command",
+      "exact same private `-S <private-socket>` selector",
+      "#{window_id}<HT>#{pane_id}<LF>",
+      "#{window_id}<HT>#{pane_id}<HT>#{pane_current_path}<LF>",
+      "remain-on-exit",
+      "original bytes",
+      "4096",
+      "2000 ms",
+      "6500 ms",
+      "2500 ms",
+      "7000 ms",
+      "7250 ms",
+      "7750 ms",
+      "8250 ms",
+      "9000 ms",
+      "unconditional cleanup",
+      "DoctorResultV2",
+      "DoctorTmuxProbeEvidenceV1",
+      "value-free",
+      "ambient/default",
+    ])
+      expect(doctorGuide).toContain(phrase);
+    expect(doctorGuide).toContain("Do not inspect or mutate an ambient server");
+    expect(doctorGuide).toContain("never use name-wide/PID-only destruction");
+    expect(readme).toContain("function, not only executable presence");
+    expect(prd).toContain("Signaling by process name, unsafe PID alone");
+  });
+
+  it("documents strict schema-v2 migration, controlled validation, and no unrelated migration", () => {
+    for (const document of [readme, doctorGuide, prd]) {
+      expect(document).toContain("DoctorResultV2");
+      expect(document).toContain("schemaVersion: 2");
+    }
+    for (const command of [
+      "just verify-focused",
+      "harness checks --focused --json",
+      "just verify",
+      "harness checks --json",
+    ])
+      expect(doctorGuide).toContain(command);
+    for (const phrase of [
+      "no configuration option/default",
+      "run snapshot",
+      "issue-run tmux",
+      "network API",
+      "database/data migration",
+      "service",
+      "container",
+      "deployment procedure",
+    ])
+      expect(readme + doctorGuide + docsIndex).toContain(phrase);
+    expect(JSON.parse(read("fixtures/doctor/ready.json")).schemaVersion).toBe(
+      2,
+    );
+    expect(JSON.parse(read("fixtures/doctor/blocked.json")).schemaVersion).toBe(
+      2,
+    );
+    expect(
+      JSON.parse(read("fixtures/doctor/isolated-failures.json")).schemaVersion,
+    ).toBe(2);
+    expect(readme).not.toContain("schema-version-1 automation output");
+    expect(doctorGuide).not.toContain("DoctorResultV1");
+    expect(doctorGuide).not.toContain(
+      "`tmux` is an executable on PATH; install or correct PATH",
+    );
   });
 
   it("exposes Doctor in README and cumulative CLI help", () => {
@@ -496,6 +820,20 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
       "protocol 1",
     ])
       expect(assetGuide).toContain(phrase);
+    const manifestStart = prd.indexOf("# 12. Asset Manifest");
+    const manifestEnd = prd.indexOf("# 13. Installation Safety", manifestStart);
+    expect(manifestStart).toBeGreaterThanOrEqual(0);
+    expect(manifestEnd).toBeGreaterThan(manifestStart);
+    const manifestSection = prd.slice(manifestStart, manifestEnd);
+    expect(manifestSection).toContain('"schemaVersion": 1');
+    expect(manifestSection).not.toContain('"schemaVersion": 2');
+    const doctorStart = prd.indexOf("# 21. Doctor JSON Output");
+    const doctorEnd = prd.indexOf("# 22. Issue Execution", doctorStart);
+    expect(doctorStart).toBeGreaterThanOrEqual(0);
+    expect(doctorEnd).toBeGreaterThan(doctorStart);
+    const doctorSection = prd.slice(doctorStart, doctorEnd);
+    expect(doctorSection).toContain('"schemaVersion": 2');
+    expect(doctorSection).not.toContain('"schemaVersion": 1');
   });
 
   it("locks every current PRD official-agent surface to delivery-only dispatch", () => {

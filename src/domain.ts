@@ -1,4 +1,4 @@
-export const RUN_SNAPSHOT_SCHEMA_VERSION = 4 as const;
+export const RUN_SNAPSHOT_SCHEMA_VERSION = 5 as const;
 export const EVENT_SCHEMA_VERSION = 2 as const;
 export const AGENT_RESULT_SCHEMA_VERSION = 1 as const;
 
@@ -71,12 +71,42 @@ export interface ConcurrencyLeaseV1 {
   readonly acquiredAt: string;
 }
 
+export type TmuxIdentityPhase = "create" | "observe";
+export type TmuxIdentityTokenV1 =
+  | "window_id"
+  | "pane_id"
+  | "horizontal_tab"
+  | "carriage_return"
+  | "line_feed"
+  | "backslash"
+  | "other";
+export interface TmuxIdentityFieldSummaryV1 {
+  readonly fieldCount: number;
+  readonly truncated: boolean;
+}
+export interface TmuxIdentityDiagnosticV1 {
+  readonly schemaVersion: 1;
+  readonly phase: TmuxIdentityPhase;
+  readonly exitCode: number;
+  readonly stdoutByteCount: number;
+  readonly stderrByteCount: number;
+  readonly recordCount: number;
+  readonly recordsTruncated: boolean;
+  readonly records: readonly TmuxIdentityFieldSummaryV1[];
+  readonly signature: readonly TmuxIdentityTokenV1[];
+  readonly signatureTruncated: boolean;
+}
+
 export interface TmuxIdentity {
   readonly sessionName: string;
   readonly windowName: string;
   readonly windowId: string;
   readonly paneId: string;
   readonly cwd: string;
+}
+
+export interface TmuxNamePresenceV1 {
+  readonly present: boolean;
 }
 
 export interface PaneLineageV1 {
@@ -372,8 +402,13 @@ export interface RunSnapshotV4 extends Omit<
   readonly progress: RpivStatusV1 | null;
 }
 
+export interface RunSnapshotV5 extends Omit<RunSnapshotV4, "schemaVersion"> {
+  readonly schemaVersion: 5;
+  readonly tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null;
+}
+
 export type RunSnapshot =
-  RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3 | RunSnapshotV4;
+  RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5;
 
 export interface TransitionEventV1 {
   readonly schemaVersion: 1;
@@ -393,7 +428,7 @@ export interface TransitionEventV2 {
   readonly priorRevision: number;
   readonly resultingRevision: number;
   readonly reason: string;
-  readonly resultingSnapshot: RunSnapshotV3 | RunSnapshotV4;
+  readonly resultingSnapshot: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5;
 }
 
 export type TransitionEvent = TransitionEventV1 | TransitionEventV2;
@@ -422,7 +457,7 @@ export interface ReconciliationObservationsV1 {
   readonly lease: ObservationV1<ConcurrencyLeaseV1>;
   readonly filesystem: ObservationV1<{ readonly worktreePath: string }>;
   readonly git: ObservationV1<WorktreeObservationV1>;
-  readonly tmux: ObservationV1<TmuxIdentity>;
+  readonly tmux: ObservationV1<TmuxIdentity | TmuxNamePresenceV1>;
   readonly workerProcess: ObservationV1<ProcessIdentityV1>;
   readonly rpivProcess: ObservationV1<ProcessIdentityV1>;
   readonly progress: ObservationV1<ProgressObservationV1>;
@@ -440,8 +475,8 @@ export type SafeAction =
   | "explicit_clean"
   | "automatic_clean";
 
-export interface ReconciliationReportV1 {
-  readonly schemaVersion: 1;
+export interface ReconciliationReportV2 {
+  readonly schemaVersion: 2;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
   readonly observations: ReconciliationObservationsV1;
@@ -450,14 +485,15 @@ export interface ReconciliationReportV1 {
   readonly safeActions: readonly SafeAction[];
   readonly diagnostics: readonly string[];
   readonly remediation: string | null;
+  readonly tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null;
 }
 
 export interface StatusFacts {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
-  readonly observed: TmuxIdentity | null;
-  readonly reconciliation: ReconciliationReportV1;
+  readonly observed: TmuxIdentity | TmuxNamePresenceV1 | null;
+  readonly reconciliation: ReconciliationReportV2;
 }
 
 export interface RunConfiguration {
@@ -486,7 +522,7 @@ export interface ControlOutcomeV1<T = unknown> {
   readonly state: RunState | "missing" | "inventory";
   readonly code: string;
   readonly exitCode: number;
-  readonly report: ReconciliationReportV1 | null;
+  readonly report: ReconciliationReportV2 | null;
   readonly facts: T;
   readonly remediation: string | null;
 }

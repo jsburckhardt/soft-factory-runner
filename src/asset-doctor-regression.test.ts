@@ -19,7 +19,14 @@ const success: DoctorCommandResult = {
   signal: null,
   stdout: "",
   stderr: "",
+  stdoutBuffer: Buffer.alloc(0),
+  stderrBuffer: Buffer.alloc(0),
+  stdoutByteCount: 0,
+  stderrByteCount: 0,
+  stdoutTruncated: false,
+  stderrTruncated: false,
   timedOut: false,
+  cancelled: false,
   launchError: null,
 };
 class Runner implements DoctorCommandRunner {

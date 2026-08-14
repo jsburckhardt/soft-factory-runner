@@ -3,10 +3,12 @@ import type {
   ProcessIdentityV1,
   RepositoryFacts,
   TmuxIdentity,
+  TmuxIdentityDiagnosticV1,
 } from "./domain";
 import { parseConfiguration } from "./config";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
+import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
 import { copilotChildEnvironment } from "./live";
@@ -269,6 +271,7 @@ class RecordingTmux implements TmuxPort {
   public readonly trace: string[];
   public observedOverride: TmuxIdentity | null | undefined;
   public created: TmuxIdentity | null = null;
+  public createFailure: TmuxIdentityOutputError | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
@@ -282,6 +285,7 @@ class RecordingTmux implements TmuxPort {
     this.trace.push(
       `tmux:create:${input.sessionName}:${input.windowName}:${input.cwd}:${input.executable} ${input.args.join(" ")}`,
     );
+    if (this.createFailure !== null) throw this.createFailure;
     this.created = {
       sessionName: input.sessionName,
       windowName: input.windowName,
@@ -290,6 +294,9 @@ class RecordingTmux implements TmuxPort {
       cwd: input.cwd,
     };
     return this.created;
+  }
+  public async observeIssueWindowName(): Promise<boolean> {
+    return false;
   }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
     this.trace.push(`tmux:observe:${target.paneId}`);
@@ -517,6 +524,52 @@ function readSnapshot(files: MemoryFiles): Readonly<Record<string, unknown>> {
     throw new Error("fixture snapshot malformed");
   return value;
 }
+
+const creationDiagnostic: TmuxIdentityDiagnosticV1 = {
+  schemaVersion: 1,
+  phase: "create",
+  exitCode: 0,
+  stdoutByteCount: 0,
+  stderrByteCount: 0,
+  recordCount: 0,
+  recordsTruncated: false,
+  records: [],
+  signature: [],
+  signatureTruncated: false,
+};
+
+describe("Issue 29 initial creation failure retention", () => {
+  it("keeps initial starting_tmux lock and lease retryable after malformed identity output", async () => {
+    const f = fixture();
+    f.tmux.createFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous create identity evidence.",
+      creationDiagnostic,
+    );
+    await expect(
+      new IssueRunService(f.ports).run(3, "/tmp/fixture-start"),
+    ).rejects.toMatchObject({ code: "TMUX_IDENTITY_MALFORMED" });
+    expect(readSnapshot(f.files)).toMatchObject({
+      schemaVersion: 5,
+      state: "starting_tmux",
+      tmux: null,
+      admission: { slot: 1, issueNumber: 3 },
+      error: { code: "TMUX_IDENTITY_MALFORMED" },
+      tmuxIdentityDiagnostic: creationDiagnostic,
+    });
+    expect(
+      [...f.files.values.keys()].some((entry) =>
+        entry.endsWith("/locks/3.lock"),
+      ),
+    ).toBe(true);
+    expect(
+      [...f.files.values.keys()].some((entry) =>
+        entry.endsWith("/concurrency/slots/1.lock"),
+      ),
+    ).toBe(true);
+    expect(f.processes.launches).toBe(0);
+  });
+});
 
 describe("deterministic issue-to-RPIV fixture", () => {
   it("proves issue to exact fetched branch, worktree, tmux, Copilot, status, and attach", async () => {

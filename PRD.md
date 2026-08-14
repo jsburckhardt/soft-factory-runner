@@ -669,6 +669,12 @@ node
 copilot
 ```
 
+`command.tmux` MUST require more than executable presence. Doctor MUST create one mode-0700 physical OS-temporary workspace with empty mode-0600 configuration and helper files, start the discovered executable as a directly managed foreground `tmux -D -S <private-socket> -f <empty-config>` server with no command, and put the exact private `-S` selector on every client call. It MUST NOT contact an ambient/default server or inherit user tmux configuration, credentials, or tmux environment values.
+
+The no-retry proof MUST create a private session/dashboard helper, run `has-session`, list the exact dashboard name, prove dashboard helper compound identity and server lineage, create one formatted issue window, strictly parse original `#{window_id}<HT>#{pane_id}<LF>` bytes, set `remain-on-exit`, prove issue helper identity/lineage, perform one strict `#{window_id}<HT>#{pane_id}<HT>#{pane_current_path}<LF>` observation with equal IDs and physical-workspace cwd, and remove that exact window. Each server/client stream MUST count all original bytes and retain at most 4096 bytes; truncation or malformed original bytes fail without retaining values.
+
+Doctor MUST use one 9000 ms aggregate controller, stop/cancel functional operations at 6500 ms, and reserve 2500 ms for awaited cleanup: private `kill-server` by 7000 ms, post-kill wait by 7250 ms, exact-identity `SIGTERM` wait by 7750 ms, exact-identity `SIGKILL` wait by 8250 ms, and final absence proof by 9000 ms. Every command and managed-process wait is at most 2000 ms. Every success/failure path MUST prove the owned server, helpers, socket, config/helper files, and workspace absent; uncertain cleanup fails. Signaling by process name, unsafe PID alone, or asynchronous cleanup is prohibited.
+
 ---
 
 ## Authentication
@@ -751,7 +757,7 @@ Example:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "ready": false,
   "repository": {
     "github": "jsburckhardt/example",
@@ -759,17 +765,17 @@ Example:
   },
   "checks": [
     {
-      "id": "git",
+      "id": "repository.git-membership",
       "status": "passed",
       "blocking": true
     },
     {
-      "id": "tmux",
+      "id": "command.tmux",
       "status": "passed",
       "blocking": true
     },
     {
-      "id": "rpiv-result-contract",
+      "id": "compatibility.result-contract",
       "status": "failed",
       "blocking": true,
       "message": "Required RPIV result contract was not detected.",
@@ -779,7 +785,9 @@ Example:
 }
 ```
 
-The schema must be versioned.
+The schema must be versioned. Current automation MUST require strict `DoctorResultV2` with top-level `schemaVersion: 2`, the unchanged exact ordered 24 IDs, and the all-blocking readiness conjunction. Failed `command.tmux` MAY include strict `DoctorTmuxProbeEvidenceV1`: closed operation/reason, exit/timeout and exact byte-count/truncation facts, optional bounded value-free identity diagnostics, and final server/pane/socket/workspace cleanup states. Human and JSON render from the same result and MUST expose no raw output, IDs, PIDs, paths, names, arguments, environment/helper values, hashes, or byte values.
+
+Schema-v1 Doctor automation consumers and manifests MUST migrate to schema v2; there is no implicit upgrade. This changes no Doctor check count, configuration, run snapshot, issue-run tmux behavior, network API/specification, database/data, service, container, or deployment procedure.
 
 ---
 
@@ -936,6 +944,12 @@ The issue window must start in:
 ```text
 .trees/123
 ```
+
+Tmux identity output is parsed from original bytes. Window creation accepts one nonempty record with exactly a `^@[0-9]+$` window ID and `^%[0-9]+$` pane ID separated by horizontal tab; observation adds one nonempty valid UTF-8 cwd field. LF is the only record terminator and one optional final LF is permitted. Extra records/fields, CR/CRLF, invalid UTF-8, empty fields, and partial identifiers are malformed or ambiguous.
+
+Runner may persist only a bounded value-free structural diagnostic: phase, exit code, original stdout/stderr byte counts, at most 8 record and field summaries, and at most 32 tokens distinguishing strict IDs, horizontal tabs, CR/LF, backslashes, and other runs. Raw output, cwd/path components, command/environment/field values, issue/owner/run identities, hashes/byte values, and other-run bytes must never enter that diagnostic.
+
+A `starting_tmux` retry requires exact lock/lease, worktree path/registration/branch, fetched-base HEAD, all cleanliness dimensions, no persisted tmux identity, and zero same-name candidates. Name presence never proves ownership and must not cause identity/cwd/process inspection or adoption. A name-only absence check is repeated immediately before one create attempt. Diagnostics remain separate from authorization and logs; a diagnostic alone does not prevent `LOG_NOT_FOUND`.
 
 ---
 
@@ -1119,33 +1133,97 @@ Runtime state became unavailable or ambiguous before successful completion.
 
 # 33. Run Snapshot
 
+New runs write `RunSnapshotV5`. Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.
+
 Example:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 5,
   "runId": "jsburckhardt-example-123-20260810T090000+1000",
+  "ownerId": "runner-owner-123",
   "repository": "jsburckhardt/example",
   "issueNumber": 123,
   "state": "running_rpiv",
-  "attempt": 1,
-  "baseBranch": "main",
+  "branchType": "feat",
   "branch": "feat/123-add-run-command",
   "worktreePath": ".trees/123",
+  "fetchedBaseProof": {
+    "schemaVersion": 1,
+    "remote": "origin",
+    "defaultBranch": "main",
+    "advertisedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+    "trackingRefSha": "0123456789abcdef0123456789abcdef01234567",
+    "fetchedAt": "2026-08-10T09:00:00+10:00",
+    "matches": true
+  },
   "tmux": {
     "sessionName": "sf-jsburckhardt-example",
     "windowName": "123",
     "windowId": "@7",
-    "paneId": "%12"
+    "paneId": "%12",
+    "cwd": ".trees/123"
   },
   "copilot": {
-    "agent": "rpiv",
-    "prompt": "Deliver issue #123",
-    "permissionMode": "yolo",
+    "executable": "copilot",
+    "args": [
+      "--agent=rpiv",
+      "--allow-all-tools"
+    ],
+    "cwd": ".trees/123",
+    "resourceAttributes": "service.name=soft-factory-runner",
     "exitCode": null
   },
-  "result": null,
-  "error": null
+  "error": null,
+  "updatedAt": "2026-08-10T09:00:05+10:00",
+  "revision": 4,
+  "attempt": 1,
+  "admission": null,
+  "launchIntent": null,
+  "workerProcess": null,
+  "rpivProcess": null,
+  "stop": null,
+  "cleanup": null,
+  "logs": [],
+  "mergedPullRequest": null,
+  "requiredAcceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "text": "The run command starts one owned issue run."
+    }
+  ],
+  "finalization": null,
+  "requiredFinalValidation": {
+    "command": "just verify"
+  },
+  "integrationLaunch": {
+    "schemaVersion": 1,
+    "runId": "jsburckhardt-example-123-20260810T090000+1000",
+    "attempt": 1,
+    "issueNumber": 123,
+    "branch": "feat/123-add-run-command",
+    "startedAt": "2026-08-10T09:00:05+10:00",
+    "progressPath": ".trees/123/.soft-factory/rpiv-status.json",
+    "resultPath": ".trees/123/.soft-factory/agent-result.json",
+    "requiredFinalValidation": {
+      "command": "just verify"
+    },
+    "publishProgressCommand": "soft-factory internal publish-progress --issue 123 --phase <phase> --status <status>",
+    "publishResultCommand": "soft-factory internal publish-result --issue 123 --candidate .soft-factory/agent-result.candidate.json",
+    "validateResultCommand": "soft-factory internal validate-result --issue 123"
+  },
+  "progress": {
+    "schemaVersion": 1,
+    "runId": "jsburckhardt-example-123-20260810T090000+1000",
+    "attempt": 1,
+    "issueNumber": 123,
+    "branch": "feat/123-add-run-command",
+    "sequence": 3,
+    "phase": "implement",
+    "status": "running",
+    "updatedAt": "2026-08-10T09:00:05+10:00"
+  },
+  "tmuxIdentityDiagnostic": null
 }
 ```
 
@@ -1210,6 +1288,8 @@ This artifact is the formal handoff between RPIV and Runner.
 ---
 
 # 36. Completion Reconciliation
+
+New runs persist `RunSnapshotV5`; supported v4 state normalizes through an explicit revisioned transition, while v1-v5 remain versioned compatibility inputs. `ReconciliationReportV2` and status schema v4 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
 
 A successful RPIV artifact is necessary but not sufficient.
 
@@ -1940,7 +2020,7 @@ soft-factory doctor --json
 
 Success criterion:
 
-> Runner can deterministically determine whether a repository is prepared for Soft Factory.
+> Runner can deterministically determine whether a repository is prepared for Soft Factory, including isolated private functional tmux proof and unconditional bounded cleanup.
 
 ---
 

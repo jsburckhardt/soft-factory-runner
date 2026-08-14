@@ -20,7 +20,7 @@ This component applies after RPIV process exit to result-artifact parsing, run s
 - Permit result outcomes `succeeded`, `failed`, `blocked`, `cancelled`, and `interrupted`; only `succeeded` is eligible for completion, while other valid outcomes map to their named terminal state.
 - Derive the immutable required acceptance set at readiness by assigning `AC-1` through `AC-n` to the issue's ordered marker-wrapped criteria and persist both each ID and preserved criterion text in snapshot version 2.
 - Require every persisted required AC ID exactly once with status `verified` and at least one nonempty evidence reference; reject duplicate, missing, unknown-only, or non-verified required results.
-- Require exactly one persisted final-validation command. For new v4 snapshots use the validated `rpiv.final_validation` value; for supported legacy v1/v2/v3 snapshots normalize to `just verify` without consulting current configuration. Never require or interpret `just verify-focused` as completion proof.
+- Require exactly one persisted final-validation command. For new v4 or v5 snapshots use the validated `rpiv.final_validation` value; for supported legacy v1/v2/v3 snapshots normalize to `just verify` without consulting current configuration. Never require or interpret `just verify-focused` as completion proof.
 - After Copilot exits zero, persist `finalizing` before reading completion evidence. A nonzero exit transitions directly to `failed` regardless of any artifact.
 - Require result issue and branch to equal the owned run; result SHA to equal worktree HEAD; the selected remote branch to exist at that same SHA; and result pull-request number to identify one complete, open PR that closes the issue and has the expected base, head branch, and head SHA.
 - Derive expected base from the persisted fetched-base proof and selected remote from that proof. Observe worktree HEAD after RPIV exits. Define fresh remote issue-branch evidence as the result of one post-exit `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` invocation from the repository root; never use a local `refs/remotes/...` tracking ref or a pre-finalization fetch as remote completion evidence. Observe the PR by reported number with all required fields in one bounded query.
@@ -31,7 +31,7 @@ This component applies after RPIV process exit to result-artifact parsing, run s
 - Classify missing/malformed/unsupported result data or incomplete external proof as `interrupted`; classify valid unsuccessful outcomes by their outcome; classify contradictory identity, SHA, PR, acceptance, or validation facts as `failed`; retain pre-execution prerequisite and ownership conflicts as `blocked`.
 - Expose `completed`, `failed`, `blocked`, `cancelled`, and `interrupted` as terminal states in typed snapshots plus human and JSON status. Reserve Runner-originated `cancelled` transitions for future explicit cancellation input.
 - Write schema-versioned transition events append-only before atomically replacing the schema-versioned snapshot. If event append fails, leave the prior snapshot; if snapshot replacement fails, preserve the appended event for later reconciliation and never report completion from the failed operation.
-- Read valid snapshot versions 1 through 4 and reject unknown versions. New runs use v4 with one required final validation. Supported v1/v2/v3 snapshots retain `just verify` as their sole final validation and never read later configuration; ignore persisted focused requirements. A v1 snapshot still requires an explicit migration that proves its missing acceptance set.
+- Read valid snapshot versions 1 through 5 and reject unknown versions. New runs use v5 while preserving the v4 single required-final-validation contract unchanged. Supported v1/v2/v3 snapshots retain `just verify` as their sole final validation and never read later configuration; ignore persisted focused requirements. A v1 snapshot still requires an explicit migration that proves its missing acceptance set.
 - Keep result parsing and reconciliation policy in deterministic domain code; isolate filesystem, Git, and GitHub observations behind typed adapters using validated argument arrays and redacted bounded results.
 
 ### Interfaces
@@ -40,7 +40,7 @@ This component applies after RPIV process exit to result-artifact parsing, run s
 - `CompletionGitFacts` contains `localHeadSha`, selected `remote`, selected `remoteBranch`, and `remoteHeadSha`; `remoteHeadSha` is populated only from the post-exit authoritative `ls-remote --refs` query, and absence remains explicit rather than synthesized.
 - `CompletionPullRequestFacts` contains `number`, `state`, `baseBranch`, `headBranch`, `headSha`, `closesIssues`, and `complete`.
 - `CompletionReconciliationV1` records each expected/observed comparison and its pass/fail result without credentials or raw command output.
-- `RunSnapshotV4` stores the single required final validation, required acceptance set, progress observation, integration launch binding, finalization/reconciliation facts, ownership, launch, terminal, error, and update facts. Legacy schemas remain explicit compatibility inputs.
+- `RunSnapshotV5` stores the v4 single required final validation, required acceptance set, progress observation, integration launch binding, finalization/reconciliation facts, ownership, launch, terminal, error, and update facts unchanged, plus the independently non-authorizing tmux identity diagnostic. Legacy schemas remain explicit compatibility inputs.
 
 ### Expectations
 - The same pure reconciliation input always yields the same terminal decision and mismatch code.
@@ -66,7 +66,7 @@ valid result + mismatched branch, SHA, PR, AC, or validation -> failed
 
 ## Integration Guidelines
 
-- Capture required AC text and the one validated final-validation recipe before ownership, persist them in v4, and inject the same binding into RPIV launch instructions.
+- Capture required AC text and the one validated final-validation recipe before ownership, persist them in v5, and inject the same binding into RPIV launch instructions.
 - Add dedicated result-file, completion-Git, and completion-PR port methods rather than parsing terminal prose in orchestration. Keep readiness `trackingSha` separate from completion `remoteBranchSha`; implement the latter only with the authoritative remote query.
 - Test the remote adapter through normal composition with an argument-recording fake Git executable for bounds/parsing and temporary repositories for stale-cache divergence; do not add a production test switch.
 - Use stable mismatch/error codes and include only redacted expected/observed facts in snapshots, events, and output.

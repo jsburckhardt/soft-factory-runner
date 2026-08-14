@@ -1,19 +1,24 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import path from "node:path";
-import { DOCTOR_EXTERNAL_TIMEOUT_MS } from "./doctor";
+import {
+  DOCTOR_EXTERNAL_TIMEOUT_MS,
+  DOCTOR_TMUX_OUTPUT_LIMIT_BYTES,
+} from "./doctor";
 
 export interface DoctorObservation<T> {
   readonly ok: boolean;
   readonly value: T | null;
   readonly message: string | null;
   readonly remediation: string | null;
+  readonly evidence?: import("./doctor").DoctorCheckEvidenceV1;
 }
 export interface DoctorCommandSpec {
   readonly executable: string;
   readonly args: readonly string[];
   readonly cwd: string;
-  readonly timeoutMs: 2000;
+  readonly timeoutMs: number;
+  readonly abortSignal?: AbortSignal;
   readonly shell: false;
   readonly environment: Readonly<Record<string, string>>;
 }
@@ -22,7 +27,14 @@ export interface DoctorCommandResult {
   readonly signal: NodeJS.Signals | null;
   readonly stdout: string;
   readonly stderr: string;
+  readonly stdoutBuffer: Buffer;
+  readonly stderrBuffer: Buffer;
+  readonly stdoutByteCount: number;
+  readonly stderrByteCount: number;
+  readonly stdoutTruncated: boolean;
+  readonly stderrTruncated: boolean;
   readonly timedOut: boolean;
+  readonly cancelled: boolean;
   readonly launchError: string | null;
 }
 export interface DoctorCommandRunner {
@@ -59,50 +71,95 @@ export class LiveDoctorCommandRunner implements DoctorCommandRunner {
     return new Promise((resolve) => {
       let settled = false;
       let timedOut = false;
+      let cancelled = false;
       let escalation: NodeJS.Timeout | null = null;
-      const stdout: Buffer[] = [];
-      const stderr: Buffer[] = [];
+      let timer: NodeJS.Timeout | null = null;
+      const stdout = new DoctorStreamCapture();
+      const stderr = new DoctorStreamCapture();
       const child = spawn(spec.executable, [...spec.args], {
         cwd: spec.cwd,
         env: spec.environment,
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
       });
-      const finish = (result: DoctorCommandResult): void => {
+      const result = (
+        exitCode: number | null,
+        signal: NodeJS.Signals | null,
+        launchError: string | null,
+      ): DoctorCommandResult => ({
+        exitCode,
+        signal,
+        stdout: redact(stdout.buffer().toString("utf8")),
+        stderr: redact(stderr.buffer().toString("utf8")),
+        stdoutBuffer: stdout.buffer(),
+        stderrBuffer: stderr.buffer(),
+        stdoutByteCount: stdout.byteCount,
+        stderrByteCount: stderr.byteCount,
+        stdoutTruncated: stdout.truncated,
+        stderrTruncated: stderr.truncated,
+        timedOut,
+        cancelled,
+        launchError,
+      });
+      const removeAbortListener = (): void => {
+        spec.abortSignal?.removeEventListener("abort", abort);
+      };
+      const finish = (value: DoctorCommandResult): void => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer);
+        if (timer !== null) clearTimeout(timer);
         if (escalation !== null) clearTimeout(escalation);
-        resolve(result);
+        removeAbortListener();
+        resolve(value);
       };
-      child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
-      child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
-      child.on("error", (cause: Error) =>
-        finish({
-          exitCode: null,
-          signal: null,
-          stdout: "",
-          stderr: "",
-          timedOut: false,
-          launchError: redact(cause.message),
-        }),
-      );
-      child.on("close", (exitCode, signal) =>
-        finish({
-          exitCode,
-          signal,
-          stdout: redact(Buffer.concat(stdout).toString("utf8")),
-          stderr: redact(Buffer.concat(stderr).toString("utf8")),
-          timedOut,
-          launchError: null,
-        }),
-      );
-      const timer = setTimeout(() => {
-        timedOut = true;
+      const stop = (): void => {
         child.kill("SIGTERM");
         escalation = setTimeout(() => child.kill("SIGKILL"), 100);
-      }, spec.timeoutMs);
+      };
+      const abort = (): void => {
+        if (settled) return;
+        cancelled = true;
+        stop();
+      };
+      child.stdout.on("data", (chunk: Buffer) => stdout.add(chunk));
+      child.stderr.on("data", (chunk: Buffer) => stderr.add(chunk));
+      child.on("error", (cause: Error) =>
+        finish(result(null, null, redact(cause.message))),
+      );
+      child.on("close", (exitCode, signal) =>
+        finish(result(exitCode, signal, null)),
+      );
+      spec.abortSignal?.addEventListener("abort", abort, { once: true });
+      if (spec.abortSignal?.aborted === true) abort();
+      timer = setTimeout(
+        () => {
+          timedOut = true;
+          stop();
+        },
+        Math.min(spec.timeoutMs, DOCTOR_EXTERNAL_TIMEOUT_MS),
+      );
     });
+  }
+}
+
+export class DoctorStreamCapture {
+  private readonly chunks: Buffer[] = [];
+  private retainedByteCount = 0;
+  public byteCount = 0;
+
+  public add(chunk: Buffer): void {
+    this.byteCount += chunk.byteLength;
+    const remaining = DOCTOR_TMUX_OUTPUT_LIMIT_BYTES - this.retainedByteCount;
+    if (remaining <= 0) return;
+    const retained = chunk.subarray(0, remaining);
+    this.chunks.push(retained);
+    this.retainedByteCount += retained.byteLength;
+  }
+  public buffer(): Buffer {
+    return Buffer.concat(this.chunks, this.retainedByteCount);
+  }
+  public get truncated(): boolean {
+    return this.byteCount > DOCTOR_TMUX_OUTPUT_LIMIT_BYTES;
   }
 }
 
@@ -394,11 +451,16 @@ export function doctorEnvironment(
 }
 function succeeded(result: DoctorCommandResult): boolean {
   return (
-    result.exitCode === 0 && !result.timedOut && result.launchError === null
+    result.exitCode === 0 &&
+    !result.timedOut &&
+    !result.cancelled &&
+    result.launchError === null
   );
 }
 function diagnostic(result: DoctorCommandResult): string {
   if (result.timedOut) return " The bounded 2000ms probe timed out.";
+  if (result.cancelled)
+    return " The probe was cancelled at the aggregate cutoff.";
   if (result.launchError !== null)
     return " The command could not be launched: " + result.launchError;
   const detail = (result.stderr || result.stdout).trim();

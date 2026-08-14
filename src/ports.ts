@@ -103,6 +103,11 @@ export interface TmuxPort {
     readonly executable: string;
     readonly args: readonly string[];
   }): Promise<TmuxIdentity>;
+  observeIssueWindowName(input: {
+    readonly sessionName: string;
+    readonly windowName: string;
+    readonly cwd: string;
+  }): Promise<boolean>;
   observe(target: TmuxIdentity): Promise<TmuxIdentity | null>;
   panePid(target: TmuxIdentity): Promise<number | null>;
   setRemainOnExit(target: TmuxIdentity): Promise<void>;

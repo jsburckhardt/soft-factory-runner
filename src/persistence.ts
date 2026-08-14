@@ -12,6 +12,7 @@ import type {
   RunSnapshot,
   RunSnapshotV3,
   RunSnapshotV4,
+  RunSnapshotV5,
   RunState,
   TransitionEvent,
   TransitionEventV2,
@@ -123,7 +124,7 @@ export class RunStore {
       if (existingText === null) {
         if (snapshot.revision !== 1)
           throw stateHistoryError(
-            "A new version 3 snapshot must begin at revision 1.",
+            "A new revisioned snapshot must begin at revision 1.",
           );
       } else {
         const existing = await this.load(snapshot.issueNumber);
@@ -398,15 +399,17 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
   if (
     value.schemaVersion !== 2 &&
     value.schemaVersion !== 3 &&
-    value.schemaVersion !== 4
+    value.schemaVersion !== 4 &&
+    value.schemaVersion !== 5
   )
     return false;
   if (
     !isRunState(value.state) ||
     !isRequiredAcceptance(value.requiredAcceptanceCriteria) ||
     (value.schemaVersion !== 4 &&
+      value.schemaVersion !== 5 &&
       !isRequiredValidations(value.requiredValidations)) ||
-    (value.schemaVersion === 4
+    (value.schemaVersion === 4 || value.schemaVersion === 5
       ? !isFinalization(value.finalization)
       : !isLegacyFinalization(value.finalization, value.state))
   )
@@ -427,10 +430,14 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
       isMergedFacts(value.mergedPullRequest));
   if (!revisioned) return false;
   if (value.schemaVersion === 3) return true;
-  return (
+  const versionFourShape =
     isRequiredFinalValidation(value.requiredFinalValidation) &&
     isBoundIntegrationLaunch(value.integrationLaunch, value) &&
-    (value.progress === null || isRpivStatus(value.progress))
+    (value.progress === null || isRpivStatus(value.progress));
+  if (!versionFourShape) return false;
+  return (
+    value.schemaVersion === 4 ||
+    isTmuxIdentityDiagnostic(value.tmuxIdentityDiagnostic)
   );
 }
 
@@ -456,7 +463,8 @@ export function isTransitionEvent(value: unknown): value is TransitionEvent {
     typeof value.reason === "string" &&
     isSnapshot(value.resultingSnapshot) &&
     (value.resultingSnapshot.schemaVersion === 3 ||
-      value.resultingSnapshot.schemaVersion === 4)
+      value.resultingSnapshot.schemaVersion === 4 ||
+      value.resultingSnapshot.schemaVersion === 5)
   );
 }
 
@@ -748,6 +756,50 @@ function isErrorFact(value: unknown): boolean {
       typeof value.message === "string")
   );
 }
+export function isTmuxIdentityDiagnostic(value: unknown): boolean {
+  if (value === null) return true;
+  if (!isRecord(value)) return false;
+  const tokens = [
+    "window_id",
+    "pane_id",
+    "horizontal_tab",
+    "carriage_return",
+    "line_feed",
+    "backslash",
+    "other",
+  ];
+  return (
+    Object.keys(value).length === 10 &&
+    value.schemaVersion === 1 &&
+    (value.phase === "create" || value.phase === "observe") &&
+    Number.isSafeInteger(value.exitCode) &&
+    isNonnegativeInteger(value.stdoutByteCount) &&
+    isNonnegativeInteger(value.stderrByteCount) &&
+    isNonnegativeInteger(value.recordCount) &&
+    value.recordCount <= 8 &&
+    typeof value.recordsTruncated === "boolean" &&
+    (!value.recordsTruncated || value.recordCount === 8) &&
+    Array.isArray(value.records) &&
+    value.records.length === value.recordCount &&
+    value.records.every(
+      (record: unknown) =>
+        isRecord(record) &&
+        Object.keys(record).length === 2 &&
+        isPositiveInteger(record.fieldCount) &&
+        record.fieldCount <= 8 &&
+        typeof record.truncated === "boolean" &&
+        (!record.truncated || record.fieldCount === 8),
+    ) &&
+    Array.isArray(value.signature) &&
+    value.signature.length <= 32 &&
+    value.signature.every(
+      (token: unknown) => typeof token === "string" && tokens.includes(token),
+    ) &&
+    typeof value.signatureTruncated === "boolean" &&
+    (!value.signatureTruncated || value.signature.length === 32)
+  );
+}
+
 export function isOwnerRecord(value: unknown): value is OwnerRecordV1 {
   return (
     isRecord(value) &&
@@ -915,6 +967,10 @@ function parseRecordAt<T>(
 
 function isRevisionedSnapshot(
   snapshot: RunSnapshot,
-): snapshot is RunSnapshotV3 | RunSnapshotV4 {
-  return snapshot.schemaVersion === 3 || snapshot.schemaVersion === 4;
+): snapshot is RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 {
+  return (
+    snapshot.schemaVersion === 3 ||
+    snapshot.schemaVersion === 4 ||
+    snapshot.schemaVersion === 5
+  );
 }

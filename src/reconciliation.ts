@@ -8,13 +8,15 @@ import type {
   ProcessIdentityV1,
   ProgressObservationV1,
   ReconciliationObservationsV1,
-  ReconciliationReportV1,
+  ReconciliationReportV2,
   RunSnapshot,
   RunSnapshotV3,
   RunSnapshotV4,
-  TmuxIdentity,
+  RunSnapshotV5,
+  TmuxIdentityDiagnosticV1,
   WorktreeObservationV1,
 } from "./domain";
+import { normalizeRepositoryName, tmuxSessionName } from "./domain";
 import {
   isMigratedLegacyAgentResult,
   migrateLegacyAgentResult,
@@ -22,6 +24,7 @@ import {
   parseLegacyAgentResult,
 } from "./completion";
 import { isRunnerError } from "./errors";
+import { TmuxIdentityOutputError } from "./tmux-identity";
 import { RunStore } from "./persistence";
 import { classifyProgress } from "./integration";
 import type { RunnerPorts } from "./ports";
@@ -31,7 +34,7 @@ export async function collectReconciliation(input: {
   readonly repositoryRoot: string;
   readonly ports: RunnerPorts;
   readonly store: RunStore;
-}): Promise<ReconciliationReportV1> {
+}): Promise<ReconciliationReportV2> {
   const { persisted, ports, repositoryRoot, store } = input;
   const expectedOwner: OwnerRecordV1 = {
     schemaVersion: 1,
@@ -40,7 +43,8 @@ export async function collectReconciliation(input: {
     runId: persisted.runId,
     repository: persisted.repository,
     acquiredAt:
-      persisted.schemaVersion === 4 && persisted.admission !== null
+      (persisted.schemaVersion === 4 || persisted.schemaVersion === 5) &&
+      persisted.admission !== null
         ? persisted.admission.acquiredAt
         : "",
   };
@@ -61,7 +65,7 @@ export async function collectReconciliation(input: {
     lease,
     filesystem,
     git,
-    tmux,
+    tmuxResult,
     workerProcess,
     rpivProcess,
     progress,
@@ -76,7 +80,9 @@ export async function collectReconciliation(input: {
         ? match(actual, "LOCK_MATCH")
         : mismatch(actual, "LOCK_MISMATCH");
     }),
-    persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4
+    persisted.schemaVersion !== 3 &&
+    persisted.schemaVersion !== 4 &&
+    persisted.schemaVersion !== 5
       ? Promise.resolve(notApplicable<ConcurrencyLeaseV1>("LEASE_NOT_RECORDED"))
       : persisted.admission === null
         ? Promise.resolve(
@@ -106,34 +112,31 @@ export async function collectReconciliation(input: {
       );
       if (!facts.pathExists && !facts.registered)
         return absent<WorktreeObservationV1>("GIT_WORKTREE_ABSENT", facts);
-      const expectedHead = completionHead(persisted);
+      const expectedHead = expectedWorktreeHead(persisted);
+      const preparationClean =
+        persisted.state !== "starting_tmux" || isClean(facts);
       const agrees =
         facts.pathExists &&
         facts.registered &&
         facts.branch === persisted.branch &&
-        (expectedHead === null || facts.headSha === expectedHead);
+        (expectedHead === null || facts.headSha === expectedHead) &&
+        preparationClean;
       return agrees
         ? match(facts, "GIT_WORKTREE_MATCH")
         : mismatch(facts, "GIT_WORKTREE_MISMATCH");
     }),
-    persisted.tmux === null
-      ? Promise.resolve(notApplicable<TmuxIdentity>("TMUX_NOT_RECORDED"))
-      : observe(async () => {
-          const actual = await ports.tmux.observe(
-            persisted.tmux as TmuxIdentity,
-          );
-          if (actual === null) return absent<TmuxIdentity>("TMUX_ABSENT");
-          return same(actual, persisted.tmux)
-            ? match(actual, "TMUX_MATCH")
-            : mismatch(actual, "TMUX_MISMATCH");
-        }),
-    (persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4) ||
+    collectTmuxObservation(persisted, ports),
+    (persisted.schemaVersion !== 3 &&
+      persisted.schemaVersion !== 4 &&
+      persisted.schemaVersion !== 5) ||
     persisted.workerProcess === null
       ? Promise.resolve(
           notApplicable<ProcessIdentityV1>("WORKER_PROCESS_NOT_RECORDED"),
         )
       : observeProcess(ports, persisted.workerProcess, "WORKER"),
-    (persisted.schemaVersion !== 3 && persisted.schemaVersion !== 4) ||
+    (persisted.schemaVersion !== 3 &&
+      persisted.schemaVersion !== 4 &&
+      persisted.schemaVersion !== 5) ||
     persisted.rpivProcess === null
       ? Promise.resolve(absent<ProcessIdentityV1>("RPIV_PROCESS_NOT_RECORDED"))
       : observeProcess(ports, persisted.rpivProcess, "RPIV"),
@@ -215,12 +218,37 @@ export async function collectReconciliation(input: {
             : mismatch(facts, "PULL_REQUEST_MISMATCH");
         }),
   ]);
-  return buildReconciliationReport(persisted, {
+  const priorDiagnostic =
+    persisted.schemaVersion === 5 ? persisted.tmuxIdentityDiagnostic : null;
+  const desiredDiagnostic =
+    tmuxResult.disposition === "preserve"
+      ? priorDiagnostic
+      : tmuxResult.diagnostic;
+  let reportSnapshot = persisted;
+  if (
+    persisted.schemaVersion === 5 &&
+    !same(priorDiagnostic, desiredDiagnostic)
+  ) {
+    reportSnapshot = {
+      ...persisted,
+      revision: persisted.revision + 1,
+      tmuxIdentityDiagnostic: desiredDiagnostic,
+      updatedAt: ports.clock.now(),
+    };
+    await store.save(
+      reportSnapshot,
+      persisted.state,
+      desiredDiagnostic === null
+        ? "tmux-identity-diagnostic-cleared"
+        : "tmux-identity-diagnostic-retained",
+    );
+  }
+  return buildReconciliationReport(reportSnapshot, {
     lock,
     lease,
     filesystem,
     git,
-    tmux,
+    tmux: tmuxResult.observation,
     workerProcess,
     rpivProcess,
     progress,
@@ -233,7 +261,7 @@ export async function collectReconciliation(input: {
 export function buildReconciliationReport(
   persisted: RunSnapshot,
   observations: ReconciliationObservationsV1,
-): ReconciliationReportV1 {
+): ReconciliationReportV2 {
   const entries = Object.entries(observations) as readonly [
     keyof ReconciliationObservationsV1,
     ObservationV1,
@@ -263,6 +291,19 @@ export function buildReconciliationReport(
   }
   if (persisted.state === "completed")
     return buildCompletedReport(persisted, observations, diagnostics);
+  if (
+    persisted.state === "starting_tmux" &&
+    observations.tmux.code === "TMUX_NAME_PRESENT_UNKNOWN"
+  )
+    return report(
+      persisted,
+      observations,
+      "blocked",
+      "RESOURCE_OWNERSHIP_UNKNOWN",
+      [],
+      diagnostics,
+      "Preserve every same-name tmux window; a name, cwd, identity, or process command never proves ownership.",
+    );
   if (unknown.length > 0)
     return report(
       persisted,
@@ -333,7 +374,13 @@ export function buildReconciliationReport(
   ) {
     const preparationOwned =
       observations.lock.state === "match" &&
-      observations.lease.state === "match";
+      observations.lease.state === "match" &&
+      (persisted.state !== "starting_tmux" ||
+        (persisted.tmux === null &&
+          observations.filesystem.state === "match" &&
+          observations.git.state === "match" &&
+          observations.tmux.state === "absent" &&
+          observations.tmux.code === "TMUX_NAME_ABSENT"));
     return report(
       persisted,
       observations,
@@ -345,7 +392,7 @@ export function buildReconciliationReport(
       [],
       preparationOwned
         ? null
-        : "Restore the exact issue lock and concurrency lease before resuming preparation.",
+        : "Restore the exact lock, lease, fetched-base HEAD, clean registered worktree, and zero-candidate tmux-name proof before resuming preparation.",
     );
   }
   if (persisted.state === "finalizing") {
@@ -422,10 +469,10 @@ export function buildReconciliationReport(
 }
 
 function buildCompletedReport(
-  persisted: RunSnapshotV3 | RunSnapshotV4,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
   observations: ReconciliationObservationsV1,
   diagnostics: readonly string[],
-): ReconciliationReportV1 {
+): ReconciliationReportV2 {
   const nonGitHubProblems = Object.entries(observations).filter(
     ([boundary, observation]) =>
       boundary !== "github" &&
@@ -526,7 +573,7 @@ function buildCompletedReport(
 }
 
 function cleanupStepsCompleted(
-  persisted: RunSnapshotV3 | RunSnapshotV4,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
   steps: readonly CleanupStep[],
 ): boolean {
   const progress = persisted.cleanup;
@@ -539,7 +586,7 @@ function cleanupStepsCompleted(
 }
 
 function canExplicitCleanup(
-  persisted: RunSnapshotV3 | RunSnapshotV4,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
   observations: ReconciliationObservationsV1,
 ): boolean {
   const progress = persisted.cleanup;
@@ -590,14 +637,14 @@ function canExplicitCleanup(
 function report(
   persisted: RunSnapshot,
   observations: ReconciliationObservationsV1,
-  activity: ReconciliationReportV1["activity"],
+  activity: ReconciliationReportV2["activity"],
   decisionCode: string,
-  safeActions: ReconciliationReportV1["safeActions"],
+  safeActions: ReconciliationReportV2["safeActions"],
   diagnostics: readonly string[],
   remediation: string | null,
-): ReconciliationReportV1 {
+): ReconciliationReportV2 {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     issueNumber: persisted.issueNumber,
     persisted,
     observations,
@@ -606,7 +653,82 @@ function report(
     safeActions,
     diagnostics,
     remediation,
+    tmuxIdentityDiagnostic:
+      persisted.schemaVersion === 5 ? persisted.tmuxIdentityDiagnostic : null,
   };
+}
+
+interface TmuxObservationCollection {
+  readonly observation: ReconciliationObservationsV1["tmux"];
+  readonly disposition: "preserve" | "replace" | "clear";
+  readonly diagnostic: TmuxIdentityDiagnosticV1 | null;
+}
+
+async function collectTmuxObservation(
+  persisted: RunSnapshot,
+  ports: RunnerPorts,
+): Promise<TmuxObservationCollection> {
+  if (persisted.tmux === null) {
+    if (persisted.state !== "starting_tmux")
+      return {
+        observation: notApplicable("TMUX_NOT_RECORDED"),
+        disposition: "preserve",
+        diagnostic: null,
+      };
+    try {
+      const present = await ports.tmux.observeIssueWindowName({
+        sessionName: tmuxSessionName({
+          nameWithOwner: persisted.repository,
+          normalizedName: normalizeRepositoryName(persisted.repository),
+        }),
+        windowName: String(persisted.issueNumber),
+        cwd: persisted.worktreePath,
+      });
+      return {
+        observation: present
+          ? mismatch({ present: true }, "TMUX_NAME_PRESENT_UNKNOWN")
+          : absent("TMUX_NAME_ABSENT", { present: false }),
+        disposition: "preserve",
+        diagnostic: null,
+      };
+    } catch (cause: unknown) {
+      if (!isRunnerError(cause)) throw cause;
+      return {
+        observation: unknown(cause.code),
+        disposition: "preserve",
+        diagnostic: null,
+      };
+    }
+  }
+  try {
+    const actual = await ports.tmux.observe(persisted.tmux);
+    if (actual === null)
+      return {
+        observation: absent("TMUX_ABSENT"),
+        disposition: "preserve",
+        diagnostic: null,
+      };
+    return {
+      observation: same(actual, persisted.tmux)
+        ? match(actual, "TMUX_MATCH")
+        : mismatch(actual, "TMUX_MISMATCH"),
+      disposition: "clear",
+      diagnostic: null,
+    };
+  } catch (cause: unknown) {
+    if (cause instanceof TmuxIdentityOutputError)
+      return {
+        observation: unknown(cause.code),
+        disposition: "replace",
+        diagnostic: cause.tmuxIdentityDiagnostic,
+      };
+    if (!isRunnerError(cause)) throw cause;
+    return {
+      observation: unknown(cause.code),
+      disposition: "preserve",
+      diagnostic: null,
+    };
+  }
 }
 
 async function observeProcess(
@@ -682,7 +804,7 @@ function parseObservedResult(
     return parseAgentResult(text);
   } catch (cause: unknown) {
     if (
-      snapshot.schemaVersion !== 4 ||
+      (snapshot.schemaVersion !== 4 && snapshot.schemaVersion !== 5) ||
       persistedResult === null ||
       !isMigratedLegacyAgentResult(persistedResult)
     )
@@ -695,6 +817,11 @@ function completionHead(snapshot: RunSnapshot): string | null {
   return snapshot.schemaVersion !== 1
     ? (snapshot.finalization?.result?.headSha ?? null)
     : null;
+}
+function expectedWorktreeHead(snapshot: RunSnapshot): string | null {
+  if (snapshot.state === "starting_tmux")
+    return snapshot.fetchedBaseProof?.advertisedHeadSha ?? null;
+  return completionHead(snapshot);
 }
 function isClean(facts: WorktreeObservationV1 | null): boolean {
   return (

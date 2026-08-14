@@ -15,12 +15,14 @@ import type {
   CopilotLaunchFacts,
   LaunchIntentV1,
   OwnerRecordV1,
-  ReconciliationReportV1,
+  ReconciliationReportV2,
   RepositoryFacts,
   RetainedLogV1,
+  RunSnapshot,
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
+  RunSnapshotV5,
   RunState,
   StatusFacts,
   TmuxIdentity,
@@ -32,6 +34,7 @@ import {
   tmuxSessionName,
 } from "./domain";
 import { isRunnerError, RunnerError } from "./errors";
+import { TmuxIdentityOutputError } from "./tmux-identity";
 import { RunStore } from "./persistence";
 import type { RunnerPorts } from "./ports";
 import { collectReconciliation } from "./reconciliation";
@@ -57,19 +60,21 @@ export class IssueRunService {
   public async run(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     if (await store.snapshotExists(issueNumber)) {
       let existing = await store.load(issueNumber);
+      existing = await this.normalizeCurrentSnapshot(existing, store);
       let report = await collectReconciliation({
         persisted: existing,
         repositoryRoot: repository.root,
         ports: this.ports,
         store,
       });
+      existing = report.persisted;
       if (
-        existing.schemaVersion === 4 &&
+        existing.schemaVersion === 5 &&
         report.safeActions.includes("automatic_clean")
       ) {
         existing = await this.performCleanup(
@@ -144,8 +149,8 @@ export class IssueRunService {
       startedAt: owner.acquiredAt,
       requiredFinalValidation: configuration.finalValidation,
     });
-    let snapshot: RunSnapshotV4 = {
-      schemaVersion: 4,
+    let snapshot: RunSnapshotV5 = {
+      schemaVersion: 5,
       revision: 1,
       attempt: 1,
       runId: owner.runId,
@@ -174,6 +179,7 @@ export class IssueRunService {
       integrationLaunch: launchBinding,
       progress: null,
       finalization: null,
+      tmuxIdentityDiagnostic: null,
     };
     await store.save(snapshot, null, "ownership-and-slot-acquired");
     try {
@@ -186,6 +192,7 @@ export class IssueRunService {
       );
       return snapshot;
     } catch (cause: unknown) {
+      if (cause instanceof TmuxIdentityOutputError) throw cause;
       if (!isRunnerError(cause)) throw cause;
       const blocked = this.next(snapshot, {
         state: "blocked",
@@ -198,12 +205,12 @@ export class IssueRunService {
   }
 
   private async prepareResources(
-    initial: RunSnapshotV4,
+    initial: RunSnapshotV5,
     repository: RepositoryFacts,
     configuredRemote: string | null,
     configuredBase: string | null,
     store: RunStore,
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     let snapshot = initial;
     if (snapshot.state === "acquiring_lock") {
       await this.assertResourcesAbsent(
@@ -272,18 +279,32 @@ export class IssueRunService {
     if (snapshot.state === "starting_tmux") {
       let tmux = snapshot.tmux;
       if (tmux === null) {
-        tmux = await this.ports.tmux.createIssueWindow({
-          sessionName: tmuxSessionName(repository.identity),
-          windowName: String(snapshot.issueNumber),
-          cwd: snapshot.worktreePath,
-          executable: this.executable,
-          args: [
-            "internal",
-            "run-agent",
-            "--issue",
-            String(snapshot.issueNumber),
-          ],
-        });
+        try {
+          tmux = await this.ports.tmux.createIssueWindow({
+            sessionName: tmuxSessionName(repository.identity),
+            windowName: String(snapshot.issueNumber),
+            cwd: snapshot.worktreePath,
+            executable: this.executable,
+            args: [
+              "internal",
+              "run-agent",
+              "--issue",
+              String(snapshot.issueNumber),
+            ],
+          });
+        } catch (cause: unknown) {
+          if (!(cause instanceof TmuxIdentityOutputError)) throw cause;
+          const retained = this.next(snapshot, {
+            tmuxIdentityDiagnostic: cause.tmuxIdentityDiagnostic,
+            error: { code: cause.code, message: cause.message },
+          });
+          await store.save(
+            retained,
+            snapshot.state,
+            "tmux-creation-identity-failure-retained",
+          );
+          throw cause;
+        }
       }
       await this.ports.tmux.setRemainOnExit(tmux);
       const workerPid = await this.ports.tmux.panePid(tmux);
@@ -313,6 +334,8 @@ export class IssueRunService {
         state: "running_rpiv",
         tmux,
         workerProcess,
+        tmuxIdentityDiagnostic: null,
+        error: null,
       });
       await store.save(running, snapshot.state, "visible-worker-started");
       snapshot = running;
@@ -323,17 +346,13 @@ export class IssueRunService {
   public async runWorker(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let loaded = await store.load(issueNumber);
-    if (loaded.schemaVersion === 3) {
-      const migrated = migrateLegacySnapshot(loaded, this.ports.clock.now());
-      await store.save(migrated, loaded.state, "legacy-v4-snapshot-normalized");
-      loaded = migrated;
-    }
+    loaded = await this.normalizeCurrentSnapshot(loaded, store);
     if (
-      loaded.schemaVersion !== 4 ||
+      loaded.schemaVersion !== 5 ||
       loaded.state !== "running_rpiv" ||
       loaded.tmux === null
     )
@@ -537,10 +556,10 @@ export class IssueRunService {
   }
 
   private async finalize(
-    snapshot: RunSnapshotV4,
+    snapshot: RunSnapshotV5,
     repository: RepositoryFacts,
     store: RunStore,
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     let result: AgentResultV1;
     try {
       result = parseAgentResult(
@@ -655,11 +674,11 @@ export class IssueRunService {
 
   private async persistIncompleteFinalization(
     store: RunStore,
-    snapshot: RunSnapshotV4,
+    snapshot: RunSnapshotV5,
     result: AgentResultV1,
     message: string,
     code = "COMPLETION_PROOF_INCOMPLETE",
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     const interrupted = this.next(snapshot, {
       state: "interrupted",
       finalization: {
@@ -681,25 +700,18 @@ export class IssueRunService {
   public async reconcile(
     issueNumber: number,
     startPath: string,
-  ): Promise<ReconciliationReportV1> {
+  ): Promise<ReconciliationReportV2> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let persisted = await store.load(issueNumber);
-    if (persisted.schemaVersion === 3) {
-      const migrated = migrateLegacySnapshot(persisted, this.ports.clock.now());
-      await store.save(
-        migrated,
-        persisted.state,
-        "legacy-v4-snapshot-normalized",
-      );
-      persisted = migrated;
-    }
+    persisted = await this.normalizeCurrentSnapshot(persisted, store);
     let report = await collectReconciliation({
       persisted,
       repositoryRoot: repository.root,
       ports: this.ports,
       store,
     });
+    persisted = report.persisted;
     if (persisted.schemaVersion === 2 && canMigrateLegacy(persisted, report)) {
       const migrated = migrateLegacySnapshot(persisted, this.ports.clock.now());
       await store.save(
@@ -707,7 +719,7 @@ export class IssueRunService {
         persisted.state,
         "legacy-v4-reconciliation-migration",
       );
-      persisted = migrated;
+      persisted = await this.normalizeCurrentSnapshot(migrated, store);
       report = await collectReconciliation({
         persisted,
         repositoryRoot: repository.root,
@@ -716,7 +728,7 @@ export class IssueRunService {
       });
     }
     if (
-      persisted.schemaVersion === 4 &&
+      persisted.schemaVersion === 5 &&
       report.safeActions.includes("automatic_clean")
     ) {
       await this.performCleanup("automatic_merged", report, repository, store);
@@ -737,7 +749,7 @@ export class IssueRunService {
   ): Promise<StatusFacts> {
     const report = await this.reconcile(issueNumber, startPath);
     return {
-      schemaVersion: 3,
+      schemaVersion: 4,
       issueNumber,
       persisted: report.persisted,
       observed: report.observations.tmux.facts,
@@ -809,22 +821,15 @@ export class IssueRunService {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let persisted = await store.load(issueNumber);
-    if (persisted.schemaVersion === 3) {
-      const migrated = migrateLegacySnapshot(persisted, this.ports.clock.now());
-      await store.save(
-        migrated,
-        persisted.state,
-        "legacy-v4-snapshot-normalized",
-      );
-      persisted = migrated;
-    }
+    persisted = await this.normalizeCurrentSnapshot(persisted, store);
     const report = await collectReconciliation({
       persisted,
       repositoryRoot: repository.root,
       ports: this.ports,
       store,
     });
-    if (persisted.schemaVersion !== 4)
+    persisted = report.persisted;
+    if (persisted.schemaVersion !== 5)
       return refused(
         issueNumber,
         persisted.state,
@@ -1025,22 +1030,15 @@ export class IssueRunService {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let persisted = await store.load(issueNumber);
-    if (persisted.schemaVersion === 3) {
-      const migrated = migrateLegacySnapshot(persisted, this.ports.clock.now());
-      await store.save(
-        migrated,
-        persisted.state,
-        "legacy-v4-snapshot-normalized",
-      );
-      persisted = migrated;
-    }
+    persisted = await this.normalizeCurrentSnapshot(persisted, store);
     const report = await collectReconciliation({
       persisted,
       repositoryRoot: repository.root,
       ports: this.ports,
       store,
     });
-    if (persisted.schemaVersion !== 4)
+    persisted = report.persisted;
+    if (persisted.schemaVersion !== 5)
       return refused(
         issueNumber,
         persisted.state,
@@ -1275,22 +1273,15 @@ export class IssueRunService {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let persisted = await store.load(issueNumber);
-    if (persisted.schemaVersion === 3) {
-      const migrated = migrateLegacySnapshot(persisted, this.ports.clock.now());
-      await store.save(
-        migrated,
-        persisted.state,
-        "legacy-v4-snapshot-normalized",
-      );
-      persisted = migrated;
-    }
+    persisted = await this.normalizeCurrentSnapshot(persisted, store);
     const report = await collectReconciliation({
       persisted,
       repositoryRoot: repository.root,
       ports: this.ports,
       store,
     });
-    if (persisted.schemaVersion !== 4)
+    persisted = report.persisted;
+    if (persisted.schemaVersion !== 5)
       return refused(
         issueNumber,
         persisted.state,
@@ -1356,7 +1347,7 @@ export class IssueRunService {
     } catch (cause: unknown) {
       if (!isRunnerError(cause)) throw cause;
       const partial = await store.load(issueNumber);
-      if (partial.schemaVersion !== 4) throw cause;
+      if (partial.schemaVersion !== 5) throw cause;
       const partialReport = await collectReconciliation({
         persisted: partial,
         repositoryRoot: repository.root,
@@ -1383,11 +1374,11 @@ export class IssueRunService {
 
   private async performCleanup(
     mode: CleanupMode,
-    report: ReconciliationReportV1,
+    report: ReconciliationReportV2,
     repository: RepositoryFacts,
     store: RunStore,
-  ): Promise<RunSnapshotV4> {
-    if (report.persisted.schemaVersion !== 4)
+  ): Promise<RunSnapshotV5> {
+    if (report.persisted.schemaVersion !== 5)
       throw new RunnerError(
         "CLEANUP_OWNERSHIP_UNPROVED",
         "Cleanup requires a version 3 ownership record.",
@@ -1441,6 +1432,8 @@ export class IssueRunService {
         ports: this.ports,
         store,
       });
+      if (currentReport.persisted.schemaVersion === 5)
+        snapshot = currentReport.persisted;
       if (!currentReport.safeActions.includes(requiredAction))
         throw new RunnerError(
           "CLEANUP_OWNERSHIP_UNPROVED",
@@ -1561,7 +1554,7 @@ export class IssueRunService {
   ): Promise<ControlOutcomeV1> {
     const report = await this.reconcile(issueNumber, startPath);
     const snapshot = report.persisted;
-    if (snapshot.schemaVersion !== 4)
+    if (snapshot.schemaVersion !== 5)
       return refused(
         issueNumber,
         snapshot.state,
@@ -1617,7 +1610,7 @@ export class IssueRunService {
 
   private async retainLog(
     store: RunStore,
-    snapshot: RunSnapshotV4,
+    snapshot: RunSnapshotV5,
     before: string,
     after: string,
     adapterTruncated: boolean,
@@ -1658,8 +1651,8 @@ export class IssueRunService {
 
   private async releaseTerminalLease(
     store: RunStore,
-    snapshot: RunSnapshotV4,
-  ): Promise<RunSnapshotV4> {
+    snapshot: RunSnapshotV5,
+  ): Promise<RunSnapshotV5> {
     if (snapshot.admission === null) return snapshot;
     const released = await store.releaseLease(snapshot.admission);
     if (!released) return snapshot;
@@ -1673,26 +1666,51 @@ export class IssueRunService {
 
   private async persistTransition(
     store: RunStore,
-    snapshot: RunSnapshotV4,
-    changes: Partial<RunSnapshotV4>,
+    snapshot: RunSnapshotV5,
+    changes: Partial<RunSnapshotV5>,
     reason: string,
-  ): Promise<RunSnapshotV4> {
+  ): Promise<RunSnapshotV5> {
     const next = this.next(snapshot, changes);
     await store.save(next, snapshot.state, reason);
     return next;
   }
 
   private next(
-    snapshot: RunSnapshotV4,
-    changes: Partial<RunSnapshotV4>,
-  ): RunSnapshotV4 {
+    snapshot: RunSnapshotV5,
+    changes: Partial<RunSnapshotV5>,
+  ): RunSnapshotV5 {
     return {
       ...snapshot,
       ...changes,
-      schemaVersion: 4,
+      schemaVersion: 5,
       revision: snapshot.revision + 1,
       updatedAt: this.ports.clock.now(),
     };
+  }
+
+  private async normalizeCurrentSnapshot(
+    snapshot: RunSnapshot,
+    store: RunStore,
+  ): Promise<RunSnapshot> {
+    let current = snapshot;
+    if (current.schemaVersion === 3) {
+      const versionFour = migrateLegacySnapshot(
+        current,
+        this.ports.clock.now(),
+      );
+      await store.save(
+        versionFour,
+        current.state,
+        "legacy-v4-snapshot-normalized",
+      );
+      current = versionFour;
+    }
+    if (current.schemaVersion === 4) {
+      const versionFive = migrateV4Snapshot(current, this.ports.clock.now());
+      await store.save(versionFive, current.state, "v4-v5-snapshot-normalized");
+      current = versionFive;
+    }
+    return current;
   }
 
   private store(repositoryRoot: string): RunStore {
@@ -1705,7 +1723,7 @@ export class IssueRunService {
     phase: string,
     status: string,
   ) {
-    const initial = await this.boundV4Snapshot(issueNumber, startPath);
+    const initial = await this.boundV5Snapshot(issueNumber, startPath);
     const phases: readonly string[] = [
       "research",
       "plan",
@@ -1751,7 +1769,7 @@ export class IssueRunService {
     let publicationError: unknown;
     let publicationFailed = false;
     try {
-      const { snapshot, store } = await this.boundV4Snapshot(
+      const { snapshot, store } = await this.boundV5Snapshot(
         issueNumber,
         startPath,
       );
@@ -1795,7 +1813,7 @@ export class IssueRunService {
     startPath: string,
     candidatePath: string,
   ) {
-    const { snapshot } = await this.boundV4Snapshot(issueNumber, startPath);
+    const { snapshot } = await this.boundV5Snapshot(issueNumber, startPath);
     const resolved = path.resolve(snapshot.worktreePath, candidatePath);
     const ownedPrefix = path.resolve(snapshot.worktreePath) + path.sep;
     if (!resolved.startsWith(ownedPrefix))
@@ -1815,14 +1833,14 @@ export class IssueRunService {
   }
 
   public async validateRpivResult(issueNumber: number, startPath: string) {
-    const { snapshot } = await this.boundV4Snapshot(issueNumber, startPath);
+    const { snapshot } = await this.boundV5Snapshot(issueNumber, startPath);
     const text = await this.ports.files.readText(
       snapshot.integrationLaunch.resultPath,
     );
     return validateBoundResult(text, await this.trustedResultBinding(snapshot));
   }
 
-  private async trustedResultBinding(snapshot: RunSnapshotV4) {
+  private async trustedResultBinding(snapshot: RunSnapshotV5) {
     const [headSha, pullRequest] = await Promise.all([
       this.ports.git.localHeadSha(snapshot.worktreePath),
       this.ports.github.findOpenPullRequest(
@@ -1861,20 +1879,21 @@ export class IssueRunService {
     };
   }
 
-  private async boundV4Snapshot(
+  private async boundV5Snapshot(
     issueNumber: number,
     startPath: string,
-  ): Promise<{ snapshot: RunSnapshotV4; store: RunStore }> {
+  ): Promise<{ snapshot: RunSnapshotV5; store: RunStore }> {
     const repository = await this.ports.git.discover(startPath);
     const roots = [repository.root, path.dirname(repository.commonDirectory)];
     for (const root of [...new Set(roots)]) {
       const store = this.store(root);
       if (!(await store.snapshotExists(issueNumber))) continue;
-      const loaded = await store.load(issueNumber);
-      if (loaded.schemaVersion !== 4)
+      let loaded = await store.load(issueNumber);
+      loaded = await this.normalizeCurrentSnapshot(loaded, store);
+      if (loaded.schemaVersion !== 5)
         throw new RunnerError(
           "STATE_INVALID",
-          "RPIV helper requires a v4 run binding.",
+          "RPIV helper requires a v5 run binding.",
           "Normalize supported legacy state before invoking RPIV helpers.",
         );
       return { snapshot: loaded, store };
@@ -1897,7 +1916,7 @@ export class IssueRunService {
 
   private async configuration(
     repositoryRoot: string,
-    persistedFinalValidation?: RunSnapshotV4["requiredFinalValidation"],
+    persistedFinalValidation?: RunSnapshotV5["requiredFinalValidation"],
   ) {
     const [configuration, justfile] = await Promise.all([
       this.ports.files.readText(
@@ -1944,7 +1963,7 @@ export function composeCopilotLaunchEnvironment(
 
 function canMigrateLegacy(
   snapshot: RunSnapshotV2 | RunSnapshotV3,
-  report: ReconciliationReportV1,
+  report: ReconciliationReportV2,
 ): boolean {
   const terminal = [
     "completed",
@@ -2017,12 +2036,25 @@ function migrateLegacySnapshot(
   };
 }
 
+function migrateV4Snapshot(
+  snapshot: RunSnapshotV4,
+  updatedAt: string,
+): RunSnapshotV5 {
+  return {
+    ...snapshot,
+    schemaVersion: 5,
+    revision: snapshot.revision + 1,
+    tmuxIdentityDiagnostic: null,
+    updatedAt,
+  };
+}
+
 function outcome<T>(
   issueNumber: number,
   state: RunState,
   code: string,
   exitCode: number,
-  report: ReconciliationReportV1,
+  report: ReconciliationReportV2,
   facts: T,
 ): ControlOutcomeV1<T> {
   return {
@@ -2040,7 +2072,7 @@ function refused(
   issueNumber: number,
   state: RunState,
   code: string,
-  report: ReconciliationReportV1,
+  report: ReconciliationReportV2,
   remediation: string,
 ): ControlOutcomeV1<Record<string, never>> {
   return {

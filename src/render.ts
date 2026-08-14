@@ -1,6 +1,6 @@
 import type {
   ControlOutcomeV1,
-  ReconciliationReportV1,
+  ReconciliationReportV2,
   RunSnapshot,
   StatusFacts,
   TmuxIdentity,
@@ -11,7 +11,9 @@ export function renderRun(snapshot: RunSnapshot, json: boolean): string {
   if (json)
     return `${JSON.stringify({ schemaVersion: 1, run: snapshot }, null, 2)}\n`;
   const revision =
-    snapshot.schemaVersion === 3 || snapshot.schemaVersion === 4
+    snapshot.schemaVersion === 3 ||
+    snapshot.schemaVersion === 4 ||
+    snapshot.schemaVersion === 5
       ? ` r${snapshot.revision}`
       : "";
   return `Issue #${snapshot.issueNumber}: ${snapshot.state}${revision}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}\n`;
@@ -23,7 +25,7 @@ export function renderStatus(facts: StatusFacts, json: boolean): string {
 }
 
 export function renderReport(
-  report: ReconciliationReportV1,
+  report: ReconciliationReportV2,
   json = false,
 ): string {
   if (json) return JSON.stringify(report, null, 2) + "\n";
@@ -44,6 +46,11 @@ export function renderReport(
   const diagnostics =
     report.diagnostics.length === 0 ? "none" : report.diagnostics.join(", ");
   const remediation = report.remediation ?? "none";
+  const tmuxIdentityEvidence =
+    report.tmuxIdentityDiagnostic === null
+      ? "none"
+      : "malformed or ambiguous; " +
+        JSON.stringify(report.tmuxIdentityDiagnostic);
   return (
     "Issue #" +
     report.issueNumber +
@@ -59,6 +66,8 @@ export function renderReport(
     actions +
     "\nDiagnostics: " +
     diagnostics +
+    "\nTmux identity evidence: " +
+    tmuxIdentityEvidence +
     "\nReconciliation remediation: " +
     remediation +
     "\n"

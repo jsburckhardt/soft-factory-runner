@@ -2,7 +2,10 @@ import { parseConfiguration } from "./config";
 import {
   DOCTOR_CHECK_DEPENDENCIES,
   DOCTOR_CHECK_IDS,
+  DOCTOR_TMUX_OPERATIONS,
+  DOCTOR_TMUX_REASONS,
   failedCheck,
+  isDoctorResultV2,
   makeDoctorResult,
   parseRpivMetadata,
   passedCheck,
@@ -52,7 +55,7 @@ describe("Doctor contracts", () => {
     expect(
       makeDoctorResult({ github: null, defaultBranch: null }, allPass),
     ).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       ready: true,
       repository: { github: null, defaultBranch: null },
       checks: allPass,
@@ -72,6 +75,106 @@ describe("Doctor contracts", () => {
     expect(() =>
       makeDoctorResult({ github: null, defaultBranch: null }, allPass.slice(1)),
     ).toThrow("canonical ordered 24");
+  });
+
+  it("validates schema-v2 value-free tmux evidence and closed enums strictly", () => {
+    expect(DOCTOR_TMUX_OPERATIONS).toEqual([
+      "workspace",
+      "server-start",
+      "socket-ready",
+      "session-create",
+      "session-query",
+      "window-list",
+      "dashboard-pane-identify",
+      "window-create",
+      "window-configure",
+      "issue-pane-identify",
+      "pane-observe",
+      "window-remove",
+      "server-stop",
+      "helper-stop",
+      "workspace-remove",
+      "aggregate",
+    ]);
+    expect(DOCTOR_TMUX_REASONS).toEqual([
+      "unavailable",
+      "unsafe-workspace",
+      "filesystem-failed",
+      "launch-failed",
+      "socket-unavailable",
+      "nonzero-exit",
+      "timeout",
+      "cancelled",
+      "output-truncated",
+      "malformed-output",
+      "identity-mismatch",
+      "cwd-mismatch",
+      "process-identity-unknown",
+      "cleanup-failed",
+      "unexpected-resource",
+      "aggregate-deadline",
+    ]);
+    const evidence = {
+      schemaVersion: 1 as const,
+      kind: "tmux-functional-probe" as const,
+      operation: "window-create" as const,
+      reason: "malformed-output" as const,
+      exitCode: 0,
+      timedOut: false,
+      stdoutByteCount: 7,
+      stderrByteCount: 0,
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      identityDiagnostic: null,
+      cleanup: {
+        server: "absent" as const,
+        paneProcesses: "absent" as const,
+        socket: "absent" as const,
+        workspace: "absent" as const,
+      },
+    };
+    const result = makeDoctorResult(
+      { github: null, defaultBranch: null },
+      DOCTOR_CHECK_IDS.map((id) =>
+        id === "command.tmux"
+          ? failedCheck(
+              id,
+              "The isolated tmux probe failed.",
+              "Repair tmux and rerun Doctor.",
+              evidence,
+            )
+          : passedCheck(id),
+      ),
+    );
+    expect(isDoctorResultV2(result)).toBe(true);
+    for (const mutate of [
+      (value: Record<string, unknown>) => {
+        value.schemaVersion = 1;
+      },
+      (value: Record<string, unknown>) => {
+        value.extra = true;
+      },
+      (value: Record<string, unknown>) => {
+        const checks = value.checks;
+        if (Array.isArray(checks)) checks.reverse();
+      },
+      (value: Record<string, unknown>) => {
+        const checks = value.checks;
+        if (
+          Array.isArray(checks) &&
+          typeof checks[7] === "object" &&
+          checks[7] !== null
+        )
+          Reflect.set(checks[7], "evidence", {
+            ...evidence,
+            reason: "unknown",
+          });
+      },
+    ]) {
+      const copy: Record<string, unknown> = JSON.parse(JSON.stringify(result));
+      mutate(copy);
+      expect(isDoctorResultV2(copy)).toBe(false);
+    }
   });
 
   it("parses protocol and repository roots strictly without changing legacy defaults", () => {

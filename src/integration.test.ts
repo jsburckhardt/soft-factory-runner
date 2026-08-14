@@ -233,6 +233,9 @@ class CountingTmux implements TmuxPort {
     this.identities.push(identity);
     return identity;
   }
+  public async observeIssueWindowName(): Promise<boolean> {
+    return false;
+  }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity> {
     return target;
   }
@@ -559,22 +562,40 @@ class RecordingCommandRunner implements CommandRunner {
   }
 }
 
+function controlledCommandResult(
+  stdout: string,
+  exitCode = 0,
+  stderr = "",
+): CommandResult {
+  const stdoutBuffer = Buffer.from(stdout, "utf8");
+  const stderrBuffer = Buffer.from(stderr, "utf8");
+  return {
+    exitCode,
+    signal: null,
+    stdout,
+    stderr,
+    stdoutBuffer,
+    stderrBuffer,
+    stdoutByteCount: stdoutBuffer.byteLength,
+    stderrByteCount: stderrBuffer.byteLength,
+  };
+}
+
 describe("merged pull-request source-head adapter", () => {
   it("queries and parses immutable source head, merge time, and informational merge commit", async () => {
-    const commands = new RecordingCommandRunner({
-      exitCode: 0,
-      signal: null,
-      stdout: JSON.stringify({
-        number: 15,
-        state: "MERGED",
-        mergedAt: "2026-08-11T14:00:00.000Z",
-        headRefName: "feat/5-recovery",
-        headRefOid: "a".repeat(40),
-        mergeCommit: { oid: "b".repeat(40) },
-        closingIssuesReferences: [{ number: 5 }],
-      }),
-      stderr: "",
-    });
+    const commands = new RecordingCommandRunner(
+      controlledCommandResult(
+        JSON.stringify({
+          number: 15,
+          state: "MERGED",
+          mergedAt: "2026-08-11T14:00:00.000Z",
+          headRefName: "feat/5-recovery",
+          headRefOid: "a".repeat(40),
+          mergeCommit: { oid: "b".repeat(40) },
+          closingIssuesReferences: [{ number: 5 }],
+        }),
+      ),
+    );
     await expect(
       createLivePorts(commands).github.loadMergedPullRequest("owner/repo", 15),
     ).resolves.toEqual({
@@ -607,12 +628,12 @@ describe("authoritative completion remote adapter", () => {
   const branch = "feat/4-proof";
   const ref = `refs/heads/${branch}`;
   const authoritativeSha = "b".repeat(40);
-  const success = (stdout: string, exitCode = 0): CommandResult => ({
-    exitCode,
-    signal: null,
-    stdout,
-    stderr: exitCode === 0 ? "" : "query failed",
-  });
+  const success = (stdout: string, exitCode = 0): CommandResult =>
+    controlledCommandResult(
+      stdout,
+      exitCode,
+      exitCode === 0 ? "" : "query failed",
+    );
 
   it("executes one exact bounded no-shell ls-remote query from the repository root", async () => {
     const commands = new RecordingCommandRunner(

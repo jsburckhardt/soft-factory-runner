@@ -8,18 +8,22 @@ import type {
   LegacyAgentResultV1,
   MergedPullRequestFactsV1,
   ProcessIdentityV1,
-  ReconciliationReportV1,
+  ReconciliationReportV2,
   RepositoryFacts,
   RunSnapshotV2,
   RunSnapshotV3,
+  RunSnapshotV4,
   TmuxIdentity,
+  TmuxIdentityDiagnosticV1,
 } from "./domain";
 import {
   LEGACY_FINAL_VALIDATION_EVIDENCE,
   REQUIRED_VALIDATIONS,
 } from "./domain";
 import { RunnerError } from "./errors";
+import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
+import { integrationLaunch } from "./integration";
 import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
 import type {
@@ -58,6 +62,26 @@ const processIdentity: ProcessIdentityV1 = {
     panePid: 500,
   },
 };
+const tmuxDiagnostic: TmuxIdentityDiagnosticV1 = {
+  schemaVersion: 1,
+  phase: "create",
+  exitCode: 0,
+  stdoutByteCount: 7,
+  stderrByteCount: 0,
+  recordCount: 1,
+  recordsTruncated: false,
+  records: [{ fieldCount: 3, truncated: false }],
+  signature: [
+    "window_id",
+    "horizontal_tab",
+    "pane_id",
+    "horizontal_tab",
+    "other",
+    "line_feed",
+  ],
+  signatureTruncated: false,
+};
+
 const lease: ConcurrencyLeaseV1 = {
   schemaVersion: 1,
   slot: 1,
@@ -291,11 +315,36 @@ class ControlGitHub implements GitHubPort {
 class ControlTmux implements TmuxPort {
   public readonly trace: string[] = [];
   public present = true;
+  public namePresent = false;
+  public nameResults: boolean[] = [];
+  public createFailure: TmuxIdentityOutputError | null = null;
+  public observationFailure: TmuxIdentityOutputError | null = null;
+  public nameObservations = 0;
+  public identityObservations = 0;
+  public createCalls = 0;
+  public createdWindows = 0;
   public captureContent = "token=[REDACTED] pane evidence";
   public async createIssueWindow(): Promise<TmuxIdentity> {
+    this.createCalls += 1;
+    if (await this.observeIssueWindowName())
+      throw new RunnerError(
+        "RESOURCE_OWNERSHIP_UNKNOWN",
+        "A same-name tmux window appeared before creation.",
+        "Preserve the unknown window and reconcile ownership manually.",
+      );
+    this.createdWindows += 1;
+    if (this.createFailure !== null) throw this.createFailure;
+    this.present = true;
     return tmux;
   }
+  public async observeIssueWindowName(): Promise<boolean> {
+    this.nameObservations += 1;
+    this.trace.push("observe-name");
+    return this.nameResults.shift() ?? this.namePresent;
+  }
   public async observe(target: TmuxIdentity) {
+    this.identityObservations += 1;
+    if (this.observationFailure !== null) throw this.observationFailure;
     return this.present ? target : null;
   }
   public async panePid() {
@@ -428,7 +477,7 @@ function snapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
   };
 }
 
-async function fixture(initial: RunSnapshotV3) {
+async function fixture(initial: RunSnapshotV3 | RunSnapshotV4) {
   const files = new ControlFiles();
   files.values.set(worktree, "directory");
   const git = new ControlGit(files);
@@ -469,8 +518,49 @@ async function fixture(initial: RunSnapshotV3) {
   return { files, git, github, tmux: tmuxPort, processes, ports, store };
 }
 
+function versionFour(value: RunSnapshotV3): RunSnapshotV4 {
+  const { requiredValidations: legacyValidations, ...base } = value;
+  void legacyValidations;
+  const requiredFinalValidation = { command: "just verify" };
+  return {
+    ...base,
+    schemaVersion: 4,
+    requiredFinalValidation,
+    integrationLaunch: integrationLaunch({
+      runId: value.runId,
+      attempt: value.attempt,
+      issueNumber: value.issueNumber,
+      branch: value.branch,
+      worktreePath: value.worktreePath,
+      startedAt: value.updatedAt,
+      requiredFinalValidation,
+    }),
+    progress: null,
+  };
+}
+
 describe("V-1 explicit legacy migration", () => {
-  it("writes v3 only for an exactly reconciled terminal v2 snapshot", async () => {
+  it("normalizes a supported v4 snapshot through one explicit revisioned v5 event", async () => {
+    const f = await fixture(
+      versionFour(snapshot({ state: "interrupted", rpivProcess: null })),
+    );
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report.persisted).toMatchObject({
+      schemaVersion: 5,
+      revision: 2,
+      tmuxIdentityDiagnostic: null,
+    });
+    expect(await f.store.loadHistory(5)).toHaveLength(2);
+    expect((await f.store.loadHistory(5)).at(-1)).toMatchObject({
+      schemaVersion: 2,
+      priorRevision: 1,
+      resultingRevision: 2,
+      reason: "v4-v5-snapshot-normalized",
+      resultingSnapshot: { schemaVersion: 5, tmuxIdentityDiagnostic: null },
+    });
+  });
+
+  it("writes explicit v4 and v5 transitions for an exactly reconciled terminal v2 snapshot", async () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
     );
@@ -508,11 +598,11 @@ describe("V-1 explicit legacy migration", () => {
     );
     const report = await new IssueRunService(f.ports).reconcile(5, root);
     expect(report.persisted).toMatchObject({
-      schemaVersion: 4,
-      revision: 1,
+      schemaVersion: 5,
+      revision: 2,
       state: "interrupted",
     });
-    expect(await f.store.loadHistory(5)).toHaveLength(2);
+    expect(await f.store.loadHistory(5)).toHaveLength(3);
   });
 
   it("normalizes supported legacy state to sole just verify despite invalid current final-validation config", async () => {
@@ -525,7 +615,7 @@ describe("V-1 explicit legacy migration", () => {
     );
     await new IssueRunService(f.ports).reconcile(5, root);
     await expect(f.store.load(5)).resolves.toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       requiredFinalValidation: { command: "just verify" },
       integrationLaunch: {
         requiredFinalValidation: { command: "just verify" },
@@ -564,7 +654,7 @@ describe("V-1 explicit legacy migration", () => {
       );
       const report = await new IssueRunService(f.ports).reconcile(5, root);
       expect(report.persisted).toMatchObject({
-        schemaVersion: 4,
+        schemaVersion: 5,
         state: "completed",
         requiredFinalValidation: { command: "just verify" },
         finalization: {
@@ -589,7 +679,7 @@ describe("V-1 explicit legacy migration", () => {
       });
       normalized.push({
         requiredFinalValidation:
-          report.persisted.schemaVersion === 4
+          report.persisted.schemaVersion === 5
             ? report.persisted.requiredFinalValidation
             : null,
         result: migratedResult,
@@ -811,6 +901,238 @@ describe("resume reconciliation gates", () => {
     expect(resumed.report?.observations.result.code).toBe(
       "RESULT_CONTENT_MISMATCH",
     );
+  });
+});
+
+describe("Issue 29 preparation identity recovery", () => {
+  function startingTmuxSnapshot(): RunSnapshotV3 {
+    return snapshot({
+      state: "starting_tmux",
+      admission: lease,
+      fetchedBaseProof: {
+        schemaVersion: 1,
+        remote: "origin",
+        defaultBranch: "main",
+        advertisedHeadSha: sha,
+        trackingRefSha: sha,
+        fetchedAt: "2026-08-11T12:00:00.000Z",
+        matches: true,
+      },
+      tmux: null,
+      workerProcess: null,
+      rpivProcess: null,
+    });
+  }
+
+  it("retains a create failure and retries one zero-candidate creation without duplicate resources", async () => {
+    const f = await fixture(startingTmuxSnapshot());
+    f.tmux.present = false;
+    f.processes.observed = null;
+    f.tmux.createFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous create identity evidence.",
+      tmuxDiagnostic,
+    );
+    const service = new IssueRunService(f.ports);
+
+    await expect(service.resume(5, root)).rejects.toMatchObject({
+      code: "TMUX_IDENTITY_MALFORMED",
+    });
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      schemaVersion: 5,
+      state: "starting_tmux",
+      admission: lease,
+      tmux: null,
+      tmuxIdentityDiagnostic: tmuxDiagnostic,
+    });
+    expect(await f.store.readOwner(5)).not.toBeNull();
+    expect(await f.store.readLease(lease.slot)).toEqual(lease);
+    expect(f.git.trace).toEqual([]);
+
+    f.tmux.createFailure = null;
+    const beforeRetryCreates = f.tmux.createCalls;
+    const report = await service.reconcile(5, root);
+    expect(report).toMatchObject({
+      schemaVersion: 2,
+      decisionCode: "PREPARATION_RESUME_AVAILABLE",
+      safeActions: ["resume"],
+      tmuxIdentityDiagnostic: tmuxDiagnostic,
+    });
+    const resumed = await service.resume(5, root);
+    expect(resumed).toMatchObject({
+      code: "PREPARATION_RESUMED",
+      state: "running_rpiv",
+      facts: { launched: true, attempt: 1 },
+    });
+    expect(f.tmux.createCalls - beforeRetryCreates).toBe(1);
+    expect(f.tmux.createdWindows).toBe(2);
+    expect(f.git.trace).toEqual([]);
+    expect(f.processes.launches).toBe(0);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      state: "running_rpiv",
+      tmux,
+      tmuxIdentityDiagnostic: null,
+      admission: lease,
+    });
+  });
+
+  it.each([
+    ["HEAD mismatch", { observedHead: "b".repeat(40) }],
+    ["staged", { staged: true }],
+    ["unstaged", { unstaged: true }],
+    ["untracked", { untracked: true }],
+  ])(
+    "refuses starting_tmux when %s without creation",
+    async (_label, changed) => {
+      const f = await fixture(startingTmuxSnapshot());
+      f.tmux.present = false;
+      f.processes.observed = null;
+      Object.assign(f.git, changed);
+      const resumed = await new IssueRunService(f.ports).resume(5, root);
+      expect(resumed).toMatchObject({ code: "RESUME_REFUSED", exitCode: 4 });
+      expect(resumed.report?.safeActions).toEqual([]);
+      expect(f.tmux.createCalls).toBe(0);
+      expect(f.git.trace).toEqual([]);
+    },
+  );
+
+  it("refuses a same-name candidate without inspecting or mutating it", async () => {
+    const f = await fixture(startingTmuxSnapshot());
+    f.tmux.present = false;
+    f.tmux.namePresent = true;
+    f.processes.observed = null;
+    const service = new IssueRunService(f.ports);
+    await service.reconcile(5, root);
+    const before = new Map(f.files.values);
+    const resumed = await service.resume(5, root);
+    expect(resumed).toMatchObject({
+      code: "RESUME_REFUSED",
+      report: {
+        decisionCode: "RESOURCE_OWNERSHIP_UNKNOWN",
+        safeActions: [],
+        observations: {
+          tmux: {
+            state: "mismatch",
+            code: "TMUX_NAME_PRESENT_UNKNOWN",
+            facts: { present: true },
+          },
+        },
+      },
+    });
+    expect(f.files.values).toEqual(before);
+    expect(f.tmux.createCalls).toBe(0);
+    expect(f.tmux.identityObservations).toBe(0);
+    expect(f.processes.launches).toBe(0);
+    expect(f.git.trace).toEqual([]);
+  });
+
+  it("rechecks only name absence and refuses a candidate that appears before mutation", async () => {
+    const f = await fixture(startingTmuxSnapshot());
+    f.tmux.present = false;
+    f.tmux.nameResults = [false, true];
+    f.processes.observed = null;
+    await expect(
+      new IssueRunService(f.ports).resume(5, root),
+    ).rejects.toMatchObject({
+      code: "RESOURCE_OWNERSHIP_UNKNOWN",
+    });
+    expect(f.tmux.nameObservations).toBe(2);
+    expect(f.tmux.createCalls).toBe(1);
+    expect(f.tmux.createdWindows).toBe(0);
+    expect(f.processes.workerObserved).toBeNull();
+    expect(f.processes.launches).toBe(0);
+    expect(f.git.trace).toEqual([]);
+  });
+
+  it("keeps LOG_NOT_FOUND independent from a retained preparation diagnostic", async () => {
+    const f = await fixture(startingTmuxSnapshot());
+    f.tmux.present = false;
+    f.processes.observed = null;
+    f.tmux.createFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous create identity evidence.",
+      tmuxDiagnostic,
+    );
+    const service = new IssueRunService(f.ports);
+    await expect(service.resume(5, root)).rejects.toBeInstanceOf(
+      TmuxIdentityOutputError,
+    );
+    const logs = await service.logs(5, root);
+    expect(logs).toMatchObject({
+      code: "LOG_NOT_FOUND",
+      exitCode: 4,
+      report: {
+        decisionCode: "PREPARATION_RESUME_AVAILABLE",
+        safeActions: ["resume"],
+        tmuxIdentityDiagnostic: tmuxDiagnostic,
+      },
+    });
+    const jsonStatus = await runCli(["status", "5", "--json"], root, f.ports);
+    expect(JSON.parse(jsonStatus.stdout)).toMatchObject({
+      schemaVersion: 4,
+      persisted: { schemaVersion: 5, tmuxIdentityDiagnostic: tmuxDiagnostic },
+      reconciliation: {
+        schemaVersion: 2,
+        tmuxIdentityDiagnostic: tmuxDiagnostic,
+      },
+    });
+    const humanStatus = await runCli(["status", "5"], root, f.ports);
+    expect(humanStatus.stdout).toContain(
+      "Tmux identity evidence: malformed or ambiguous",
+    );
+    expect(humanStatus.stdout).not.toContain("Upgrade tmux");
+  });
+});
+
+describe("Issue 29 one-pass observation diagnostic lifecycle", () => {
+  it("retains, preserves on absence, replaces, and clears with one observation each", async () => {
+    const f = await fixture(snapshot());
+    const observeDiagnostic = { ...tmuxDiagnostic, phase: "observe" as const };
+    f.tmux.observationFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous observe identity evidence.",
+      observeDiagnostic,
+    );
+    const service = new IssueRunService(f.ports);
+    const malformed = await service.reconcile(5, root);
+    expect(f.tmux.identityObservations).toBe(1);
+    expect(malformed).toMatchObject({
+      decisionCode: "RECONCILIATION_UNKNOWN",
+      tmuxIdentityDiagnostic: observeDiagnostic,
+      persisted: { tmuxIdentityDiagnostic: observeDiagnostic },
+    });
+
+    f.tmux.observationFailure = null;
+    f.tmux.present = false;
+    const absent = await service.reconcile(5, root);
+    expect(f.tmux.identityObservations).toBe(2);
+    expect(absent).toMatchObject({
+      observations: { tmux: { state: "absent", code: "TMUX_ABSENT" } },
+      tmuxIdentityDiagnostic: observeDiagnostic,
+    });
+
+    const replacement = {
+      ...observeDiagnostic,
+      stdoutByteCount: 99,
+      signature: ["other" as const],
+    };
+    f.tmux.observationFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous observe identity evidence.",
+      replacement,
+    );
+    const replaced = await service.reconcile(5, root);
+    expect(f.tmux.identityObservations).toBe(3);
+    expect(replaced.tmuxIdentityDiagnostic).toEqual(replacement);
+
+    f.tmux.observationFailure = null;
+    f.tmux.present = true;
+    const cleared = await service.reconcile(5, root);
+    expect(f.tmux.identityObservations).toBe(4);
+    expect(cleared.tmuxIdentityDiagnostic).toBeNull();
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      tmuxIdentityDiagnostic: null,
+    });
   });
 });
 
@@ -1372,7 +1694,7 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
       code: string;
       facts: unknown;
       remediation: string | null;
-      report: ReconciliationReportV1;
+      report: ReconciliationReportV2;
     };
     const humanFixture = await fixture(snapshot());
     const humanResponse = await runCli(
