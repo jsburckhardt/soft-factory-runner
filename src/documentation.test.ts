@@ -501,6 +501,8 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
   it("documents complete migration, refusal, sibling, idempotency, and rollback behavior", () => {
     for (const phrase of [
       ".agents/agents/soft-factory.agent.md",
+      "Install trusted current packaged bytes",
+      "independently retire the digest-proved old owned file",
       "absent old file",
       "Both agent destinations",
       "Adopt without rewriting",
@@ -518,6 +520,9 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
       "retry only after restoration",
     ])
       expect(assetGuide).toContain(phrase);
+    expect(assetGuide).not.toContain(
+      "Move to the current destination and retire the old owned file",
+    );
   });
 
   it("documents exact package allowlist, Doctor authority, and no API or deployment impact", () => {

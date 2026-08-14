@@ -35,10 +35,10 @@
 | AC-11 | V4 and V7 prove desired current bytes retain their inode, exact current-digest proof authorizes upgrade, and current convergence combines atomically with all proved obsolete retirements. |
 | AC-12 | V8 injects before and after every concrete mutation for clean, migration, adoption-plus-retirement, upgrade-plus-retirement, and retirement-only plans and compares complete inventories. V9 forces reverse restoration failure and proves `ASSET_ROLLBACK_UNCERTAIN`, no no-change claim, complete planned paths, and restore-before-retry remediation. |
 | AC-13 | V3, V4, V5, and V7 repeat successful states under mutation tripwires; results are `ASSETS_UP_TO_DATE` with one current entry, unchanged inode where applicable, no obsolete files, and no new legacy directories. |
-| AC-14 | `fixtures/install/issue-27-scenarios.json` uniquely declares stable V3-V9 and V11 scenarios. Named Jest rows cover clean and recommended, repeat, old and dual destinations, adoption, upgrade, obsolete retirement, siblings, cleanup, refusal classes, and packed behavior. |
+| AC-14 | `fixtures/install/issue-27-scenarios.json` uniquely declares stable V3-V9 and V11 scenarios. The executable V5 case `executes declared unrelated-content-preservation across both managed roots` binds the declared scenario and independently proves byte, inode, and exact path preservation for files under `.github/agents`, `.agents/agents`, and `.agents/skills` during successful convergence. |
 | AC-15 | V8 derives the fault count from each successful concrete transaction trace and faults every before/after boundary. A dedicated case covers the post-current-write and pre-old-retirement window. V9 covers uncertain rollback for every required plan shape. |
 | AC-16 | V1 package inspection finds exactly the delivery-agent source and no assessor, skill, or reference source. V2 checks the actual trusted agent, and V11 repeats the static contract against packed bytes. |
-| AC-17 | `README.md`, `docs/README.md`, `docs/phase-5-official-assets.md`, `PRD.md`, and live CLI help describe the one-agent package, exact install and invocation commands, destination, strict manifest, migration truth table, modification refusal, sibling preservation, empty-only cleanup, exact or uncertain rollback, and explicit no-API/service/deployment scope. V10 passes. |
+| AC-17 | `README.md`, `docs/README.md`, `docs/phase-5-official-assets.md`, `PRD.md`, and live CLI help describe the one-agent package and safety contract. The Phase 5 migration table now states that Runner installs trusted current packaged bytes at the current destination and independently retires the digest-proved old file; V10 requires that wording and rejects the former move claim. |
 
 ## Validation evidence
 
@@ -103,5 +103,37 @@ All records use schema version 1.2, agent identity matching the drained buffer, 
 |---|---|---|---|
 | `assets/official/theoutsideone.agent.md` | `149f0bc7bbdc85ca9fa9a0b7dfa11ae58839311de78696ba29a6099e756695c3` | `149f0bc7bbdc85ca9fa9a0b7dfa11ae58839311de78696ba29a6099e756695c3` | byte-identical, untracked, uncommitted, excluded from npm package |
 | `soft-factory-runner-0.1.0.tgz` | `cbca56b3c27e5ced504cf9cea974c2e4b9ec93de805ad98b2b779768a59da06d` | `cbca56b3c27e5ced504cf9cea974c2e4b9ec93de805ad98b2b779768a59da06d` | byte-identical, untracked, uncommitted |
+
+
+## Verification Return Correction — 2026-08-14
+
+Verify returned exactly two defects to Implement:
+
+1. AC-14 lacked an executable test for the declared `unrelated-content-preservation` fixture scenario.
+2. AC-17 migration documentation inaccurately implied that legacy bytes move to the current destination.
+
+Surgical correction evidence:
+
+- Added one V5 installation test that reads the tracked scenario declaration, creates unrelated files at `.github/agents/unrelated.agent.md`, `.agents/agents/unrelated.agent.md`, and `.agents/skills/unrelated/SKILL.md`, performs successful convergence, and independently asserts each file remains at the exact path with byte-identical content and unchanged inode.
+- Corrected only the Phase 5 migration outcome sentence. It now distinguishes installation of trusted current packaged bytes from independent retirement of digest-proved legacy bytes.
+- Added coupled documentation assertions for both required clauses and a negative assertion against the former move wording.
+- No runtime source behavior, package contract, configuration, API, architecture, or deployment behavior changed.
+
+Validation results:
+
+- Targeted `just verify-focused src/asset-installation.test.ts src/documentation.test.ts`: exit 0; 2 suites, 60 tests.
+- `harness checks --focused --json`: status `ok`; delegated `just verify-focused`; 21 suites, 353 tests.
+- Direct `just verify-focused`: exit 0; 21 suites, 353 tests; diff check passed.
+- Direct `just verify`: exit 0; lint, format, type check, 21 suites, 353 tests, coverage, build, and diff check passed.
+- `harness checks --json`: status `ok`; delegated `just verify`; exit 0; 21 suites, 353 tests.
+- Package dry-run remains 63 entries with exact official inventory `assets/official/soft-factory.agent.md`; protected reference and tarball are absent.
+
+Friction drain:
+
+- `.harness/records/retro/2026-08-14/006-issue-27-rpiv-implementer-verify-return.md` records one `rpiv-implementer` coordination observation.
+- The record was read back and verified for schema 1.2, matching agent and plan ID, observation ID/description, and `disposition: kept` before `harness observe --clear` returned status `ok` with `cleared: 1`.
+- `.harness/records/retro/2026-08-14/007-issue-27-rpiv-implementer-correction-evidence.md` records the later evidence-authoring retry; it was independently read back with the same schema/identity/entry checks before a second successful `cleared: 1` envelope.
+
+Changed correction files are limited to `src/asset-installation.test.ts`, `src/documentation.test.ts`, `docs/phase-5-official-assets.md`, T5/T6/T7 evidence in `plan/02-task-breakdown.md`, this implementation evidence, and generated retro records.
 
 No GitHub acceptance checkbox was changed. Verify independently owns final acceptance.

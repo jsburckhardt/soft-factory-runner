@@ -519,6 +519,73 @@ describe("V5 obsolete retirement, siblings, and empty directory cleanup", () => 
     await fs.rm(root, { recursive: true, force: true });
   });
 
+  it("executes declared unrelated-content-preservation across both managed roots", async () => {
+    const declaration = JSON.parse(
+      await fs.readFile(
+        path.join(
+          packageRoot,
+          "fixtures",
+          "install",
+          "issue-27-scenarios.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      groups: { validation: string; scenarios: string[] }[];
+    };
+    expect(
+      declaration.groups.find((group) => group.validation === "V5")?.scenarios,
+    ).toContain("unrelated-content-preservation");
+
+    const root = await temporaryRoot();
+    const unrelated = [
+      {
+        destination: ".github/agents/unrelated.agent.md",
+        bytes: Buffer.from("unrelated github agent bytes\n"),
+      },
+      {
+        destination: ".agents/agents/unrelated.agent.md",
+        bytes: Buffer.from("unrelated legacy agent bytes\n"),
+      },
+      {
+        destination: ".agents/skills/unrelated/SKILL.md",
+        bytes: Buffer.from("unrelated skill bytes\n"),
+      },
+    ] as const;
+    for (const item of unrelated)
+      await writeManaged(root, item.destination, item.bytes);
+    const before = await Promise.all(
+      unrelated.map(async (item) => ({
+        ...item,
+        absolute: path.join(root, item.destination),
+        inode: (await fs.stat(path.join(root, item.destination))).ino,
+      })),
+    );
+
+    const result = await service(new RecordingFiles(root)).install(
+      root,
+      selected,
+    );
+    expect(result).toMatchObject({
+      code: "ASSETS_INSTALLED",
+      assets: [{ status: "installed" }],
+      retirements: [],
+    });
+    for (const item of before) {
+      const after = await fs.stat(item.absolute);
+      expect(after.isFile()).toBe(true);
+      expect(after.ino).toBe(item.inode);
+      expect(await fs.readFile(item.absolute)).toEqual(item.bytes);
+      expect(path.relative(root, item.absolute).split(path.sep).join("/")).toBe(
+        item.destination,
+      );
+    }
+    expect(await fs.readFile(path.join(root, current.destination))).toEqual(
+      await desiredBytes(),
+    );
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
   it("retires absent metadata without deleting pre-existing directories", async () => {
     const root = await temporaryRoot();
     const absent = Buffer.from("absent skill proof\n");

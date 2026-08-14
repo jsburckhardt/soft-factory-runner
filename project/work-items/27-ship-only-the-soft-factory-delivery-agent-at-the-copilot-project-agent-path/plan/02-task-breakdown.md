@@ -165,6 +165,11 @@ Create a mutation-boundary enumerator from each concrete transaction plan so cle
 - Coverage summary at or above project thresholds.
 - Machine-readable boundary report showing planned mutation count equals injected boundary count for every operation shape.
 
+### Verification Return Correction (2026-08-14)
+
+- AC-14: added the executable `unrelated-content-preservation` V5 case, bound it to the tracked fixture declaration, and proved byte, inode, and exact path preservation under `.github/agents`, `.agents/agents`, and `.agents/skills` during successful convergence.
+- Targeted Jest evidence: 2 suites and 60 tests passed.
+
 ## Task T6: Update consumer, product, migration, and help documentation
 
 - **Status:** Complete
@@ -193,6 +198,11 @@ Document exact local install and invocation commands, schema-v1 manifest locatio
 - Reviewed documentation diff with exact commands and migration truth table.
 - Live help capture with only the current install forms.
 - Explicit documentation statements that API, service, and deployment behavior are unchanged.
+
+### Verification Return Correction (2026-08-14)
+
+- AC-17: corrected the migration table to state that Runner installs trusted current packaged bytes and independently retires digest-proved legacy bytes; coupled documentation assertions require the corrected behavior and reject the inaccurate move wording.
+- Targeted Jest evidence: `src/documentation.test.ts` passed.
 
 ## Task T7: Run full validation and record acceptance evidence
 
@@ -225,3 +235,13 @@ Use harness checks as structured delegates but retain direct root recipe evidenc
 - Exact npm package file inventory and SHA-256 comparison evidence.
 - `implementation/00-implementation.md` table mapping AC-1 through AC-17 to test names, outputs, files, and documentation.
 - Commit SHA and scoped status proving only intended implementation artifacts were committed while protected untracked files remained untouched.
+
+### Verification Return Correction (2026-08-14)
+
+- Targeted `just verify-focused src/asset-installation.test.ts src/documentation.test.ts`: 2 suites, 60 tests, exit 0.
+- `harness checks --focused --json`: status `ok`, delegated `just verify-focused`, 21 suites and 353 tests.
+- Direct `just verify-focused`: 21 suites and 353 tests, exit 0.
+- Direct `just verify`: lint, format, type check, 21 suites and 353 tests, coverage, build, and diff check passed.
+- `harness checks --json`: status `ok`, delegated `just verify`, exit 0.
+- Verification-return friction was read back from `.harness/records/retro/2026-08-14/006-issue-27-rpiv-implementer-verify-return.md` before the one-entry buffer was cleared successfully.
+- The correction-evidence authoring retry was read back from `.harness/records/retro/2026-08-14/007-issue-27-rpiv-implementer-correction-evidence.md` before its one-entry buffer was cleared successfully.

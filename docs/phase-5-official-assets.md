@@ -70,7 +70,7 @@ Every entry has exact fields, a nonempty version, protocol 1, and a lowercase di
 | Current bytes equal desired bytes | Adopt without rewriting and normalize metadata. |
 | Current bytes differ but match their recorded current digest | Upgrade to desired bytes. |
 | Current bytes differ without proof | `ASSET_LOCAL_MODIFIED`; no mutation. |
-| Matching old operator bytes plus its record | Move to the current destination and retire the old owned file. |
+| Matching old operator bytes plus its record | Install trusted current packaged bytes at the current destination and independently retire the digest-proved old owned file. |
 | Old operator record but absent old file | Install current bytes and retire stale metadata without deleting a pre-existing directory. |
 | Both agent destinations | Require old digest proof and require current bytes to be desired or current-digest-proved; otherwise refuse all mutation. |
 | Matching historical assessor or skill | Retire the record and file in the same transaction. |
