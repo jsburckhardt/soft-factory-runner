@@ -2,7 +2,9 @@
 
 All tests are repository-local, deterministic, credential-free, and isolated from Sparkta, live GitHub, live Copilot, ambient tmux resources, and consumer state. Controlled adapters/executables and temporary repositories provide all external facts. Root `just verify-focused` and `just verify` are mandatory direct validation boundaries.
 
-Baseline status: V-1 through V-10 were implemented and passed in commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` for AC-1 through AC-9. V-11 through V-17 are planned for AC-10 and require fresh evidence; the baseline commit is not AC-10 proof.
+Historical status: V-1 through V-10 were implemented and passed in commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` for AC-1 through AC-9. V-11 through V-17 were later implemented and gate-passed through clean SHA `c58151adb48cfe8d1213f1004d627d5861cb5e05`, but independent Verify found that V-12 asserted operation order without proving the exact accepted Doctor pane-observation target.
+
+Verification-return status: AC-1 through AC-9 passed independently; AC-10 remains failed. V-1 through V-17 remain historical evidence. V-18 through V-21 are planned correction tests and are not complete at Plan time.
 
 ## Test V-1: Exact tmux transport and controlled 3.7b bytes
 
@@ -363,18 +365,112 @@ The direct root recipe exits 0; all suites pass; statement, branch, function, an
 ### Expected Evidence
 Full direct command transcript, exit 0, suite/test totals, coverage table, build/diff results, cleanup/isolation audit, and clean implementation handoff proof.
 
+## Test V-18: Exact Runner-equivalent Doctor pane observation target
+
+- **Type:** Unit/protocol/safety regression
+- **Task:** T-13
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Use the existing controlled `DoctorTmuxProbe` fixture with private workspace names, socket, environment, accepted creation bytes `@1<TAB>%1<LF>`, accepted observation bytes, helper identities, and complete cleanup. Use no live tmux, ambient server, credential, network, Copilot, Sparkta, or consumer state.
+
+### Steps
+1. Run the successful protocol once and select the single recorded `pane-observe` command rather than relying only on operation order.
+2. Assert its complete argument vector equals `[-S, <private-socket>, list-panes, -t, <sessionName>:<issueWindowName>, -F, #{window_id}<HT>#{pane_id}<HT>#{pane_current_path>]` and assert the absolute executable, workspace cwd, private environment, `shell: false`, and timeout at most 2000ms.
+3. Select the single issue-pane-identify `display-message` call and assert its target remains parsed pane ID `%1` with format `#{pane_pid}`.
+4. Assert no pane-observe call targets `%1` or another pane ID, every client retains the same private socket, and exactly one observation occurs.
+5. Rerun successful equality/cwd proof, each pane-observe failure variant, cutoff/cancellation, unconditional cleanup, confidentiality, ambient tripwires, and final inventory assertions.
+
+### Expected Result
+Doctor uses the exact session/window target that `LiveTmuxPort.observe` uses while preserving pane-ID targeting only for the Runner-equivalent pane PID lookup. The strict original-byte observation and equality/cwd proof run once; every path remains bounded, value-free, isolated, and fully cleaned.
+
+### Expected Evidence
+Exact recorded command objects for pane observation and issue-pane PID lookup, call count one, passing protocol/failure/cutoff matrix, zero prohibited values, equal ambient before/after inventory, and no remaining server/helper/socket/workspace.
+
+## Test V-19: Phase 1 persistence grammar and version semantics
+
+- **Type:** Section-scoped application-documentation regression
+- **Task:** T-14
+- **Acceptance Criteria:** AC-9
+- **Priority:** High
+
+### Setup
+Read `docs/phase-1-issue-run.md` in `src/documentation.test.ts`. Extract only the text from `## Persistence and status` up to but not including `## Troubleshooting`; fail if either boundary is absent or reversed.
+
+### Steps
+1. Assert the extracted section contains exactly: `Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.`
+2. Assert that section does not contain `all supported inputs to sole`.
+3. Assert the same section still says new runs use revisioned `RunSnapshotV5`, V1 remains compatibility-only, and explicit transitions are required.
+4. Run only the documentation suite before the broader correction gates.
+
+### Expected Result
+The Phase 1 sentence is grammatical and architecture-accurate: v1-v3 normalize to the legacy sole validation, v4 preserves its own snapshotted final validation into v5, and unsupported/malformed state fails safe. Unrelated sections cannot satisfy the assertion.
+
+### Expected Evidence
+Section start/end indices, exact matched sentence, stale phrase absence in the slice, and passing targeted documentation result.
+
+## Test V-20: Exact current PRD RunSnapshotV5 contract
+
+- **Type:** Section-scoped schema/persistence/documentation regression
+- **Task:** T-14
+- **Acceptance Criteria:** AC-4, AC-9
+- **Priority:** Critical
+
+### Setup
+In `src/documentation.test.ts`, extract PRD Sections 12, 21, 33, and 35 by their exact numbered headings and next-section boundaries. Parse the first fenced JSON object from each section. Import or invoke the production `parseSnapshot` validator for the Section 33 object.
+
+### Steps
+1. Assert Section 33 states that new runs write `RunSnapshotV5` and legacy versions are compatibility inputs only.
+2. Parse its example and assert top-level `schemaVersion` is exactly 5.
+3. Assert the exact required V5 top-level key set from `RunSnapshotV5`, including `ownerId`, revision/recovery facts, `requiredFinalValidation`, complete `integrationLaunch`, progress, and nullable `tmuxIdentityDiagnostic`; reject missing or extra example keys.
+4. Assert the nested `IntegrationLaunchV1` identity, paths, final-validation binding, helper commands, and start facts agree with the enclosing snapshot.
+5. Serialize the example and require `parseSnapshot(..., issueNumber)` to return the same V5 object.
+6. Independently assert top-level schemas for Section 12 asset manifest v1, Section 21 Doctor result v2, Section 33 run snapshot v5, and Section 35 AgentResult v1. Do not infer top-level schema from repository-wide text or nested `schemaVersion` fields.
+
+### Expected Result
+PRD Section 33 contains a complete parser-accepted current V5 example and cannot imply that new runs write V1. Asset, Doctor, snapshot, result, and nested integration schemas remain correctly distinct.
+
+### Expected Evidence
+Extracted section headings and JSON objects, exact top-level key comparison, V5 production-parser round trip, schema tuple `{asset:1, doctor:2, snapshot:5, result:1}`, and passing documentation suite.
+
+## Test V-21: Verification-return targeted, root, harness, and isolation gates
+
+- **Type:** Targeted plus focused/full quality gate
+- **Task:** T-13, T-14, T-15
+- **Acceptance Criteria:** AC-4, AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Complete V-18 through V-20 with only controlled fixtures and temporary roots. Confirm no test references the external consumer, credentials, network services, live Copilot, or ambient/default tmux. Preserve the four existing verifier observations without listing, draining, clearing, or rewriting their bucket. Read `harness instructions checks` before invoking harness delegates.
+
+### Steps
+1. Run direct `just verify-focused src/doctor-tmux.test.ts src/tmux-identity.test.ts src/documentation.test.ts` and retain exact totals.
+2. Inspect the controlled post-test resource inventory and ambient tripwires.
+3. Run direct root `just verify-focused` and retain suite/test and diff-check evidence.
+4. Run `harness checks --focused --json` and verify it delegates to the focused root recipe with exit 0.
+5. Run direct root `just verify` and retain lint, format, strict type, all tests, coverage, build, and diff evidence.
+6. Run `harness checks --json` and verify it delegates to full root verification with exit 0.
+7. Run final `git diff --check`, inspect worktree state, and append actual correction evidence to implementation notes without claiming independent acceptance.
+
+### Expected Result
+Every command exits 0; coverage remains at least 80 percent for statements, branches, functions, and lines. Exact Doctor targeting, V5 documentation, Phase 1 grammar, prior AC-1 through AC-9 behavior, cleanup, isolation, and no-impact boundaries all pass. No probe resource or verifier-buffer mutation occurs.
+
+### Expected Evidence
+Targeted/focused/full direct transcripts, focused/full harness JSON envelopes, suite/test totals, coverage table, lint/format/type/build/diff results, exact Doctor target assertion, V5 parser proof, Phase 1 scoped assertion, empty resource inventory, isolation audit, clean correction handoff, and updated implementation evidence.
+
 ## Coverage Proof
 | AC | Tests | Expected proof |
 |---|---|---|
-| AC-1 | V-1, V-2, V-8, V-17 | Existing exact transport/rejection/docs evidence plus full regression |
-| AC-2 | V-1, V-5, V-17 | Existing 3.7b identities and unchanged successful preparation/reconciliation plus regression |
-| AC-3 | V-2, V-17 | Existing complete malformed matrix with no partial identity plus regression |
-| AC-4 | V-3, V-4, V-7, V-17 | Existing retained fields/caps/persistence/observe semantics plus regression |
-| AC-5 | V-3, V-4, V-7, V-8, V-17 | Existing zero prohibited-data matches and no unsupported upgrade advice plus regression |
-| AC-6 | V-4, V-5, V-17 | Existing retryable state, exact proof, one create, and no duplicate resources plus regression |
-| AC-7 | V-6, V-8, V-17 | Existing same-name refusal, unchanged inventories, and no adoption plus regression |
-| AC-8 | V-5, V-7, V-8, V-17 | Existing `LOG_NOT_FOUND` and exact-only resume authorization plus regression |
-| AC-9 | V-1 through V-17 | Controlled temporary fixtures, isolation audits, and fresh direct focused/full gates |
-| AC-10 | V-11, V-12, V-13, V-14, V-15, V-16, V-17 | Private functional trace, byte proof, actionable schema-v2 failure, bounded awaited cleanup, zero residual inventory, docs, and gates |
+| AC-1 | V-1, V-2, V-8, V-17, V-21 | Existing exact transport/rejection/docs evidence plus fresh full regression |
+| AC-2 | V-1, V-5, V-17, V-21 | Existing 3.7b identities and unchanged successful preparation/reconciliation plus fresh regression |
+| AC-3 | V-2, V-17, V-21 | Existing complete malformed matrix with no partial identity plus fresh regression |
+| AC-4 | V-3, V-4, V-7, V-17, V-20, V-21 | Existing retained fields/caps/persistence plus exact current V5 PRD parser proof and fresh gates |
+| AC-5 | V-3, V-4, V-7, V-8, V-17, V-21 | Existing confidentiality/no-upgrade proof plus fresh regression |
+| AC-6 | V-4, V-5, V-17, V-21 | Existing retryable state, exact proof, one create, and no duplicate resources plus fresh regression |
+| AC-7 | V-6, V-8, V-17, V-21 | Existing same-name refusal, unchanged inventories, and no adoption plus fresh regression |
+| AC-8 | V-5, V-7, V-8, V-17, V-21 | Existing `LOG_NOT_FOUND` and exact-only resume authorization plus fresh regression |
+| AC-9 | V-1 through V-21 | Controlled temporary fixtures, scoped docs tests, targeted correction proof, direct focused/full gates, harness delegates, isolation audit, and untouched verifier buffers |
+| AC-10 | V-11 through V-18, V-21 | Exact session/window `list-panes` target, retained pane-ID PID lookup, private functional trace, byte proof, bounded awaited cleanup, zero residual inventory, and refreshed gates |
 
-Every AC has finite validation and expected inspectable evidence. AC-1 through AC-9 retain commit `84f5cbe` evidence and receive full regression; only V-11 through V-17 provide new AC-10 proof. No test may use credentials, Sparkta, a live consumer, live network, live Copilot, or an ambient/default tmux server.
+Every AC has finite validation and expected inspectable evidence. Independent Verify accepted AC-1 through AC-9; V-20 strengthens AC-4 documentation proof and V-19 through V-21 refresh AC-9. Historical V-11 through V-17 do not prove the missed exact target: AC-10 requires planned V-18 and V-21 before Verify can decide acceptance. No test may use credentials, Sparkta, a live consumer, live network, live Copilot, or an ambient/default tmux server, and Plan/Implement must not drain verifier observations.

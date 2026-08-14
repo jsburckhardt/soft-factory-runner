@@ -2,7 +2,9 @@
 
 Tasks are dependency-ordered. Every task carries stable acceptance IDs, explicit test coverage, application-documentation impact, expected evidence, and global architecture references.
 
-Re-entry baseline: T-1 through T-7 are completed by commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` and retain AC-1 through AC-9 evidence. T-8 through T-12 are planned only for the later AC-10 addition; no AC-10 implementation or evidence is attributed to the baseline commit.
+Historical baseline: T-1 through T-7 were completed by commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` and retain AC-1 through AC-9 evidence. T-8 through T-12 were later implemented and gate-passed through clean SHA `c58151adb48cfe8d1213f1004d627d5861cb5e05`, but independent Verify found that their order-only test did not prove the accepted Doctor `list-panes` target.
+
+Verification-return status: AC-1 through AC-9 passed independently. T-1 through T-12 remain completed history and are not rewritten. T-13 through T-15 are new planned corrections; they must remain Planned until Implement produces the listed evidence.
 
 ## Task T-1: Implement original-byte identity parsing and bounded diagnostic construction
 
@@ -403,3 +405,108 @@ Validation-only task; it edits no application documentation. It verifies T-11 an
 - Fresh direct `just verify` transcript, 80-percent-plus coverage table, build result, and diff-check exit 0.
 - Per-test cleanup inventory and ambient-tmux/Sparkta/credential/network tripwire audit.
 - Final implementation notes mapping AC-9 and AC-10 to product, tests, docs, commands, and the post-baseline implementation commit.
+
+## Task T-13: Correct Doctor pane observation targeting and exact command proof
+
+- **Status:** Planned
+- **Complexity:** Medium
+- **Dependencies:** T-12 and independent Verify return
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260811-prototype-one-run-orchestration; ADR-260814-tmux-identity-failure-recovery
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260810-subprocess-execution; CORE-COMPONENT-260810-development-standards
+
+### Description
+Correct the implementation divergence in `src/doctor-tmux.ts` without changing architecture. The Doctor pane observation command must be exactly `list-panes -t <sessionName>:<issueWindowName> -F #{window_id}\t#{pane_id}\t#{pane_current_path}` after the common private `-S <socket>` prefix, matching `LiveTmuxPort.observe`. Do not use `creation.paneId` as the `list-panes` target. Preserve the parsed pane ID for issue-pane PID `display-message`, because Runner uses pane-ID targeting there. Do not alter normal `LiveTmuxPort`, session/window naming, strict byte parsing, identity/cwd equality, single observation, private socket/environment/configuration, bounds, cleanup, evidence, or final absence behavior.
+
+Add an exact V-18 argument assertion to `src/doctor-tmux.test.ts`. Locate the sole pane-observe call and compare its entire executable argument vector, cwd, timeout, shell flag, and private environment. Compare the issue-pane-identify call separately to prove `%1` remains its target. Keep the existing operation-order, fault, cutoff, cleanup, confidentiality, and residual-resource matrix intact.
+
+### Acceptance Criteria
+- AC-10: Doctor proves the same session/window-scoped observation operation Runner relies on, rather than a different pane-ID-scoped operation.
+- AC-10: Creation and observation IDs/cwd remain strictly parsed and compared once, and every success/failure path retains private isolation, awaited cleanup, and value-free output.
+- AC-9: Tests remain credential-free and use only controlled adapters/executables and temporary private roots.
+
+### Test Coverage
+- V-18 exact full command assertion for private-socket `list-panes -t <sessionName>:<issueWindowName>` plus separate pane-ID `display-message` assertion.
+- V-18 reruns the successful protocol and failure/cleanup matrix to prove no change to order, one-pass behavior, bounds, cleanup, or confidentiality.
+- V-21 targeted, focused, full, and harness-delegated regression gates.
+
+### Documentation Impact
+No application documentation changes belong to this task. The accepted ADR/core-component and existing Doctor documentation already require the Runner-equivalent target; this task makes code conform. If implementation suggests changing that rule, return to Plan instead of editing architecture or weakening docs.
+
+### Expected Evidence
+- Source diff showing only the pane-observe target changes to ``${workspace.sessionName}:${workspace.issueWindowName}``.
+- Exact recorded pane-observe arguments including private `-S`, exact format, workspace cwd, shell false, and at-most-2000ms timeout.
+- Exact recorded issue-pane PID arguments retaining `-t %1`.
+- Passing Doctor success/failure/cutoff/cleanup tests, equal ambient tripwires, empty final probe inventory, and zero prohibited-value matches.
+
+## Task T-14: Correct Phase 1 and PRD snapshot documentation with scoped regressions
+
+- **Status:** Planned
+- **Complexity:** Medium
+- **Dependencies:** T-12
+- **Acceptance Criteria:** AC-4, AC-9
+- **Related ADRs:** ADR-260814-tmux-identity-failure-recovery; ADR-260812-rpiv-integration-completion-contract; ADR-260811-prototype-three-recovery-concurrency
+- **Related Core-Components:** CORE-COMPONENT-260811-run-reconciliation-control; CORE-COMPONENT-260811-completion-evidence-reconciliation; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260810-persistence-recovery; CORE-COMPONENT-260810-development-standards
+
+### Description
+During Implement, correct only the returned application-documentation defects and their regression tests.
+
+In `docs/phase-1-issue-run.md`, replace the malformed persistence sentence with exactly: `Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.` This wording preserves the accepted distinction between legacy v1-v3 normalization and a v4 custom snapshotted final validation. In `src/documentation.test.ts`, slice only `## Persistence and status` through `## Troubleshooting`, require that exact sentence, and reject `all supported inputs to sole` in that section.
+
+In PRD Section 33, replace the unlabeled schema-v1 snapshot with one exact current `RunSnapshotV5` JSON example. Include every required top-level field from `src/domain.ts`: `schemaVersion`, `runId`, `ownerId`, `repository`, `issueNumber`, `state`, `branchType`, `branch`, `worktreePath`, `fetchedBaseProof`, `tmux`, `copilot`, `error`, `updatedAt`, `revision`, `attempt`, `admission`, `launchIntent`, `workerProcess`, `rpivProcess`, `stop`, `cleanup`, `logs`, `mergedPullRequest`, `requiredAcceptanceCriteria`, `finalization`, `requiredFinalValidation`, `integrationLaunch`, `progress`, and `tmuxIdentityDiagnostic`. Use null only where the current type permits it. Include all required bound `IntegrationLaunchV1` fields and values consistent with the enclosing run. State directly that new runs write V5 and v1-v4 are compatibility inputs migrated only through supported transitions.
+
+Extend the documentation regression with section extraction, fenced-JSON parsing, exact top-level key checks, and production `parseSnapshot` acceptance. Assert the top-level schema tuple independently: Section 12 asset manifest v1, Section 21 Doctor result v2, Section 33 run snapshot v5, and Section 35 AgentResult v1. Do not use repository-wide schema string replacement or a negative substring assertion that would reject legitimate nested schema-v1 `IntegrationLaunchV1` data.
+
+### Acceptance Criteria
+- AC-4: PRD Section 33 truthfully represents the current RunSnapshotV5 persistence contract that carries nullable bounded tmux diagnostics.
+- AC-9: Phase 1 and PRD regression tests are exact, section-scoped, deterministic, and distinguish unrelated schema families.
+- AC-9: No application documentation implies that new runs write V1 or that all supported versions overwrite a snapshotted v4 custom final validation with `just verify`.
+
+### Test Coverage
+- V-19 exact Phase 1 section-slice assertion and stale-grammar rejection.
+- V-20 exact PRD Section 33 JSON extraction, top-level key/schema checks, production parser acceptance, and Section 12/21/33/35 schema-family tuple.
+- V-21 targeted documentation and persistence-aware regression plus full gates.
+
+### Documentation Impact
+Edit only `docs/phase-1-issue-run.md` and PRD Section 33. No README, Doctor guide, recovery guide, configuration, API, database, service, container, deployment, or operational procedure change is required. This is a correction to current behavior documentation, not a product or migration change.
+
+### Expected Evidence
+- Phase 1 scoped slice containing the exact corrected sentence and no stale grammar.
+- PRD Section 33 fenced JSON whose exact top-level keys and nested launch binding parse as current RunSnapshotV5.
+- Section-scoped proof of asset v1, Doctor v2, snapshot v5, and result v1 without cross-section contamination.
+- Documentation diff demonstrating no unrelated application-document changes.
+
+## Task T-15: Refresh correction evidence and validation boundaries
+
+- **Status:** Planned
+- **Complexity:** Medium
+- **Dependencies:** T-13, T-14
+- **Acceptance Criteria:** AC-4, AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260814-tmux-identity-failure-recovery; ADR-260811-engineering-harness-surface
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260811-engineering-harness-interface; CORE-COMPONENT-260806-project-command-interface; CORE-COMPONENT-260806-rpiv-stage-contract; CORE-COMPONENT-260810-development-standards
+
+### Description
+After T-13 and T-14 stabilize, run V-21 in order. First run targeted `just verify-focused src/doctor-tmux.test.ts src/tmux-identity.test.ts src/documentation.test.ts`; then direct root `just verify-focused`; then direct root `just verify`. Read `harness instructions checks` before using the structured delegates, then run `harness checks --focused --json` and `harness checks --json`. Harness results supplement and do not replace direct gates.
+
+Audit tests and traces for private-socket isolation, no ambient/default tmux contact, no Sparkta/consumer path, no credentials, no live GitHub/Copilot/network, and no residual Doctor workspace/socket/process. Confirm `git diff --check` and final worktree state. Append a verification-return correction section to `implementation/00-implementation.md` only after actual results exist; preserve all prior T-1 through T-12 evidence and record T-13 through T-15 separately. Do not claim AC-10 complete before Verify re-runs independently.
+
+Do not list, drain, clear, or rewrite `rpiv-verifier` observations `DL-001`, `COORD-001`, `DL-002`, and `INS-001`. Capture only concrete new Implement friction under `rpiv-implementer`; any implementer lifecycle handling must be agent-scoped and must leave verifier storage untouched.
+
+### Acceptance Criteria
+- AC-4: Targeted and full tests prove the documented V5 snapshot example matches executable persistence.
+- AC-9: Direct focused/full recipes and both harness delegates exit zero with deterministic isolated fixtures and at least 80 percent global coverage in every category.
+- AC-10: Gate evidence includes the exact Doctor list-panes target assertion, retained pane-ID PID targeting, all bounded cleanup/isolation matrices, and zero residual resources.
+
+### Test Coverage
+- V-21 targeted Doctor/tmux/documentation suites, direct focused/full root gates, harness focused/full gates, diff/status checks, isolation audit, and resource inventory.
+- V-18 through V-20 must pass before any T-15 completion claim.
+
+### Documentation Impact
+No application documentation is authored in this validation/evidence task. It verifies T-14 and appends only the implementation handoff artifact. Record a concrete no-impact statement for configuration, API, data/database, service, container, deployment, and normal issue-run behavior.
+
+### Expected Evidence
+- Targeted suite transcript with exact suite/test totals and exit 0.
+- Fresh direct `just verify-focused` and `just verify` transcripts, coverage, lint, format, type, build, and diff results.
+- `harness checks --focused --json` and `harness checks --json` envelopes with delegated commands and exit 0.
+- Empty post-test Doctor resource inventory, equal ambient tripwires, and credential/network/Sparkta isolation audit.
+- Appended implementation evidence naming the correction commit, T-13 through T-15, V-18 through V-21, AC-4/AC-9/AC-10, architecture no-change ruling, and untouched verifier buffers.
