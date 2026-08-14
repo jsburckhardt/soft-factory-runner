@@ -184,3 +184,12 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 132 | Authorize preparation resume only with exact clean fetched-HEAD ownership and zero same-name candidates | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
 | 133 | Preserve one-pass reconciliation while persisting returned tmux identity failure diagnostics | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
 | 134 | Preserve v4 completion evidence unchanged within RunSnapshotV5 | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-14 |
+| 135 | Strengthen `command.tmux` with an isolated functional readiness probe while preserving 24 IDs | ADR-260812-repository-doctor-readiness | 2026-08-14 |
+| 136 | Run Doctor tmux probes on managed foreground servers with private sockets and configurations | ADR-260812-repository-doctor-readiness | 2026-08-14 |
+| 137 | Prove tmux readiness through session, window, pane, identity, observation, and cleanup operations | ADR-260812-repository-doctor-readiness | 2026-08-14 |
+| 138 | Reserve final 2500ms of the Doctor deadline for awaited tmux cleanup | ADR-260812-repository-doctor-readiness | 2026-08-14 |
+| 139 | Parse Doctor tmux identities from capped original bytes and reject truncation | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
+| 140 | Emit DoctorResultV2 with versioned value-free tmux failure evidence | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
+| 141 | Cap each Doctor command output stream at 4096 retained bytes | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
+| 142 | Clean every tmux probe path by exact ownership and verify all resources absent | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
+| 143 | Isolate tmux probe workspaces under exclusive operating-system temporary directories | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |

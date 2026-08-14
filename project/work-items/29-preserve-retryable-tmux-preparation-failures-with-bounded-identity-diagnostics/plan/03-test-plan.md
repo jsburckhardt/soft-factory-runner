@@ -2,6 +2,8 @@
 
 All tests are repository-local, deterministic, credential-free, and isolated from Sparkta, live GitHub, live Copilot, ambient tmux resources, and consumer state. Controlled adapters/executables and temporary repositories provide all external facts. Root `just verify-focused` and `just verify` are mandatory direct validation boundaries.
 
+Baseline status: V-1 through V-10 were implemented and passed in commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` for AC-1 through AC-9. V-11 through V-17 are planned for AC-10 and require fresh evidence; the baseline commit is not AC-10 proof.
+
 ## Test V-1: Exact tmux transport and controlled 3.7b bytes
 
 - **Type:** Unit/live-adapter integration
@@ -205,17 +207,174 @@ The command exits 0; all suites pass; statements, branches, functions, and lines
 ### Expected Evidence
 Full direct `just verify` transcript, exit 0, suite/test totals, coverage table, build result, diff-check result, and external-access audit.
 
+## Test V-11: Doctor schema-v2, byte caps, structured evidence, and confidentiality
+
+- **Type:** Unit/schema/security regression
+- **Task:** T-8, T-10
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Use controlled `DoctorCommandRunner`, workspace, clock, and renderer fixtures. Generate client and managed-server stdout/stderr at 4095, 4096, and 4097 retained-byte boundaries with different decoded and original byte lengths. Build every closed `DoctorTmuxProbeEvidenceV1` operation/reason/cleanup state with unique raw-output, path, socket, session, window, pane, PID, argument, environment, token, credential, issue/run, and Sparkta sentinels.
+
+### Steps
+1. Capture capped original buffers while draining/counting complete streams and assert exact byte counts/truncation.
+2. Reject parsing or functional success whenever either stream is truncated.
+3. Construct valid and invalid `DoctorResultV2` and tmux evidence shapes; reject unknown/missing/reordered schema facts.
+4. Render paired human/JSON READY and NOT READY results and normalize every field.
+5. Serialize results, errors, evidence, messages, and human output and scan for all sentinels and raw fragments.
+
+### Expected Result
+The runner retains no more than 4096 bytes per stream, reports truthful total counts and truncation, and never accepts a truncated functional result. Doctor schema version is 2 with the same exact 24 ordered IDs. Tmux evidence is versioned, bounded, value-free, actionable by operation/reason/cleanup state, and identical in human/JSON meaning. No prohibited value appears.
+
+### Expected Evidence
+Exact cap table, strict schema rejection table, normalized human/JSON fixtures, complete operation/reason enum coverage, and zero-match sentinel report.
+
+## Test V-12: Successful isolated functional tmux readiness sequence
+
+- **Type:** Adapter/service/built-CLI integration
+- **Task:** T-9, T-10
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Create a temporary repository Doctor fixture and a protocol-aware controlled tmux executable or injected managed-process composition. The fake supports a directly managed foreground `-D` server, a unique full `-S` socket, alternate `-f` configuration, session/window/pane state, exact format output, remain-on-exit, pane PID, kill-window, and kill-server. Snapshot an ambient/default-server tripwire before invocation. Use no credentials, network, Copilot, live tmux, Sparkta, or consumer path.
+
+### Steps
+1. Run `DoctorService` and the built `soft-factory doctor --json` path.
+2. Assert creation of one mode-0700 workspace and mode-0600 empty config/helper under the controlled OS temporary root.
+3. Assert the exact foreground command and that every client call uses the same absolute executable and private `-S` socket.
+4. Assert the ordered session/dashboard, has-session, list-windows, dashboard pane PID, new-window format, remain-on-exit, issue pane PID, list-panes format, equality/cwd, and kill-window sequence.
+5. Return exact accepted create/observe original bytes, locate both helper processes by pane PID, and prove compound process identities before cleanup signaling.
+6. Inspect final process/server/session/window/pane/socket/file/workspace inventories and compare the ambient tripwire.
+
+### Expected Result
+`command.tmux` passes and the complete 24-row report is READY/exit 0 only after every operation and cleanup passes. Exact creation/observation bytes satisfy the shared grammar and identity/cwd equality. Ambient tmux is untouched, and no probe resource remains.
+
+### Expected Evidence
+Exact argument/order trace, byte-to-parse assertions, mode/environment assertions, READY schema-v2 output, equal ambient before/after snapshot, and empty final probe inventory.
+
+## Test V-13: Nonfunctional, malformed, bounded-failure, and cleanup matrix
+
+- **Type:** Table-driven adapter/service safety integration
+- **Task:** T-9, T-10
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Use the same controlled temporary composition with fault injection at workspace/config/helper creation, foreground launch, socket readiness, every client command, create parse, remain-on-exit, pane PID, observe parse, ID equality, cwd equality, kill-window, kill-server, managed wait, SIGTERM, SIGKILL, process observation, socket removal, tree removal, and final absence verification. Include absent executable, installed no-op executable, malformed create/observe bytes, nonzero exits, output overflow, and timeout variants. Include failures immediately after each helper starts but before its pane PID is accepted, and require exact helper-argument/cwd/launch/server-lineage candidate recovery. Faults may require fallback cleanup, but the controlled fixture must permit final exact cleanup before the report returns.
+
+### Steps
+1. Execute one variant per failure boundary with operation/process/workspace call counters.
+2. Assert `command.tmux` failed, complete report exit 3, stable message/remediation, and exact evidence operation/reason/command facts.
+3. For malformed identity variants, compare the optional bounded `TmuxIdentityDiagnosticV1` and reject all raw values.
+4. Assert no retry or second identity observation and no operation after the first functional failure except cleanup.
+5. Assert kill-server failure still triggers exact managed-process escalation and final resource absence.
+6. Compare ambient/default tripwires and final server/session/window/pane/helper/socket/file/workspace inventories.
+
+### Expected Result
+Every installed-but-nonfunctional, malformed, timed-out, overflowed, mismatched, or cleanup-degraded variant is NOT READY with structured actionable value-free evidence. No variant contacts ambient tmux, retries, accepts partial proof, leaks values, or returns before all controlled probe resources are absent.
+
+### Expected Evidence
+Named failure table with operation/reason/exit/timeout/count/truncation/identity-structure/cleanup facts, call-count traces, sentinel scan, equal ambient snapshots, and empty final inventories for every row.
+
+## Test V-14: Per-command, aggregate-deadline, cancellation, and awaited cleanup coordination
+
+- **Type:** Virtual-time concurrency/lifecycle integration
+- **Task:** T-8, T-9, T-10
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Use injected monotonic clock, scheduler, managed foreground process, cancellable client runner, socket waiter, process observer, and workspace adapter. Place a controlled stall at server startup, socket wait, each client operation, and each cleanup operation. Record timestamps, cancellation, signals, promise settlement, and result emission.
+
+### Steps
+1. Assert every external command and managed wait receives at most 2000ms.
+2. Advance to 6500ms while each selected operation is active; assert cancellation, no later functional scheduling, and cleanup entry.
+3. Exercise successful cleanup and fallback against absolute milestones: kill-server by 7000ms, post-kill wait by 7250ms, SIGTERM by 7750ms, SIGKILL by 8250ms, and final absence proof by 9000ms.
+4. Assert the Doctor result appears only after the probe `finally`, process waits, socket/tree absence checks, and evaluation settlement.
+5. Assert total controlled wall time is at most 9000ms and built READY remains at most 10000ms.
+
+### Expected Result
+The 6500ms cutoff always preserves 2500ms for cleanup. No probe operation, client, managed server, helper, timer, or evaluation promise survives result emission. Aggregate timeout yields a complete 24-row NOT READY result with cleanup-coordinated tmux evidence and no residual resource.
+
+### Expected Evidence
+Virtual timeline for each stall point, per-call timeout table, cancellation/signal trace, promise-settlement ledger, final resource inventory, and built-process timing record.
+
+## Test V-15: Doctor manifests, canonical vocabulary, built CLI, and application documentation migration
+
+- **Type:** Manifest/CLI/documentation regression
+- **Task:** T-10, T-11
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** High
+
+### Setup
+Read `fixtures/doctor/ready.json`, `blocked.json`, `isolated-failures.json`, README, PRD Doctor/tmux sections, docs index, Phase 4 Doctor guide, architecture links, decision log, official-asset regression, justfile, and CLI help through controlled tests. Build the CLI and use only temporary process fixtures with protocol-aware fake tmux behavior.
+
+### Steps
+1. Assert all manifests emit schema version 2 and the exact unchanged 24 IDs in canonical order.
+2. Execute the existing one-failure-per-ID matrix and additional functional tmux variants through actual Doctor composition.
+3. Compare complete built human/JSON READY and NOT READY results, exits 0/3, evidence parity, determinism, and timing.
+4. Assert official assets still depend on the unchanged canonical check set and no new authority/fallback exists.
+5. Assert docs state strengthened `command.tmux`, exact sequence/formats, private isolation, caps, 2000/6500/7000/7250/7750/8250/9000 timing, schema-v2 migration, structured evidence, cleanup, and direct root boundaries.
+6. Scan for stale executable-only, no-op READY, schema-v1 automation, asynchronous-cleanup, ambient/default-server, or destructive remediation guidance.
+
+### Expected Result
+Tracked manifests, actual Doctor checks, built CLI output, official-asset vocabulary, and application documentation agree with the accepted global architecture. The check count stays 24, schema migration is explicit, and no unrelated configuration/run-state/API/database/service/container/deployment change is claimed.
+
+### Expected Evidence
+Manifest diff, complete 24-row plus tmux-variant matrix, built human/JSON captures, official-asset regression result, documentation phrase/link table, and zero-match stale-guidance scan.
+
+## Test V-16: Fresh direct focused validation boundary
+
+- **Type:** Focused quality gate
+- **Task:** T-12
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Complete AC-10 implementation, fixtures, and documentation. Audit test setup for temporary unique roots, controlled executable/process/workspace/clock seams, ambient tmux tripwires, and no Sparkta, credentials, network, live Copilot, or consumer resources.
+
+### Steps
+Run direct root `just verify-focused` with repository-supported arguments when useful, ensuring all Issue #29, Doctor, documentation, and official-asset regression suites execute; retain `git diff --check` evidence.
+
+### Expected Result
+The direct root recipe exits 0. Relevant suites prove schema, successful functional readiness, failure/cleanup matrices, aggregate coordination, docs, compatibility, and baseline AC-1 through AC-9 regression without external access.
+
+### Expected Evidence
+Exact direct command transcript, suite/test totals, exit 0, diff-check result, fixture-isolation audit, and final resource-inventory summary.
+
+## Test V-17: Fresh direct full repository validation boundary
+
+- **Type:** Full quality gate
+- **Task:** T-12
+- **Acceptance Criteria:** AC-9, AC-10
+- **Priority:** Critical
+
+### Setup
+Successful V-16 result with root justfile unchanged as command authority and no live credentials, Sparkta, network, Copilot, consumer, or ambient tmux dependency.
+
+### Steps
+Run direct root `just verify`; retain lint, Prettier, strict TypeScript, Jest coverage, build, and `git diff --check` output. Audit final test cleanup and worktree status.
+
+### Expected Result
+The direct root recipe exits 0; all suites pass; statement, branch, function, and line coverage remain at least 80 percent; build and diff checks pass; no probe resources or external access remain.
+
+### Expected Evidence
+Full direct command transcript, exit 0, suite/test totals, coverage table, build/diff results, cleanup/isolation audit, and clean implementation handoff proof.
+
 ## Coverage Proof
 | AC | Tests | Expected proof |
 |---|---|---|
-| AC-1 | V-1, V-2, V-8 | Exact accepted transport plus rejected extra/invalid structure and matching docs |
-| AC-2 | V-1, V-5 | Exact 3.7b identities and unchanged successful preparation/reconciliation |
-| AC-3 | V-2 | Complete required malformed matrix with no partial identity |
-| AC-4 | V-3, V-4, V-7 | Required retained fields, exact caps, persistence/report exposure, and observe semantics |
-| AC-5 | V-3, V-4, V-7, V-8 | Zero prohibited-data matches and no unsupported upgrade advice |
-| AC-6 | V-4, V-5 | Retryable retained state, exact proof, one create, and no duplicate resources |
-| AC-7 | V-6, V-8 | Same-name refusal, unchanged inventories, and no adoption |
-| AC-8 | V-5, V-7, V-8 | LOG_NOT_FOUND plus exact-only resume authorization |
-| AC-9 | V-1 through V-10 | Controlled temporary fixtures and both direct root gates |
+| AC-1 | V-1, V-2, V-8, V-17 | Existing exact transport/rejection/docs evidence plus full regression |
+| AC-2 | V-1, V-5, V-17 | Existing 3.7b identities and unchanged successful preparation/reconciliation plus regression |
+| AC-3 | V-2, V-17 | Existing complete malformed matrix with no partial identity plus regression |
+| AC-4 | V-3, V-4, V-7, V-17 | Existing retained fields/caps/persistence/observe semantics plus regression |
+| AC-5 | V-3, V-4, V-7, V-8, V-17 | Existing zero prohibited-data matches and no unsupported upgrade advice plus regression |
+| AC-6 | V-4, V-5, V-17 | Existing retryable state, exact proof, one create, and no duplicate resources plus regression |
+| AC-7 | V-6, V-8, V-17 | Existing same-name refusal, unchanged inventories, and no adoption plus regression |
+| AC-8 | V-5, V-7, V-8, V-17 | Existing `LOG_NOT_FOUND` and exact-only resume authorization plus regression |
+| AC-9 | V-1 through V-17 | Controlled temporary fixtures, isolation audits, and fresh direct focused/full gates |
+| AC-10 | V-11, V-12, V-13, V-14, V-15, V-16, V-17 | Private functional trace, byte proof, actionable schema-v2 failure, bounded awaited cleanup, zero residual inventory, docs, and gates |
 
-Every AC has finite validation and expected inspectable evidence; no test requires credentials, Sparkta, a live consumer, or nondeterministic polling.
+Every AC has finite validation and expected inspectable evidence. AC-1 through AC-9 retain commit `84f5cbe` evidence and receive full regression; only V-11 through V-17 provide new AC-10 proof. No test may use credentials, Sparkta, a live consumer, live network, live Copilot, or an ambient/default tmux server.

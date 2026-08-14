@@ -2,6 +2,8 @@
 
 Tasks are dependency-ordered. Every task carries stable acceptance IDs, explicit test coverage, application-documentation impact, expected evidence, and global architecture references.
 
+Re-entry baseline: T-1 through T-7 are completed by commit `84f5cbe138f8e1653624d6a1c8750e2ccceb1036` and retain AC-1 through AC-9 evidence. T-8 through T-12 are planned only for the later AC-10 addition; no AC-10 implementation or evidence is attributed to the baseline commit.
+
 ## Task T-1: Implement original-byte identity parsing and bounded diagnostic construction
 
 - **Status:** Completed
@@ -228,3 +230,171 @@ Validation-only task; it edits no application documentation. It verifies the T-6
 - `just verify-focused` transcript and exit 0.
 - `just verify` transcript, 80%+ coverage summary, build result, and diff-check exit 0.
 - Credential/network/external-path fixture audit and clean implementation handoff status.
+
+## Task T-8: Add bounded Doctor probe infrastructure and schema-v2 evidence
+
+- **Status:** Planned
+- **Complexity:** High
+- **Dependencies:** T-1 and T-7 completed baseline
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260814-tmux-identity-failure-recovery; ADR-260810-typescript-node-cli
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260810-subprocess-execution; CORE-COMPONENT-260810-development-standards
+
+### Description
+Introduce the reusable infrastructure settled for Doctor AC-10 before implementing tmux operations. Extend Doctor command and managed-server results with original buffers capped at 4096 retained bytes per stream, exact pre-decode total counts, and truncation flags while draining overflow. Add injected private-workspace, managed foreground-process, exact process-observation, event-driven socket-readiness, clock/deadline, and token seams. Replace detached aggregate `Promise.race` behavior with one absolute 9000ms controller, a 6500ms operation cutoff, and awaited cleanup milestones at 7000ms kill-server cancellation, 7250ms post-kill wait, 7750ms SIGTERM wait, 8250ms SIGKILL wait, and 9000ms final absence proof. Define `DoctorResultV2`, `DoctorCheckResultV2`, closed `DoctorTmuxProbeEvidenceV1` enums/cleanup states, and deterministic human/JSON rendering without altering the 24 check IDs or exit behavior.
+
+### Acceptance Criteria
+- AC-10: Original bytes and byte counts are available for exact tmux parsing; truncation, operation, timeout, and cleanup facts are representable in versioned structured evidence.
+- AC-10: The aggregate controller cannot resolve while a managed probe, client cancellation, or probe cleanup remains unsettled.
+- AC-10: Evidence and rendering cannot contain raw output, IDs, PIDs, paths, names, arguments, environment values, helper values, hashes, or byte values.
+- AC-9: Every new boundary is injectable and testable with temporary roots, virtual clocks, and controlled commands/processes without live tmux or network access.
+
+### Test Coverage
+- V-11 schema-v2, evidence-enum, byte-count, cap, redaction, and human/JSON parity tests.
+- V-14 virtual-time operation-cutoff, aggregate-cancellation, managed-process settlement, and cleanup-reserve tests.
+- V-16/V-17 direct focused/full gates after all dependent work.
+
+### Documentation Impact
+No application documentation is edited in this task. T-11 owns the schema-v1 to schema-v2 automation migration, output caps, aggregate timing, and cleanup documentation after interfaces stabilize. Any deviation from the accepted ADR/core-component requires a Plan return.
+
+### Expected Evidence
+- Exact 4095/4096/4097-byte stream fixtures with total counts, retained-buffer sizes, and truncation states.
+- Strict accepted/rejected `DoctorResultV2` and `DoctorTmuxProbeEvidenceV1` fixtures.
+- Paired human/JSON normalization showing identical safe evidence.
+- Virtual timeline proving no report precedes probe cleanup settlement and no managed promise survives the result.
+- Sentinel scan across result, error, rendered output, and test artifacts with zero prohibited values.
+
+## Task T-9: Implement the isolated foreground tmux readiness probe and unconditional cleanup
+
+- **Status:** Planned
+- **Complexity:** High
+- **Dependencies:** T-8
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260814-tmux-identity-failure-recovery; ADR-260811-prototype-one-run-orchestration
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260810-subprocess-execution; CORE-COMPONENT-260810-error-handling
+
+### Description
+Implement one dedicated Doctor tmux probe rather than routing through default-server `LiveTmuxPort`. Create and validate the exclusive mode-0700 OS-temp workspace and mode-0600 empty config/helper; start the discovered executable as a directly managed `-D -S <socket> -f <config>` foreground server; and require every client call to include the exact private `-S` selector and private noncredential environment. Run one event-driven socket wait and the settled no-retry sequence: session/dashboard creation, `has-session`, exact window-name list, positive dashboard pane PID, formatted issue-window creation, strict create parse, remain-on-exit, positive pane PID, one formatted pane observation, strict identity/cwd equality, and issue-window removal.
+
+Treat returned dashboard and issue pane PIDs only as locators and record ephemeral compound process-group/start-token/executable/arguments/cwd identity before fallback signaling; never signal by PID alone. During cleanup, union recorded helpers with exact private-helper argument/workspace/launch/server-lineage candidates to cover creation before PID acceptance without process-name matching.
+
+Own one `finally` path for success, launch failure, nonzero command, malformed/truncated bytes, identity/cwd mismatch, timeout, cancellation, and aggregate expiry. Request private `kill-server`, wait and escalate only the exact managed server, stop only still-matching recorded helper identities, remove only the exclusively owned tree after process cleanup, and verify server/helpers/socket/workspace absent. Any uncertain cleanup overrides functional success.
+
+### Acceptance Criteria
+- AC-10: A pass proves every settled session/window/pane/identity/observation/remain-on-exit/removal operation on the unique private server.
+- AC-10: Creation and observation parse original bytes under the existing strict grammar, produce equal IDs, and observe the physical workspace cwd without retaining any value.
+- AC-10: Every command carries the private socket selector; private configuration and environment prevent default-server and ambient-configuration contact.
+- AC-10: Every path finishes with zero probe session, window, pane, helper, server, socket, config, helper file, or workspace, or fails with explicit cleanup uncertainty.
+- AC-9: Tests use protocol-aware controlled executables/adapters and never invoke ambient/default tmux, Sparkta, credentials, Copilot, or live network.
+
+### Test Coverage
+- V-12 exact successful command/order/arguments, byte identity, equality, and final inventory test.
+- V-13 table-driven operation, malformed output, overflow, timeout, cleanup-failure, and residual-resource matrix.
+- V-14 aggregate cutoff/cancellation during server startup, every client boundary, and cleanup.
+- V-16/V-17 direct focused/full gates.
+
+### Documentation Impact
+No application documentation is edited in this task. T-11 documents the final functional sequence, private isolation, timing, output, cleanup, and troubleshooting behavior. The issue-run tmux documentation is not changed unless implementation alters its existing 15-second/default-server contract, which this task prohibits.
+
+### Expected Evidence
+- Ordered trace beginning with foreground `-D -S -f`, followed only by `-S` client calls matching the settled sequence.
+- Exact create and observe byte fixtures with parsed-equality/cwd assertions and no value-bearing retained output.
+- Before/after ambient tripwire inventory proving zero default/named-server calls or mutations.
+- Per-scenario resource ledger proving managed server/helper exits and socket/workspace absence after success and every injected failure.
+- Cleanup escalation trace that signals only exact recorded process identities and never uses name-based process termination.
+
+## Task T-10: Integrate strengthened command.tmux and migrate Doctor fixtures
+
+- **Status:** Planned
+- **Complexity:** High
+- **Dependencies:** T-9
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260812-official-asset-distribution-installation; ADR-260814-tmux-identity-failure-recovery
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260812-official-asset-installation-contract; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260810-structured-events
+
+### Description
+Start the functional probe after executable discovery and map its final observation, including cleanup, to the existing `command.tmux` row. Preserve exact 24-ID order, all-blocking conjunction, complete non-fail-fast reports, repository facts, and exits 0/3/2. Migrate renderers and strict ready/blocked/isolated manifests to `DoctorResultV2`; render value-free tmux evidence in human and JSON forms. Replace no-op READY tmux fixtures with protocol-aware controlled executables or injected probe adapters that model the foreground private socket contract without a production test switch. Add installed-but-nonfunctional, malformed-create, malformed-observe, and cleanup-uncertain readiness variants while preserving one pass/fail outcome for every canonical ID and the official-asset vocabulary regression.
+
+### Acceptance Criteria
+- AC-10: `command.tmux` passes only after executable presence, complete functional success, and proved cleanup; installed no-op or malformed implementations fail READY.
+- AC-10: `soft-factory doctor --json` returns structured actionable `DoctorTmuxProbeEvidenceV1` for functional failure and no dynamic/prohibited values.
+- AC-10: Human and JSON output derive from one schema-v2 result and agree on operation, reason, bounds, cleanup states, readiness, and remediation.
+- AC-10: The check set remains exactly the same ordered 24 IDs and no official delivery-agent authority changes.
+- AC-9: Built and service fixtures are credential-free, temporary, no-network, and ambient-tmux tripwired.
+
+### Test Coverage
+- V-11 schema-v2 construction/rendering and prohibited-value tests.
+- V-12 integrated `DoctorService` and built READY success path.
+- V-13 installed-but-nonfunctional/malformed/cleanup failure matrix with exit 3.
+- V-14 complete-result and deadline behavior under controlled timeouts.
+- V-15 strict manifest, 24-row matrix, official-asset vocabulary, built CLI, documentation, and migration tests.
+
+### Documentation Impact
+No application documentation is edited in this task. It produces final executable/result examples for T-11. Record any unplanned check-ID, schema-field, command-grammar, configuration, or default-server change as an architecture divergence rather than silently updating fixtures.
+
+### Expected Evidence
+- `DOCTOR_CHECK_IDS` and official-asset regression remain exact 24-row matches.
+- Ready fixture can pass only with a complete private functional trace; the former no-op executable returns NOT READY.
+- Schema-v2 manifest diff and normalized human/JSON parity including structured tmux failure evidence.
+- Failure matrix naming operation/reason/exit/timeout/byte/truncation/cleanup facts and exit 3.
+- Issue-port, network, credential, Sparkta, Copilot, and ambient-tmux tripwires remain untouched.
+
+## Task T-11: Update Doctor application documentation and migration guidance
+
+- **Status:** Planned
+- **Complexity:** Medium
+- **Dependencies:** T-10
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260814-tmux-identity-failure-recovery; ADR-260811-engineering-harness-surface
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260806-project-command-interface; CORE-COMPONENT-260810-development-standards
+
+### Description
+During Implement, update README, PRD Doctor sections, docs index, `docs/phase-4-repository-doctor.md`, Doctor troubleshooting/schema migration guidance, tracked fixture descriptions, and `src/documentation.test.ts`. State that the exact 24 IDs remain while `command.tmux` now proves the private foreground sequence; document `-D/-S/-f` isolation, exact creation/observation formats, 4096-byte stream caps, 2000ms per-command/wait bound, 6500ms cutoff, cleanup milestones at 7000/7250/7750/8250ms, 2500ms total cleanup reserve, `DoctorResultV2`, value-free evidence, unconditional cleanup, and ambient-tmux prohibition. Mark schema-v1 automation consumers/manifests for schema-v2 migration. State that no configuration, run snapshot, issue-run tmux behavior, network API, database, service, container, or deployment migration applies.
+
+### Acceptance Criteria
+- AC-10: Operator and automation guidance precisely matches the settled functional sequence, result schema, evidence, timing, isolation, and cleanup contract.
+- AC-10: Troubleshooting distinguishes executable absence, nonfunctional/malformed operations, and cleanup uncertainty without exposing probe values or recommending ambient inspection/destruction.
+- AC-9: Documentation requires temporary controlled fixtures and fresh direct `just verify-focused` plus `just verify` boundaries.
+
+### Test Coverage
+- V-15 documentation phrase/link/schema/fixture/troubleshooting assertions and stale executable-only/schema-v1 scans.
+- V-16/V-17 execute and validate the documented direct root recipes.
+
+### Documentation Impact
+This is the sole AC-10 application-documentation task. README, PRD, docs index, Doctor operations/troubleshooting, schema migration text, and documentation assertions are affected. Phase-1/recovery text changes only if a cross-link must clarify that the Doctor probe does not change normal tmux behavior. API specification, configuration migration, run-state migration, database migration, and deployment procedures remain not applicable.
+
+### Expected Evidence
+- Documentation diff with exact sequence, caps, timing, cleanup, evidence, and schema-v2 migration text.
+- Passing documentation suite with resolved links and fixture references.
+- Stale-guidance scan showing no executable-only `command.tmux`, schema-v1 automation claim, no-op READY fixture, or asynchronous cleanup wording.
+- Explicit no-configuration/no-run-state/no-API/no-database/no-service/no-container/no-deployment impact statement.
+
+## Task T-12: Run fresh authoritative focused and full repository validation
+
+- **Status:** Planned
+- **Complexity:** Medium
+- **Dependencies:** T-8, T-9, T-10, T-11
+- **Acceptance Criteria:** AC-9, AC-10
+- **Related ADRs:** ADR-260812-repository-doctor-readiness; ADR-260811-engineering-harness-surface; ADR-260810-typescript-node-cli
+- **Related Core-Components:** CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260811-engineering-harness-interface; CORE-COMPONENT-260806-project-command-interface; CORE-COMPONENT-260810-development-standards
+
+### Description
+After all AC-10 product, test, fixture, and documentation work stabilizes, run direct root `just verify-focused` and then direct root `just verify`. Harness checks may provide additional structured feedback but do not replace either command. Audit all new fixtures for temporary unique roots, controlled protocol-aware executables/adapters, ambient tmux tripwires, no Sparkta path, no credential reads, and no live network/Copilot. Preserve the complete command, timing, suite/test, coverage, build, diff, resource-inventory, and clean-tree evidence without rewriting the completed T-7 baseline history.
+
+### Acceptance Criteria
+- AC-9: Both fresh direct root recipes exit zero with credential-free deterministic fixtures and at least 80 percent statement/branch/function/line coverage.
+- AC-10: Focused/full runs prove functional READY, installed-but-nonfunctional/malformed NOT READY, structured evidence, aggregate cleanup coordination, ambient isolation, and zero residual probe resources.
+- AC-10: Final evidence distinguishes new implementation from commit `84f5cbe` and names the new implementation commit when available.
+
+### Test Coverage
+- V-16 direct `just verify-focused` over Issue #29, Doctor, documentation, and official-asset regression suites.
+- V-17 direct `just verify` full lint, format, strict types, tests/coverage, build, and diff boundary.
+
+### Documentation Impact
+Validation-only task; it edits no application documentation. It verifies T-11 and records any documentation defect as an Implement correction, not as waived impact.
+
+### Expected Evidence
+- Fresh direct `just verify-focused` transcript and exit 0.
+- Fresh direct `just verify` transcript, 80-percent-plus coverage table, build result, and diff-check exit 0.
+- Per-test cleanup inventory and ambient-tmux/Sparkta/credential/network tripwire audit.
+- Final implementation notes mapping AC-9 and AC-10 to product, tests, docs, commands, and the post-baseline implementation commit.
