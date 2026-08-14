@@ -1,0 +1,24 @@
+.harness/records/retro/2026-08-14/029-issue-29-rpiv-verifier-repeated-ci-return.md
+  s_d17bb725e9e385::t_f34923abf9a75a 1-6,9,14-16,24,43-44,46
+  s_d17bb725e9e385::t_9b856354a22161 19,29-42,47
+  s_d17bb725e9e385::t_e107727e97bbf3 12-13
+  s_d17bb725e9e385::t_e5afba454e4871 7-8,10-11,17-18,20-23,25-28,45
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/verify/summary.md
+  s_d17bb725e9e385::t_2bc91de8e3b821 5,7,14-15,17,23-32,34,36,38,40,42,44,46,52-58,60,64,66,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a2023f7485aece20668b75e30b594416b2bf4a0f",
+  "prompts": {},
+  "sessions": {
+    "s_d17bb725e9e385": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_ePgRtfqcEvkn4YyUUhoo1lqv",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
