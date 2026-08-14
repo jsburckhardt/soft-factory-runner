@@ -2,69 +2,80 @@
 
 ## Outcome
 
-**Failed — return to Implement.** Corrected product SHA `33eecb8c4f5fe13d37f86aac1cba1b8434253579` passed independent local validation, but PR CI run `31809715459` repeated the same four built Doctor failures on Node 22 and Node 24. AC-9 and AC-10 therefore remain failed. Package smoke was skipped and no accepted final metadata head or AgentResultV1 was produced.
+**Failed — return to Implement.** Product/test correction commit `eca87ade5c65a8054a1c49b4849a5ed57189cc53` and handoff head `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9` passed independent local validation, but PR CI run `31814521678` failed the root `just verify` recipe on both Node 22 and Node 24. Each job failed 6 tests in `src/doctor-integration.test.ts`; Package smoke was skipped. AC-9 and AC-10 therefore remain failed, all Issue #29 criteria remain unchecked, and no AgentResultV1 was published.
 
-No application code, tests, fixtures, application documentation, architecture artifact, or implementation commit was modified by Verify.
+No application code, tests, fixtures, application documentation, architecture artifact, or implementation commit was modified by Verify. Verify generated only this summary and `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md`.
 
-## Identity
+## Identity and scope
 
 - Work item: `29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics`
+- Resolved action plan: `project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/01-action-plan.md`
 - Branch: `fix/29-tmux-preparation-diagnostics`
 - Base: `f3ed01468b7859c07736f8fd9a7d4c6d97692658` (`origin/main`)
-- Corrected product SHA and PR head: `33eecb8c4f5fe13d37f86aac1cba1b8434253579`
-- Pull request: [#30](https://github.com/jsburckhardt/soft-factory-runner/pull/30), `fix: preserve retryable tmux preparation failures`, OPEN and MERGEABLE
+- Product/test correction commit: `eca87ade5c65a8054a1c49b4849a5ed57189cc53`
+- Hosted product handoff head: `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9`
+- Pull request: [#30](https://github.com/jsburckhardt/soft-factory-runner/pull/30), `fix: preserve retryable tmux preparation failures`, OPEN and MERGEABLE before verifier metadata publication
 
-Verify resolved exactly one action plan at `project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/01-action-plan.md` and confirmed the exact branch, product SHA, and clean tree before validation. All branch commits use Conventional Commit subjects and the required Copilot co-author trailer.
+The exact Implement handoff branch, SHA, clean tree, three-commit order, and zero-behind/three-ahead relation were confirmed before validation. All branch commits use Conventional Commit subjects and the required Copilot co-author trailer. The complete `origin/main...49c1cef` diff contains 75 files, 256 hunks, 9,028 additions, and 479 deletions; it has no binary, submodule, symlink, secret, prohibited-path, or out-of-scope file change.
 
 ## Acceptance Decisions
 
 | ID | Status | Independent evidence |
 |---|---|---|
-| AC-1 | Passed | Exact single-record HT/LF create and observe grammar remains enforced; parser and live-adapter regressions pass. |
-| AC-2 | Passed | Required tmux 3.7b bytes still parse as `@1`, `%1`, and `/tmp`; preparation/reconciliation regressions pass. |
-| AC-3 | Passed | All twelve required malformed cases reject extra, partial, multi-record, and invalid-ID output without partial identity. |
-| AC-4 | Passed | RunSnapshotV5/status/reconcile retain only capped 8-record, 8-field, 32-token value-free structure; production parser and documentation regressions pass. |
-| AC-5 | Passed | Confidentiality tests and documentation exclude raw output, paths, arguments, values, ownership identities, other-run bytes, and unsupported upgrade advice. |
-| AC-6 | Passed | Exact preparation ownership plus zero same-name candidates permits one create with no duplicate lock, lease, branch, worktree, worker, or RPIV launch. |
-| AC-7 | Passed | Same-name candidates remain unknown and non-authorizing; inventories and ownership remain unchanged. |
+| AC-1 | Passed | Exact one-record HT/LF create and observe grammar remains enforced; parser/live-adapter regressions passed. |
+| AC-2 | Passed | Required tmux 3.7b bytes still parse as `@1`, `%1`, and `/tmp`; successful preparation/reconciliation regressions passed. |
+| AC-3 | Passed | All twelve required malformed outputs remain strict failures without partial identity. |
+| AC-4 | Passed | RunSnapshotV5/status/reconcile retain only capped 8-record, 8-field, 32-token value-free structure; persistence and documentation parser regressions passed. |
+| AC-5 | Passed | Confidentiality tests and documentation exclude raw output, paths, arguments, field values, ownership identities, other-run bytes, and unsupported upgrade advice. |
+| AC-6 | Passed | Exact preparation ownership plus zero same-name candidates permits one create with no duplicate owned resource or launch. |
+| AC-7 | Passed | Same-name candidates remain unknown and non-authorizing; ownership and inventories remain unchanged. |
 | AC-8 | Passed | `LOG_NOT_FOUND` and exact-only preparation resume authorization remain unchanged. |
-| AC-9 | **Failed** | Local root validation passes, but both supported hosted root `just verify` jobs fail 1 suite and 4 tests; credential-free portable configured-validation proof is absent. |
-| AC-10 | **Failed** | Node 22 and Node 24 make the first controlled READY built process exit 3 and return `process-identity-unknown` before nonfunctional/malformed fixtures reach `socket-unavailable` or `malformed-output`. Required portable functional-probe proof is absent. |
+| AC-9 | **Failed** | Local root validation passed, but both supported hosted root `just verify` jobs failed 1 suite and 6 tests, so portable configured-validation proof is absent. |
+| AC-10 | **Failed** | Hosted controlled readiness reported `spawnObserved: true`, two stable reads, and true identity-category booleans, yet Product Doctor returned `helper-stop` / `process-identity-unknown` in READY, delayed, timeout, nonfunctional, malformed-create, and malformed-observe cases. Cleanup identity proof is not portable. |
 
-Issue #29 retains ten unchecked criteria with unchanged text.
+## Fixture and product inspection
 
-## Correction and Safety Inspection
+The `eca87ad` correction changes only `src/doctor-integration.test.ts` plus work-item/retro evidence. Production source is byte-identical to `33eecb8` for this correction. The fake readiness barrier is test-only, bounded to 1000 ms with 10 ms sampling, requires two identical complete compound snapshots, and checks the requested physical executable, exact sole helper argument, exact cwd, direct server parent, positive process group, and numeric start token. Its snapshot signature remains ephemeral; emitted diagnostics contain only closed categories, booleans, bounded counts, and bounds.
 
-The complete `origin/main...33eecb8` branch diff and complete `9533057...33eecb8` correction were inspected for scope, ADR, and core-component compliance. The correction is bounded to Doctor product/tests plus work-item and retro evidence. No application documentation or architecture file changed in the correction.
+The delayed test requires three non-authorizing reads followed by two stable reads. The timeout test refuses the helper, returns no pane PID to Product Doctor, and stops the child. Equivalent physical executable aliases remain accepted and `/bin/sh` remains a genuinely distinct refused executable. Product Doctor still performs one process identity observation and one pane observation with no retry; session/window pane targeting, private socket/configuration/environment, original-byte parsing, identity/cwd equality, and exact ownership cleanup remain unchanged.
 
-The controlled fixture now uses `allowHalfOpen`, awaits helper `spawn`, launches the executable requested by Doctor, and records only value-free physical/exact executable, argument, cwd, and parent facts. Product resolves the helper executable once through `realpathSync.native`, launches that physical path, and compares it exactly with `/proc/<pid>/exe`. Source inspection confirms no basename or lexical broadening: executable, sole helper argument, cwd, server lineage, PID, PGID, start token, and pre-signal exact identity checks remain required. Distinct `/bin/sh`, identity/cwd mismatches, and lineage failure remain refusals in tests/source.
+The hosted result proves that the fixture barrier does not mask the remaining mismatch: every controlled readiness fact shown by the failed jobs passed, while Product Doctor independently failed its helper cleanup identity proof.
 
-Private `-D/-S/-f` isolation, exact session/window `list-panes` targeting, pane-ID PID lookup, strict original-byte identity parsing, 4096-byte caps, 2000/6500/7000/7250/7750/8250/9000 ms bounds, unconditional exact cleanup, DoctorResultV2, and the ordered 24-ID contract remain intact. The repeated hosted failure means the proposed race/canonicalization correction is still not portable enough to accept.
+## Documentation and architecture
 
-## Documentation and Architecture
+**Passed.** README, PRD, docs index, Phase 1, Phase 3, Phase 4, and the RPIV integration contract match the committed behavior and migration/configuration boundaries. RunSnapshotV5, DoctorResultV2, strict identity grammar, private tmux protocol, usage, troubleshooting, and operations are accurate. No OpenAPI/Swagger, network API, database, service, container, or remote deployment update applies.
 
-**Passed.** README, PRD, docs index, Phase 1, Phase 3, Phase 4, and the RPIV integration contract match the committed product contracts. RunSnapshotV5 and v4 migration, DoctorResultV2, private tmux behavior, strict identity grammar, recovery, diagnostics, usage, configuration, operations, and troubleshooting are covered and documentation tests pass. No API/OpenAPI, database, service, container, or deployment update applies. ADR-260812, ADR-260814, related core-components, and decisions 123-143 remain authoritative and aligned.
+ADR-260812, ADR-260814, related core-components, and Decisions 123–143 remain authoritative and aligned. The latest correction changes no ADR, core-component, decision-log, application documentation, configuration, API, migration, deployment, or production source.
 
 ## Validation Results
 
 | Gate | Result | Evidence |
 |---|---|---|
 | Root command interface | Passed | Root `justfile` exposes `verify-focused` and `verify`. |
-| Independent direct `just verify` | Passed locally | Exit 0; lint, Prettier, strict types, 23/23 suites, 445/445 tests, build, and diff check passed. Coverage: 88.90% statements, 83.99% branches, 95.42% functions, 90.50% lines. |
-| `harness checks --json` | Passed locally | Exit 0, envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit 0, 23 suites and 445 tests. |
-| Isolation/resource audit | Passed locally | No controlled Doctor roots or helper processes remained; tests use temporary/injected executables and private local sockets, not ambient tmux, Sparkta, credentials, live Copilot, a consumer repository, or external network services. |
-| PR CI Node 22 | **Failed** | Job `94797141447`; 1/23 suites and 4/445 tests failed in `src/doctor-integration.test.ts`. |
-| PR CI Node 24 | **Failed** | Job `94797141332`; identical 1-suite/4-test failure. |
-| Package smoke | **Skipped** | Job `94797352303` skipped after matrix failure. |
+| Focused fixture regression | Passed locally | `just verify-focused src/doctor-integration.test.ts`: 1/1 suite and 9/9 tests; diff check passed. |
+| Independent direct required validation | Passed locally | `just verify`: exit 0; lint, Prettier, strict types, 23/23 suites, 447/447 tests, build, and diff check passed. Coverage: 88.90% statements, 83.99% branches, 95.42% functions, 90.50% lines. |
+| `harness checks --json` | Passed locally | Exit 0; envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit 0, 23 suites and 447 tests. |
+| Isolation/resource audit | Passed locally | No controlled Doctor workspaces, helpers, or private servers remained; ambient development tmux process identities were unchanged; changed source/tests add no Sparkta, credential, consumer, or external network dependency. |
+| PR CI Node 22 | **Failed** | [Job 94812869754](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678/job/94812869754): 1 failed suite, 6 failed tests, 441 passed; common final evidence `helper-stop` / `process-identity-unknown`. |
+| PR CI Node 24 | **Failed** | [Job 94812869657](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678/job/94812869657): identical 1 failed suite, 6 failed tests, 441 passed. |
+| Package smoke | **Skipped** | [Job 94813132978](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678/job/94813132978) skipped after matrix failure. |
 
-Hosted run: https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31809715459
+Hosted run: https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678
+
+## CI return history
+
+1. Initial hosted return after the 444-test local baseline: Node 22 and Node 24 each failed four built Doctor integration cases at `process-identity-unknown`; AC-9/AC-10 were returned.
+2. Run `31809715459` at corrected product head `33eecb8c4f5fe13d37f86aac1cba1b8434253579`: both supported jobs again failed four of 445 tests at `process-identity-unknown`; Package smoke skipped.
+3. Run `31814521678` at handoff head `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9`, containing test correction `eca87ad`: both supported jobs failed six of 447 tests because cleanup replaced intended outcomes with `helper-stop` / `process-identity-unknown`; Package smoke skipped.
 
 ## RPIV Retro Harvest
 
-Verifier observations were persisted and read back in `.harness/records/retro/2026-08-14/029-issue-29-rpiv-verifier-repeated-ci-return.md` before clearing two pending entries. Post-clear listing returned `status: ok` with zero observations.
+Verifier observations `DL-001` through `DL-005` were persisted and read back in `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md` with schema 1.2, matching plan/agent, exact fingerprints, and kept dispositions before an agent-scoped clear of five entries. Post-clear listing returned `status: ok` with zero observations.
 
-`harness retro insights --plan 29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics --json` returned exit 0, `status: ok`, schema `harness.retro-insights/v1`, 16 records, 68 entries, four RPIV agents, 68 kept dispositions, zero malformed/unsupported records, and `buffer_pending: 0`.
+`harness retro insights --plan 29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics --json` returned exit 0, `status: ok`, schema `harness.retro-insights/v1`, 22 records, 80 entries, all four RPIV agents, 80 kept dispositions, zero malformed/unsupported records, and `buffer_pending: 0`.
 
-## Publication
+## Issue, PR, and publication
 
-No AgentResultV1 was published. Acceptance and hosted final validation failed, final-head metadata CI was not started, and no Issue #29-specific injected no-clobber publication binding was available. The unrelated pre-existing Issue #25 candidate remained unchanged.
+Issue #29 retains all ten original criteria unchecked. PR #30 remains the existing PR; no duplicate was created and no merge was attempted. Its Conventional Commit title remains valid. The PR body was not changed to claim acceptance after hosted failure.
+
+No accepted green product head or final verification metadata head exists. No AgentResultV1 was published because AC-9/AC-10 and snapshotted `just verify` hosted proof failed; additionally, no Issue #29-specific injected no-clobber publication binding was available. Any unrelated pre-existing artifact remains unchanged.
