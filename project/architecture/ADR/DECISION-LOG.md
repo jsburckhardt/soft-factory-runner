@@ -138,8 +138,8 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 88 | Apply recommended asset installation as one all-or-nothing batch | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
 | 89 | Preserve the canonical Doctor check set and RPIV asset authority | ADR-260812-official-asset-distribution-installation | 2026-08-12 |
 | 90 | Require manifest digest proof before replacing differing installed assets | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
-| 91 | Delegate official Operator lifecycle operations to Runner commands | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
-| 92 | Treat complete Doctor JSON as authoritative Assessor readiness evidence | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-12 |
+| 91 | Delegate official delivery-agent dispatch exclusively to Runner commands | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
+| 92 | Retire legacy assessor and skill only with exact manifest ownership proof | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
 | 93 | Use `copilot.environment` for configured Copilot child variables | ADR-260812-copilot-child-environment | 2026-08-12 |
 | 94 | Apply configured values after inherited values and Runner telemetry last | ADR-260812-copilot-child-environment | 2026-08-12 |
 | 95 | Keep configured Copilot environment values out of durable Runner records | ADR-260812-copilot-child-environment | 2026-08-12 |
@@ -162,3 +162,11 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 112 | Publish immutable AgentResultV1 only after pull-request creation | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
 | 113 | Require coordinator result validation before successful RPIV exit | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
 | 114 | Derive human and JSON integration instructions from IntegrationContractV1 | CORE-COMPONENT-260812-rpiv-integration-handoff | 2026-08-12 |
+| 115 | Install the sole official agent at `.github/agents/soft-factory.agent.md` | ADR-260812-official-asset-distribution-installation | 2026-08-14 |
+| 116 | Keep official asset ownership metadata in `.agents/manifest.json` | ADR-260812-official-asset-distribution-installation | 2026-08-14 |
+| 117 | Publish only the delivery-agent source from the official asset directory | ADR-260812-official-asset-distribution-installation | 2026-08-14 |
+| 118 | Apply official asset migrations and retirements as one rollback-protected transaction | ADR-260812-official-asset-distribution-installation | 2026-08-14 |
+| 119 | Recognize only enumerated current and legacy identity-destination ownership records | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
+| 120 | Retire legacy files only when bytes match their recorded manifest digests | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
+| 121 | Require qualified Copilot terminal tools and validate one issue before terminal use | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
+| 122 | Run instructions before Doctor and preserve exact dispatch output without claiming completion | CORE-COMPONENT-260812-official-asset-installation-contract | 2026-08-14 |
