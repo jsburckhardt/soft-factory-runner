@@ -1,0 +1,44 @@
+src/doctor-integration.test.ts
+  s_724e01f654f4f9::t_1aa12f21b5a8ea 283-284,317
+  s_724e01f654f4f9::t_708d4ccdfbe9b1 503-594,596-601,603-631,635-678,680-694
+  s_724e01f654f4f9::t_5b1b301ea8666b 121,595,602,632-634,679,828
+  s_724e01f654f4f9::t_e4ebdf8e1e3b2d 122-128,130-131,139-143,146,153-160,162-217,249,251,257-260
+  s_724e01f654f4f9::t_26fe086026448c 771-827,829-831,833-837,839-854,857-860,862-884,886-917,919-933,935,937,939-940
+  s_724e01f654f4f9::t_85bc9757cd6f48 943-996
+  s_724e01f654f4f9::t_a9b42245886489 941-942
+.harness/records/retro/2026-08-14/031-issue-29-rpiv-implementer-second-ci-evidence-eof.md
+  s_724e01f654f4f9::t_5b8e8ff71ed8fa 1-5,9,14-16,24,29-30,32
+  s_724e01f654f4f9::t_304e702014bd5c 6-8,10-13,17-23,25-28,31,33
+.harness/records/retro/2026-08-14/033-issue-29-rpiv-implementer-final-evidence-command.md
+  s_724e01f654f4f9::t_7fcd8030dd34ae 6-8,10-13,17-23,25-28,31,33
+  s_724e01f654f4f9::t_7ab4b110f4cad1 1-5,9,14-16,24,29-30,32
+.harness/records/retro/2026-08-14/032-issue-29-rpiv-implementer-commit-guidance.md
+  s_724e01f654f4f9::t_2d58e4452c6cef 1-5,9,14-16,24,29-30,32
+  s_724e01f654f4f9::t_9fa18f4d459213 6-8,10-13,17-23,25-28,31,33
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_724e01f654f4f9::t_8226851484b49b 524-532
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/implementation/00-implementation.md
+  s_724e01f654f4f9::t_a7c344f5e2b69b 321
+  s_724e01f654f4f9::t_8226851484b49b 269-320
+  s_724e01f654f4f9::t_6c6dc6dc0184aa 323
+  s_724e01f654f4f9::t_0648530ab5b4cd 322
+.harness/records/retro/2026-08-14/030-issue-29-rpiv-implementer-second-ci-return.md
+  s_724e01f654f4f9::t_7a7ea1aa2c5bd7 1-6,9,14-16,24,56-57,59
+  s_724e01f654f4f9::t_bd8238945ccb41 7-8,10-13,17-23,25-55,58,60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "eca87ade5c65a8054a1c49b4849a5ed57189cc53",
+  "prompts": {},
+  "sessions": {
+    "s_724e01f654f4f9": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_NTJ7ptVyU28j3BH6NxrKBvxC",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
