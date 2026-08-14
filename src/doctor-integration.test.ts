@@ -12,10 +12,11 @@ import {
   failedCheck,
   passedCheck,
   type DoctorCheckId,
-  type DoctorCheckResultV1,
-  type DoctorResultV1,
+  type DoctorCheckResultV2,
+  type DoctorResultV2,
 } from "./doctor";
 import { DoctorService } from "./doctor-service";
+import type { DoctorTmuxProbePort } from "./doctor-tmux";
 import { runCli } from "./index";
 import type { RunnerPorts } from "./ports";
 
@@ -26,8 +27,49 @@ const tripwirePorts = new Proxy({} as RunnerPorts, {
     throw new Error("isolated Doctor fixture accessed issue ports");
   },
 });
+class ControlledTmuxProbe implements DoctorTmuxProbePort {
+  public calls = 0;
+  public constructor(private readonly ready = true) {}
+  public async run() {
+    this.calls += 1;
+    return this.ready
+      ? {
+          ok: true as const,
+          value: true as const,
+          message: null,
+          remediation: null,
+        }
+      : {
+          ok: false as const,
+          value: null,
+          message:
+            "The isolated tmux functional probe did not complete with proved cleanup.",
+          remediation: "Repair the local tmux installation and rerun Doctor.",
+          evidence: {
+            schemaVersion: 1 as const,
+            kind: "tmux-functional-probe" as const,
+            operation: "server-start" as const,
+            reason: "launch-failed" as const,
+            exitCode: null,
+            timedOut: false,
+            stdoutByteCount: 0,
+            stderrByteCount: 0,
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            identityDiagnostic: null,
+            cleanup: {
+              server: "not-created" as const,
+              paneProcesses: "not-created" as const,
+              socket: "not-created" as const,
+              workspace: "absent" as const,
+            },
+          },
+        };
+  }
+}
+
 interface IsolatedManifest {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly variants: readonly {
     readonly name: string;
     readonly failedId: DoctorCheckId;
@@ -36,9 +78,9 @@ interface IsolatedManifest {
 async function readManifest<T>(name: string): Promise<T> {
   return JSON.parse(await fs.readFile(path.join(manifests, name), "utf8")) as T;
 }
-function normalizeHuman(text: string): DoctorResultV1 {
+function normalizeHuman(text: string): DoctorResultV2 {
   const lines = text.trimEnd().split("\n");
-  const checks: DoctorCheckResultV1[] = [];
+  const checks: DoctorCheckResultV2[] = [];
   for (let index = 3; index < lines.length - 1; index += 1) {
     const match = /^CHECK id=(\S+) status=(passed|failed) blocking=true$/.exec(
       lines[index],
@@ -46,16 +88,24 @@ function normalizeHuman(text: string): DoctorResultV1 {
     if (match === null) continue;
     const id = match[1] as DoctorCheckId;
     if (match[2] === "failed") {
+      const evidenceLine = lines[index + 3];
       checks.push(
-        failedCheck(id, lines[index + 1].slice(11), lines[index + 2].slice(15)),
+        failedCheck(
+          id,
+          lines[index + 1].slice(11),
+          lines[index + 2].slice(15),
+          evidenceLine?.startsWith("  EVIDENCE: ")
+            ? JSON.parse(evidenceLine.slice(12))
+            : undefined,
+        ),
       );
-      index += 2;
+      index += evidenceLine?.startsWith("  EVIDENCE: ") ? 3 : 2;
     } else checks.push(passedCheck(id));
   }
   const github = lines[1].slice("REPOSITORY github=".length);
   const branch = lines[2].slice("REPOSITORY defaultBranch=".length);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ready: lines.at(-1) === "STATUS: READY",
     repository: {
       github: github === "null" ? null : github,
@@ -68,7 +118,91 @@ async function writeExecutable(target: string, body: string): Promise<void> {
   await fs.writeFile(target, "#!" + process.execPath + "\n" + body);
   await fs.chmod(target, 0o700);
 }
-async function readyRepository(): Promise<{ root: string; bin: string }> {
+function protocolTmuxBody(
+  mode: "valid" | "malformed-create" | "malformed-observe",
+): string {
+  return String.raw`
+const fs=require("node:fs");
+const net=require("node:net");
+const cp=require("node:child_process");
+const args=process.argv.slice(2);
+const mode=${JSON.stringify(mode)};
+const log=process.argv[1]+".log";
+const append=(entry)=>fs.appendFileSync(log,JSON.stringify(entry)+"\n");
+const valueAfter=(items,key)=>{const index=items.indexOf(key);return index<0?null:items[index+1];};
+if(args[0]==="-D"){
+  const socketPath=args[2];
+  const configPath=args[4];
+  const children={dashboard:null,issue:null};let dashboardName="";
+  append({server:true,privateSocket:args[1]==="-S",privateConfig:args[3]==="-f",workspaceMode:fs.statSync(process.cwd()).mode&511,configMode:fs.statSync(configPath).mode&511,helperMode:fs.statSync(require("node:path").join(process.cwd(),"helper.js")).mode&511});
+  const stopChildren=()=>{for(const child of Object.values(children))if(child!==null){try{child.kill("SIGTERM");}catch{}}};
+  const server=net.createServer((connection)=>{
+    let input="";
+    connection.on("data",(chunk)=>{input+=chunk.toString("utf8");});
+    connection.on("end",()=>{
+      const request=JSON.parse(input);
+      const command=request.args[0];
+      const a=request.args;
+      const response={exitCode:0,stdout:"",stderr:""};
+      let stop=false;
+      if(command==="new-session"){
+        const cwd=valueAfter(a,"-c");const helper=a.at(-1);dashboardName=valueAfter(a,"-n")||"";
+        children.dashboard=cp.spawn(process.execPath,[helper],{cwd,stdio:"ignore"});
+      }else if(command==="has-session"){
+        if(children.dashboard===null)response.exitCode=1;
+      }else if(command==="list-windows"){
+        response.stdout=dashboardName+"\n";
+      }else if(command==="display-message"){
+        const target=valueAfter(a,"-t")||"";
+        const child=target.includes("%1")?children.issue:children.dashboard;
+        if(child===null||child.pid===undefined)response.exitCode=1;else response.stdout=String(child.pid)+"\n";
+      }else if(command==="new-window"){
+        const cwd=valueAfter(a,"-c");const helper=a.at(-1);
+        children.issue=cp.spawn(process.execPath,[helper],{cwd,stdio:"ignore"});
+        response.stdout=mode==="malformed-create"?"@1\t%1\textra\n":"@1\t%1\n";
+      }else if(command==="set-window-option"){
+        if(children.issue===null)response.exitCode=1;
+      }else if(command==="list-panes"){
+        response.stdout=mode==="malformed-observe"?"@1\t%1\n":"@1\t%1\t"+process.cwd()+"\n";
+      }else if(command==="kill-window"){
+        if(children.issue!==null){children.issue.kill("SIGTERM");children.issue=null;}
+      }else if(command==="kill-server"){
+        stop=true;stopChildren();
+      }else response.exitCode=1;
+      connection.end(JSON.stringify(response),()=>{if(stop)server.close(()=>process.exit(0));});
+    });
+  });
+  server.listen(socketPath);
+  process.on("SIGTERM",()=>{stopChildren();server.close(()=>process.exit(0));});
+  process.on("SIGINT",()=>{stopChildren();server.close(()=>process.exit(0));});
+}else{
+  const socketPath=args[1];
+  const commandArgs=args.slice(2);
+  append({server:false,privateSocket:args[0]==="-S",command:commandArgs[0]});
+  const client=net.createConnection(socketPath);
+  let output="";
+  const timer=setTimeout(()=>{client.destroy();process.exitCode=1;},1500);
+  client.on("connect",()=>client.end(JSON.stringify({args:commandArgs})));
+  client.on("data",(chunk)=>{output+=chunk.toString("utf8");});
+  client.on("end",()=>{clearTimeout(timer);const response=JSON.parse(output);process.stdout.write(response.stdout);process.stderr.write(response.stderr);process.exitCode=response.exitCode;});
+  client.on("error",()=>{clearTimeout(timer);process.exitCode=1;});
+}
+`;
+}
+
+async function probeWorkspaces(): Promise<readonly string[]> {
+  return (await fs.readdir(await fs.realpath(os.tmpdir())))
+    .filter((entry) => entry.startsWith("soft-factory-doctor-"))
+    .sort();
+}
+
+async function readyRepository(
+  tmuxMode:
+    | "valid"
+    | "malformed-create"
+    | "malformed-observe"
+    | "nonfunctional" = "valid",
+): Promise<{ root: string; bin: string }> {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), "doctor-ready-process-"),
   );
@@ -96,7 +230,12 @@ async function readyRepository(): Promise<{ root: string; bin: string }> {
     path.join(bin, "copilot"),
     'process.stdout.write("copilot 1\\n");',
   );
-  await writeExecutable(path.join(bin, "tmux"), "process.exitCode=0;");
+  await writeExecutable(
+    path.join(bin, "tmux"),
+    tmuxMode === "nonfunctional"
+      ? "process.exitCode=0;"
+      : protocolTmuxBody(tmuxMode),
+  );
   await writeExecutable(path.join(bin, "node"), "process.exitCode=0;");
   return { root, bin };
 }
@@ -157,7 +296,14 @@ class ControlledDoctorRunner implements DoctorCommandRunner {
       signal: null,
       stdout,
       stderr: "",
+      stdoutBuffer: Buffer.from(stdout),
+      stderrBuffer: Buffer.alloc(0),
+      stdoutByteCount: Buffer.byteLength(stdout),
+      stderrByteCount: 0,
+      stdoutTruncated: false,
+      stderrTruncated: false,
       timedOut: false,
+      cancelled: false,
       launchError: null,
     };
   }
@@ -228,10 +374,16 @@ async function actualDoctorFixture(failedId: DoctorCheckId | null): Promise<{
       "collision",
     );
   const runner = new ControlledDoctorRunner(root, failedId);
+  const tmuxProbe = new ControlledTmuxProbe();
   return {
     root,
     runner,
-    doctor: new DoctorService({ runner, pathValue: bin, token: "isolated" }),
+    doctor: new DoctorService({
+      runner,
+      pathValue: bin,
+      token: "isolated",
+      tmuxProbe,
+    }),
   };
 }
 
@@ -279,13 +431,13 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
   });
 
   it("validates complete ordered ready, blocked, and isolated-failure manifests", async () => {
-    const ready = await readManifest<DoctorResultV1>("ready.json");
-    const blocked = await readManifest<DoctorResultV1>("blocked.json");
+    const ready = await readManifest<DoctorResultV2>("ready.json");
+    const blocked = await readManifest<DoctorResultV2>("blocked.json");
     const isolated = await readManifest<IsolatedManifest>(
       "isolated-failures.json",
     );
     for (const manifest of [ready, blocked]) {
-      expect(manifest.schemaVersion).toBe(1);
+      expect(manifest.schemaVersion).toBe(2);
       expect(manifest.checks.map((check) => check.id)).toEqual(
         DOCTOR_CHECK_IDS,
       );
@@ -306,7 +458,7 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
     const isolated = await readManifest<IsolatedManifest>(
       "isolated-failures.json",
     );
-    const readyManifest = await readManifest<DoctorResultV1>("ready.json");
+    const readyManifest = await readManifest<DoctorResultV2>("ready.json");
     const readyFixture = await actualDoctorFixture(null);
     const readyResponse = await runCli(
       ["doctor", "--json"],
@@ -329,7 +481,7 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
         fixture.doctor,
       );
       expect(response.exitCode).toBe(3);
-      const output = JSON.parse(response.stdout) as DoctorResultV1;
+      const output = JSON.parse(response.stdout) as DoctorResultV2;
       expect(output.checks).toHaveLength(24);
       expect(
         output.checks.find((check) => check.id === variant.failedId)?.status,
@@ -343,7 +495,8 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
 
   it("runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing", async () => {
     const fixture = await readyRepository();
-    const manifest = await readManifest<DoctorResultV1>("ready.json");
+    const beforeProbeWorkspaces = await probeWorkspaces();
+    const manifest = await readManifest<DoctorResultV2>("ready.json");
     const jsonFirst = builtDoctor(fixture.root, fixture.bin, true);
     const jsonSecond = builtDoctor(fixture.root, fixture.bin, true);
     const human = builtDoctor(fixture.root, fixture.bin, false);
@@ -351,15 +504,67 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
     expect(jsonSecond.status).toBe(0);
     expect(human.status).toBe(0);
     expect(jsonFirst.stderr).toBe("");
-    const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV1;
+    const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV2;
     expect(parsed).toEqual(manifest);
     expect(JSON.parse(jsonSecond.stdout)).toEqual(parsed);
     expect(normalizeHuman(human.stdout)).toEqual(parsed);
     expect(jsonFirst.elapsedMs).toBeLessThanOrEqual(10_000);
     expect(jsonSecond.elapsedMs).toBeLessThanOrEqual(10_000);
     expect(human.elapsedMs).toBeLessThanOrEqual(10_000);
+    expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+    const trace = (
+      await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
+    )
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
+    expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
+    expect(
+      trace
+        .filter((entry) => entry.server === true)
+        .every(
+          (entry) =>
+            entry.privateConfig === true &&
+            entry.workspaceMode === 0o700 &&
+            entry.configMode === 0o600 &&
+            entry.helperMode === 0o600,
+        ),
+    ).toBe(true);
     await fs.rm(fixture.root, { recursive: true, force: true });
   });
+
+  it.each([
+    ["nonfunctional", "socket-unavailable"],
+    ["malformed-create", "malformed-output"],
+    ["malformed-observe", "malformed-output"],
+  ] as const)(
+    "reports installed %s tmux as NOT READY with cleanup proof",
+    async (mode, reason) => {
+      const fixture = await readyRepository(mode);
+      const beforeProbeWorkspaces = await probeWorkspaces();
+      const response = builtDoctor(fixture.root, fixture.bin, true);
+      expect(response.status).toBe(3);
+      const parsed = JSON.parse(response.stdout) as DoctorResultV2;
+      const check = parsed.checks.find((entry) => entry.id === "command.tmux");
+      expect(check).toMatchObject({
+        status: "failed",
+        evidence: {
+          schemaVersion: 1,
+          kind: "tmux-functional-probe",
+          reason,
+          cleanup: {
+            server: expect.stringMatching(/^(absent|not-created)$/),
+            paneProcesses: expect.stringMatching(/^(absent|not-created)$/),
+            socket: expect.stringMatching(/^(absent|not-created)$/),
+            workspace: "absent",
+          },
+        },
+      });
+      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+      await fs.rm(fixture.root, { recursive: true, force: true });
+    },
+  );
 
   it("runs a controlled blocked built fixture with complete human/JSON parity and exit 3", async () => {
     const root = await fs.mkdtemp(
@@ -369,8 +574,8 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
     await fs.mkdir(bin);
     const json = builtDoctor(root, bin, true);
     const human = builtDoctor(root, bin, false);
-    const manifest = await readManifest<DoctorResultV1>("blocked.json");
-    const parsed = JSON.parse(json.stdout) as DoctorResultV1;
+    const manifest = await readManifest<DoctorResultV2>("blocked.json");
+    const parsed = JSON.parse(json.stdout) as DoctorResultV2;
     expect(json.status).toBe(3);
     expect(human.status).toBe(3);
     expect(parsed).toEqual(manifest);

@@ -1,10 +1,16 @@
 import { RunnerError } from "./errors";
 
-export const DOCTOR_SCHEMA_VERSION = 1 as const;
+export const DOCTOR_SCHEMA_VERSION = 2 as const;
 export const DOCTOR_PROTOCOL_VERSION = 1 as const;
 export const DOCTOR_RESULT_CONTRACT = "agent-result-v1" as const;
 export const DOCTOR_EXTERNAL_TIMEOUT_MS = 2_000 as const;
 export const DOCTOR_AGGREGATE_TIMEOUT_MS = 9_000 as const;
+export const DOCTOR_OPERATION_CUTOFF_MS = 6_500 as const;
+export const DOCTOR_TMUX_OUTPUT_LIMIT_BYTES = 4_096 as const;
+export const DOCTOR_TMUX_KILL_SERVER_MILESTONE_MS = 7_000 as const;
+export const DOCTOR_TMUX_POST_KILL_MILESTONE_MS = 7_250 as const;
+export const DOCTOR_TMUX_SIGTERM_MILESTONE_MS = 7_750 as const;
+export const DOCTOR_TMUX_SIGKILL_MILESTONE_MS = 8_250 as const;
 
 export const DOCTOR_CHECK_IDS = [
   "repository.git-membership",
@@ -80,28 +86,94 @@ export const DOCTOR_CHECK_DEPENDENCIES: Readonly<
   ],
 };
 
-export interface DoctorPassedCheckV1 {
+export const DOCTOR_TMUX_OPERATIONS = [
+  "workspace",
+  "server-start",
+  "socket-ready",
+  "session-create",
+  "session-query",
+  "window-list",
+  "dashboard-pane-identify",
+  "window-create",
+  "window-configure",
+  "issue-pane-identify",
+  "pane-observe",
+  "window-remove",
+  "server-stop",
+  "helper-stop",
+  "workspace-remove",
+  "aggregate",
+] as const;
+export type DoctorTmuxProbeOperationV1 =
+  (typeof DOCTOR_TMUX_OPERATIONS)[number];
+
+export const DOCTOR_TMUX_REASONS = [
+  "unavailable",
+  "unsafe-workspace",
+  "filesystem-failed",
+  "launch-failed",
+  "socket-unavailable",
+  "nonzero-exit",
+  "timeout",
+  "cancelled",
+  "output-truncated",
+  "malformed-output",
+  "identity-mismatch",
+  "cwd-mismatch",
+  "process-identity-unknown",
+  "cleanup-failed",
+  "unexpected-resource",
+  "aggregate-deadline",
+] as const;
+export type DoctorTmuxProbeReasonV1 = (typeof DOCTOR_TMUX_REASONS)[number];
+export type DoctorTmuxCleanupStateV1 =
+  "not-created" | "absent" | "present" | "unknown";
+
+export interface DoctorTmuxProbeEvidenceV1 {
+  readonly schemaVersion: 1;
+  readonly kind: "tmux-functional-probe";
+  readonly operation: DoctorTmuxProbeOperationV1;
+  readonly reason: DoctorTmuxProbeReasonV1;
+  readonly exitCode: number | null;
+  readonly timedOut: boolean;
+  readonly stdoutByteCount: number;
+  readonly stderrByteCount: number;
+  readonly stdoutTruncated: boolean;
+  readonly stderrTruncated: boolean;
+  readonly identityDiagnostic:
+    import("./domain").TmuxIdentityDiagnosticV1 | null;
+  readonly cleanup: {
+    readonly server: DoctorTmuxCleanupStateV1;
+    readonly paneProcesses: DoctorTmuxCleanupStateV1;
+    readonly socket: DoctorTmuxCleanupStateV1;
+    readonly workspace: DoctorTmuxCleanupStateV1;
+  };
+}
+export type DoctorCheckEvidenceV1 = DoctorTmuxProbeEvidenceV1;
+
+export interface DoctorPassedCheckV2 {
   readonly id: DoctorCheckId;
   readonly status: "passed";
   readonly blocking: true;
 }
-export interface DoctorFailedCheckV1 {
+export interface DoctorFailedCheckV2 {
   readonly id: DoctorCheckId;
   readonly status: "failed";
   readonly blocking: true;
   readonly message: string;
   readonly remediation: string;
+  readonly evidence?: DoctorCheckEvidenceV1;
 }
-export type DoctorCheckResultV1 = DoctorPassedCheckV1 | DoctorFailedCheckV1;
-export interface DoctorRepositoryFactsV1 {
+export type DoctorCheckResultV2 = DoctorPassedCheckV2 | DoctorFailedCheckV2;
+export interface DoctorRepositoryFactsV2 {
   readonly github: string | null;
   readonly defaultBranch: string | null;
 }
-export interface DoctorResultV1 {
-  readonly schemaVersion: 1;
+export interface DoctorResultV2 {
+  readonly schemaVersion: 2;
   readonly ready: boolean;
-  readonly repository: DoctorRepositoryFactsV1;
-  readonly checks: readonly DoctorCheckResultV1[];
+  readonly repository: DoctorRepositoryFactsV2;
+  readonly checks: readonly DoctorCheckResultV2[];
 }
 export interface RpivMetadataV1 {
   readonly name: "rpiv";
@@ -109,29 +181,35 @@ export interface RpivMetadataV1 {
   readonly resultContract: string | null;
 }
 
-export function passedCheck(id: DoctorCheckId): DoctorPassedCheckV1 {
+export function passedCheck(id: DoctorCheckId): DoctorPassedCheckV2 {
   return { id, status: "passed", blocking: true };
 }
 export function failedCheck(
   id: DoctorCheckId,
   message: string,
   remediation: string,
-): DoctorFailedCheckV1 {
+  evidence?: DoctorCheckEvidenceV1,
+): DoctorFailedCheckV2 {
   if (message.trim() === "" || remediation.trim() === "")
     throw new RunnerError(
       "DOCTOR_INVARIANT",
       "Doctor failures require message and remediation.",
       "Correct the Doctor check implementation.",
     );
-  return { id, status: "failed", blocking: true, message, remediation };
+  return evidence === undefined
+    ? { id, status: "failed", blocking: true, message, remediation }
+    : { id, status: "failed", blocking: true, message, remediation, evidence };
 }
 export function makeDoctorResult(
-  repository: DoctorRepositoryFactsV1,
-  checks: readonly DoctorCheckResultV1[],
-): DoctorResultV1 {
+  repository: DoctorRepositoryFactsV2,
+  checks: readonly DoctorCheckResultV2[],
+): DoctorResultV2 {
   const ordered =
     checks.length === DOCTOR_CHECK_IDS.length &&
-    checks.every((check, index) => check.id === DOCTOR_CHECK_IDS[index]);
+    checks.every(
+      (check, index) =>
+        check.id === DOCTOR_CHECK_IDS[index] && isDoctorCheckResult(check),
+    );
   if (!ordered)
     throw new RunnerError(
       "DOCTOR_INVARIANT",
@@ -139,11 +217,231 @@ export function makeDoctorResult(
       "Correct the Doctor check assembly before rendering output.",
     );
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ready: checks.every((check) => check.status === "passed"),
     repository,
     checks: [...checks],
   };
+}
+
+export function isDoctorResultV2(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["schemaVersion", "ready", "repository", "checks"])
+  )
+    return false;
+  if (
+    value.schemaVersion !== 2 ||
+    typeof value.ready !== "boolean" ||
+    !isRecord(value.repository)
+  )
+    return false;
+  if (!hasExactKeys(value.repository, ["github", "defaultBranch"]))
+    return false;
+  if (
+    !nullableString(value.repository.github) ||
+    !nullableString(value.repository.defaultBranch)
+  )
+    return false;
+  if (
+    !Array.isArray(value.checks) ||
+    value.checks.length !== DOCTOR_CHECK_IDS.length
+  )
+    return false;
+  if (
+    !value.checks.every(
+      (check, index) =>
+        isRecord(check) &&
+        check.id === DOCTOR_CHECK_IDS[index] &&
+        isDoctorCheckResult(check),
+    )
+  )
+    return false;
+  return (
+    value.ready ===
+    value.checks.every((check) => isRecord(check) && check.status === "passed")
+  );
+}
+
+function isDoctorCheckResult(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    value.blocking !== true ||
+    !includesDoctorId(value.id)
+  )
+    return false;
+  if (value.status === "passed")
+    return hasExactKeys(value, ["id", "status", "blocking"]);
+  if (value.status !== "failed") return false;
+  const keys = Object.keys(value);
+  const common =
+    (keys.length === 5 || keys.length === 6) &&
+    keys.every((key) =>
+      [
+        "id",
+        "status",
+        "blocking",
+        "message",
+        "remediation",
+        "evidence",
+      ].includes(key),
+    ) &&
+    typeof value.message === "string" &&
+    value.message.trim() !== "" &&
+    typeof value.remediation === "string" &&
+    value.remediation.trim() !== "";
+  return (
+    common &&
+    (!("evidence" in value) || isDoctorTmuxProbeEvidence(value.evidence))
+  );
+}
+
+function isDoctorTmuxProbeEvidence(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "schemaVersion",
+      "kind",
+      "operation",
+      "reason",
+      "exitCode",
+      "timedOut",
+      "stdoutByteCount",
+      "stderrByteCount",
+      "stdoutTruncated",
+      "stderrTruncated",
+      "identityDiagnostic",
+      "cleanup",
+    ])
+  )
+    return false;
+  if (
+    value.schemaVersion !== 1 ||
+    value.kind !== "tmux-functional-probe" ||
+    !includesOperation(value.operation) ||
+    !includesReason(value.reason) ||
+    !(value.exitCode === null || Number.isSafeInteger(value.exitCode)) ||
+    typeof value.timedOut !== "boolean" ||
+    !nonnegativeInteger(value.stdoutByteCount) ||
+    !nonnegativeInteger(value.stderrByteCount) ||
+    typeof value.stdoutTruncated !== "boolean" ||
+    typeof value.stderrTruncated !== "boolean" ||
+    !isValueFreeIdentityDiagnostic(value.identityDiagnostic) ||
+    !isRecord(value.cleanup) ||
+    !hasExactKeys(value.cleanup, [
+      "server",
+      "paneProcesses",
+      "socket",
+      "workspace",
+    ])
+  )
+    return false;
+  return [
+    value.cleanup.server,
+    value.cleanup.paneProcesses,
+    value.cleanup.socket,
+    value.cleanup.workspace,
+  ].every(
+    (state) =>
+      state === "not-created" ||
+      state === "absent" ||
+      state === "present" ||
+      state === "unknown",
+  );
+}
+
+function isValueFreeIdentityDiagnostic(value: unknown): boolean {
+  if (value === null) return true;
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "schemaVersion",
+      "phase",
+      "exitCode",
+      "stdoutByteCount",
+      "stderrByteCount",
+      "recordCount",
+      "recordsTruncated",
+      "records",
+      "signature",
+      "signatureTruncated",
+    ])
+  )
+    return false;
+  const tokens = [
+    "window_id",
+    "pane_id",
+    "horizontal_tab",
+    "carriage_return",
+    "line_feed",
+    "backslash",
+    "other",
+  ];
+  return (
+    value.schemaVersion === 1 &&
+    (value.phase === "create" || value.phase === "observe") &&
+    Number.isSafeInteger(value.exitCode) &&
+    nonnegativeInteger(value.stdoutByteCount) &&
+    nonnegativeInteger(value.stderrByteCount) &&
+    nonnegativeInteger(value.recordCount) &&
+    Number(value.recordCount) <= 8 &&
+    typeof value.recordsTruncated === "boolean" &&
+    Array.isArray(value.records) &&
+    value.records.length === Number(value.recordCount) &&
+    value.records.every(
+      (record) =>
+        isRecord(record) &&
+        hasExactKeys(record, ["fieldCount", "truncated"]) &&
+        Number.isSafeInteger(record.fieldCount) &&
+        Number(record.fieldCount) > 0 &&
+        Number(record.fieldCount) <= 8 &&
+        typeof record.truncated === "boolean",
+    ) &&
+    Array.isArray(value.signature) &&
+    value.signature.length <= 32 &&
+    value.signature.every(
+      (token) => typeof token === "string" && tokens.includes(token),
+    ) &&
+    typeof value.signatureTruncated === "boolean"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const keys = Object.keys(value);
+  return (
+    keys.length === expected.length &&
+    keys.every((key) => expected.includes(key))
+  );
+}
+function nullableString(value: unknown): boolean {
+  return value === null || typeof value === "string";
+}
+function nonnegativeInteger(value: unknown): boolean {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function includesDoctorId(value: unknown): boolean {
+  return (
+    typeof value === "string" && DOCTOR_CHECK_IDS.some((id) => id === value)
+  );
+}
+function includesOperation(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    DOCTOR_TMUX_OPERATIONS.some((operation) => operation === value)
+  );
+}
+function includesReason(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    DOCTOR_TMUX_REASONS.some((reason) => reason === value)
+  );
 }
 
 export function parseRpivMetadata(text: string): RpivMetadataV1 {

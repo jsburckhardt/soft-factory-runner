@@ -40,14 +40,22 @@ class WorktreeRunner implements DoctorCommandRunner {
   ) {}
   public async run(spec: DoctorCommandSpec): Promise<DoctorCommandResult> {
     this.calls.push(spec);
+    const stdout = this.paths
+      .map((entry) => "worktree " + entry + "\nHEAD abc\n")
+      .join("\n");
     return {
       exitCode: this.exitCode,
       signal: null,
-      stdout: this.paths
-        .map((entry) => "worktree " + entry + "\nHEAD abc\n")
-        .join("\n"),
+      stdout,
       stderr: "",
+      stdoutBuffer: Buffer.from(stdout),
+      stderrBuffer: Buffer.alloc(0),
+      stdoutByteCount: Buffer.byteLength(stdout),
+      stderrByteCount: 0,
+      stdoutTruncated: false,
+      stderrTruncated: false,
       timedOut: false,
+      cancelled: false,
       launchError: null,
     };
   }

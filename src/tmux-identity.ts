@@ -5,7 +5,6 @@ import type {
   TmuxIdentityTokenV1,
 } from "./domain";
 import { RunnerError } from "./errors";
-import type { CommandResult } from "./live";
 
 const RECORD_LIMIT = 8;
 const FIELD_LIMIT = 8;
@@ -14,6 +13,14 @@ const HORIZONTAL_TAB = 0x09;
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
 const BACKSLASH = 0x5c;
+
+export interface TmuxIdentityCommandResult {
+  readonly exitCode: number;
+  readonly stdoutBuffer: Buffer;
+  readonly stderrBuffer: Buffer;
+  readonly stdoutByteCount: number;
+  readonly stderrByteCount: number;
+}
 
 export interface ParsedTmuxIdentityOutput {
   readonly windowId: string;
@@ -44,7 +51,7 @@ export class TmuxIdentityOutputError extends RunnerError {
 
 export function parseTmuxIdentityResult(
   phase: TmuxIdentityPhase,
-  result: CommandResult,
+  result: TmuxIdentityCommandResult,
 ): ParsedTmuxIdentityOutput {
   const diagnostic = buildTmuxIdentityDiagnostic(phase, result);
   if (result.exitCode !== 0) {
@@ -87,7 +94,7 @@ export function parseTmuxIdentityResult(
 
 export function buildTmuxIdentityDiagnostic(
   phase: TmuxIdentityPhase,
-  result: CommandResult,
+  result: TmuxIdentityCommandResult,
 ): TmuxIdentityDiagnosticV1 {
   const logicalRecords = splitLogicalRecords(result.stdoutBuffer);
   const records = logicalRecords.slice(0, RECORD_LIMIT).map((record) => {

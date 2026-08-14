@@ -8,7 +8,7 @@ Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolate
 
 - [Phase 5 official delivery-agent installation and migration](phase-5-official-assets.md) — one-agent commands and Copilot destination, strict manifest v1, closed legacy migration, sibling preservation, cross-root rollback, Runner/Doctor authority, exact npm packaging, and local deployment.
 
-- [Phase 4 repository Doctor](phase-4-repository-doctor.md) — all 24 blocking repository-readiness checks, schema-v1 human/JSON semantics, configuration and metadata, safe probes, deterministic fixtures, timing, and troubleshooting.
+- [Phase 4 repository Doctor](phase-4-repository-doctor.md) — all 24 blocking repository-readiness checks, DoctorResultV2 human/JSON semantics, private functional tmux proof, value-free evidence, configuration and metadata, safe probes, deterministic fixtures, timing, schema migration, and troubleshooting.
 - [Issue run and completion proof](phase-1-issue-run.md) — readiness, configuration, fetched-base proof, ownership, visible RPIV launch, `AgentResultV1`, authoritative remote proof, and terminal-state semantics.
 - [Phase 3 recovery and concurrency operations](phase-3-recovery-operations.md) — complete CLI reference, JSON/exit behavior, concurrency configuration, reconciliation, resume, bounded stop, retained logs, guarded cleanup, RunSnapshotV5 migration, bounded tmux identity diagnostics, zero-candidate preparation retry, troubleshooting, and local deployment limitations.
 
@@ -31,6 +31,6 @@ just verify
 
 Autonomous development begins with `harness instructions` and [`.harness/engineering-harness.md`](../.harness/engineering-harness.md). The ambient harness v0.13.0 delegates to root recipes and is not a product dependency.
 
-Runner exposes no network API, service endpoint, daemon, or container deployment. API reference documentation is therefore not applicable. The tmux identity recovery change adds no configuration option or default and requires no configuration migration; it adds no API specification, network behavior, database/data migration, container, deployment, or runtime-service procedure. Automatic merged cleanup occurs only on a later reconciliation-capable CLI invocation.
+Runner exposes no network API, service endpoint, daemon, or container deployment. API reference documentation is therefore not applicable. The tmux identity recovery change adds no configuration option or default and requires no configuration migration; it adds no API specification, network behavior, database/data migration, container, deployment, or runtime-service procedure. The Doctor functional tmux probe likewise changes no configuration, run snapshot, issue-run tmux behavior, API, database, service, container, or deployment procedure; only schema-v1 Doctor automation consumers migrate to strict `DoctorResultV2`. Automatic merged cleanup occurs only on a later reconciliation-capable CLI invocation.
 
 For architecture and work-item evidence, see [`project/`](../project/).

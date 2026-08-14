@@ -233,7 +233,8 @@ Validation-only task; it edits no application documentation. It verifies the T-6
 
 ## Task T-8: Add bounded Doctor probe infrastructure and schema-v2 evidence
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/doctor.ts`, `src/doctor-adapters.ts`, `src/doctor-service.ts`, and `src/doctor-render.ts` now provide strict DoctorResultV2/value-free evidence, exact 4096-byte retained stream bounds with total counts, one aggregate cutoff controller, and deterministic human/JSON parity. Boundary/schema/cap/cancellation tests pass within the fresh root `just verify-focused` result (23 suites/438 tests).
 - **Complexity:** High
 - **Dependencies:** T-1 and T-7 completed baseline
 - **Acceptance Criteria:** AC-9, AC-10
@@ -266,7 +267,8 @@ No application documentation is edited in this task. T-11 owns the schema-v1 to 
 
 ## Task T-9: Implement the isolated foreground tmux readiness probe and unconditional cleanup
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/doctor-tmux.ts`, `src/doctor-tmux-live.ts`, and `src/doctor-tmux.test.ts` implement and prove the private mode-bounded workspace, exact foreground/private-socket protocol, strict original-byte identity checks, compound process ownership, fixed bounded cleanup/escalation, partial-setup ownership transfer, and final absence. Targeted probe plus built integration validation passed 38 tests; fresh root focused validation passed 23 suites/438 tests with no residual probe roots.
 - **Complexity:** High
 - **Dependencies:** T-8
 - **Acceptance Criteria:** AC-9, AC-10
@@ -305,7 +307,8 @@ No application documentation is edited in this task. T-11 documents the final fu
 
 ## Task T-10: Integrate strengthened command.tmux and migrate Doctor fixtures
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `command.tmux` now maps executable discovery plus complete functional/cleanup proof into the unchanged ordered 24-row report. Schema-v2 fixtures, renderers, controlled service probes, protocol-aware built READY, and nonfunctional/malformed built variants pass `src/doctor-integration.test.ts` (7 tests), all eight Doctor/official-asset suites (53 tests before the final matrix expansion), and fresh root focused validation (23 suites/438 tests).
 - **Complexity:** High
 - **Dependencies:** T-9
 - **Acceptance Criteria:** AC-9, AC-10
@@ -341,7 +344,8 @@ No application documentation is edited in this task. It produces final executabl
 
 ## Task T-11: Update Doctor application documentation and migration guidance
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `README.md`, `PRD.md`, `docs/README.md`, and `docs/phase-4-repository-doctor.md` now document the exact private foreground sequence, modes/isolation, strict formats, 4096-byte caps, 2000ms bounds, 6500/7000/7250/7750/8250/9000ms timeline, value-free DoctorResultV2 evidence, unconditional cleanup, schema-v1 consumer migration, and safe troubleshooting. `src/documentation.test.ts` V-15 passed 27 tests and asserts stale-guidance absence plus explicit no configuration/run-state/API/database/service/container/deployment impact.
 - **Complexity:** Medium
 - **Dependencies:** T-10
 - **Acceptance Criteria:** AC-9, AC-10
@@ -371,7 +375,8 @@ This is the sole AC-10 application-documentation task. README, PRD, docs index, 
 
 ## Task T-12: Run fresh authoritative focused and full repository validation
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** Fresh direct `just verify-focused` passed 23 suites/442 tests plus `git diff --check`; `harness checks --focused --json` returned `status: ok`, delegated exit 0, and the same 23/442 result. After fixing recorded lint/format friction, direct `just verify` passed lint, Prettier, strict type-check, 23 suites/442 tests, 88.90% statements/83.99% branches/95.42% functions/90.50% lines, build, and diff check. `harness checks --json` returned `status: ok` with delegated `just verify` exit 0 and matching coverage. Controlled resource inventory showed no residual Doctor probe roots; fixtures use temporary local adapters/executables without ambient tmux, Sparkta, credentials, Copilot, or network.
 - **Complexity:** Medium
 - **Dependencies:** T-8, T-9, T-10, T-11
 - **Acceptance Criteria:** AC-9, AC-10

@@ -365,8 +365,8 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
   });
 });
 
-describe("V-11 Phase 4 repository Doctor documentation", () => {
-  it("documents all ordered blocking checks and shared schema-v1 exits", () => {
+describe("V-15 Phase 4 repository Doctor documentation", () => {
+  it("documents all ordered blocking checks and shared schema-v2 exits", () => {
     const ids = [
       "repository.git-membership",
       "repository.primary-worktree",
@@ -464,6 +464,78 @@ describe("V-11 Phase 4 repository Doctor documentation", () => {
     expect(packageJson).not.toContain("engineering-harness");
     expect(docsIndex).toContain("Phase 4 repository Doctor");
     expect(operations).toContain("Repository readiness preflight");
+  });
+
+  it("documents private functional tmux proof, bounded cleanup, and value-free evidence", () => {
+    for (const phrase of [
+      "mode-0700",
+      "mode-0600",
+      "tmux -D -S <private-socket> -f <empty-config>",
+      "with no command",
+      "exact same private `-S <private-socket>` selector",
+      "#{window_id}<HT>#{pane_id}<LF>",
+      "#{window_id}<HT>#{pane_id}<HT>#{pane_current_path}<LF>",
+      "remain-on-exit",
+      "original bytes",
+      "4096",
+      "2000 ms",
+      "6500 ms",
+      "2500 ms",
+      "7000 ms",
+      "7250 ms",
+      "7750 ms",
+      "8250 ms",
+      "9000 ms",
+      "unconditional cleanup",
+      "DoctorResultV2",
+      "DoctorTmuxProbeEvidenceV1",
+      "value-free",
+      "ambient/default",
+    ])
+      expect(doctorGuide).toContain(phrase);
+    expect(doctorGuide).toContain("Do not inspect or mutate an ambient server");
+    expect(doctorGuide).toContain("never use name-wide/PID-only destruction");
+    expect(readme).toContain("function, not only executable presence");
+    expect(prd).toContain("Signaling by process name, unsafe PID alone");
+  });
+
+  it("documents strict schema-v2 migration, controlled validation, and no unrelated migration", () => {
+    for (const document of [readme, doctorGuide, prd]) {
+      expect(document).toContain("DoctorResultV2");
+      expect(document).toContain("schemaVersion: 2");
+    }
+    for (const command of [
+      "just verify-focused",
+      "harness checks --focused --json",
+      "just verify",
+      "harness checks --json",
+    ])
+      expect(doctorGuide).toContain(command);
+    for (const phrase of [
+      "no configuration option/default",
+      "run snapshot",
+      "issue-run tmux",
+      "network API",
+      "database/data migration",
+      "service",
+      "container",
+      "deployment procedure",
+    ])
+      expect(readme + doctorGuide + docsIndex).toContain(phrase);
+    expect(JSON.parse(read("fixtures/doctor/ready.json")).schemaVersion).toBe(
+      2,
+    );
+    expect(JSON.parse(read("fixtures/doctor/blocked.json")).schemaVersion).toBe(
+      2,
+    );
+    expect(
+      JSON.parse(read("fixtures/doctor/isolated-failures.json")).schemaVersion,
+    ).toBe(2);
+    expect(readme).not.toContain("schema-version-1 automation output");
+    expect(doctorGuide).not.toContain("DoctorResultV1");
+    expect(doctorGuide).not.toContain(
+      "`tmux` is an executable on PATH; install or correct PATH",
+    );
   });
 
   it("exposes Doctor in README and cumulative CLI help", () => {
