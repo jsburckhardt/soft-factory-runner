@@ -215,3 +215,54 @@ The correction Plan at `971eb223c0c44ffac125c09d8c5f340c88d90d47` required no ar
 - Four `rpiv-implementer` observations were persisted in `.harness/records/retro/2026-08-14/023-issue-29-rpiv-implementer.md`; read-back proved schema 1.2, matching plan/agent, all four IDs/fingerprints, and `disposition: kept`. The agent-scoped clear returned exit 0, `status: ok`, `cleared: 4`; the post-clear list was empty.
 - One post-evidence `rpiv-implementer` observation was persisted and read back in `.harness/records/retro/2026-08-14/024-issue-29-rpiv-implementer-evidence-eof.md`; schema 1.2, plan/agent, ID/fingerprint, and `disposition: kept` all matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`.
 - No command listed, drained, cleared, or rewrote `rpiv-verifier`. The user-reported verifier observations `DL-001`, `COORD-001`, `DL-002`, and `INS-001` remain owned by resumed Verify and were not used as Implement evidence.
+
+## PR CI portability return implementation
+
+This correction is committed on top of local verification-return metadata HEAD `e739aeab458fd34823c7703936d5c7b77840e5a5`; it does not amend or rewrite remote PR head `95330573569e5459c7ac9dd6eded22fbbc63f189` or prior product SHA `8ffd7eaf6910c1ee179553609e0721bd9d7fdddc`. Final acceptance and publication remain owned by Verify.
+
+### Root cause and bounded correction
+
+- The built protocol fake published `child.pid` immediately after `child_process.spawn` returned. A targeted run reproduced the CI symptom locally: the first built READY process exited 3, while an unchanged rerun of the retained fixture passed. Canonicalizing the expected executable alone did not remove that failure, disproving the lexical-path hypothesis as the sole cause. The portable failure was a fixture launch-readiness race: slower CI scheduling allowed Doctor to inspect a helper before the fake had awaited its `spawn` milestone, and Doctor correctly refused the transitional compound identity.
+- The fake now launches the exact executable in Doctor's tmux command rather than substituting its own ambient `process.execPath`, awaits the child `spawn` event, and keeps its private protocol connection allow-half-open until the response is written. Its test trace records only value-free booleans proving exact/physical executable, one exact helper argument, workspace cwd, and foreground-server parent relationship before PID publication.
+- The live boundary now resolves `process.execPath` once with native realpath semantics. The same physical path is passed to `new-session` and `new-window` and compared exactly with kernel-resolved `/proc/<pid>/exe`. This closes the latent lexical-versus-physical alias gap without basename matching or path broadening.
+- No ownership proof was weakened: PID, process group, start token, exact physical executable, exact sole helper argument, physical cwd, launch interval, and foreground-server lineage remain required. `sameIdentity` and exact pre-signal rechecks are unchanged; unknown identity remains refusal. Private `-S`, exact session/window observation target, byte caps, deadlines, cleanup milestones, 24 checks, DoctorResultV2, and value-free evidence are unchanged.
+
+### AC evidence
+
+#### AC-1 through AC-8
+
+- No product, test, persistence, documentation, or validation-contract behavior for AC-1 through AC-8 changed. Their independently verified baseline evidence remains in the preceding sections and prior commits.
+
+#### AC-9
+
+- **Product/test isolation:** All new coverage uses injected identities, two temporary executable symlinks, and the existing private protocol-aware built fixture. It invokes no ambient/default tmux, Sparkta path, credential, live GitHub/Copilot process, or network endpoint.
+- **Regression:** `src/doctor-tmux.test.ts` resolves two lexical aliases to the same physical Node executable and accepts that exact identity, then resolves `/bin/sh` as a genuinely different executable and proves refusal with `process-identity-unknown`.
+- **Built portability:** `src/doctor-integration.test.ts` awaits helper spawn settlement and proves exact value-free executable/argument/cwd/parent facts for all six helpers across the three READY human/JSON built runs. The ready case also passed three consecutive targeted stress reruns.
+- **Command evidence:** Targeted validation passed 2 suites/41 tests. Direct and harness focused/full gates passed 23 suites/445 tests.
+
+#### AC-10
+
+- **Product:** Doctor launches the private helpers with one canonical physical Node executable and accepts only the identical kernel-resolved executable plus all pre-existing compound identity and lineage facts. A different executable is still refused before protocol continuation.
+- **Built outcomes:** READY reaches the complete protocol and exits 0; nonfunctional reaches `socket-unavailable`; malformed create and observe reach `malformed-output`, rather than collapsing to `process-identity-unknown`. Existing cleanup assertions continue to require absent/not-created server/helpers/socket and absent workspace.
+- **Confidentiality:** New traces contain only closed boolean readiness facts; no executable, path, PID, argument, cwd, process token, or raw command value is rendered or persisted in Doctor evidence.
+- **Command evidence:** Direct full validation and the full harness delegate passed lint, format, strict TypeScript, 23 suites/445 tests, build, diff check, and coverage above 80% in every category.
+
+### Documentation evidence and no-impact rationale
+
+No application documentation changed. The correction implements the already documented and architected physical executable identity and settled helper readiness behavior; public Doctor output, command sequence, 24-check schema, evidence schema, setup, configuration, usage, troubleshooting, migration, API, data/database, service, container, deployment, and normal issue-run behavior do not change. ADR-260812, CORE-COMPONENT-260812, and decisions 135-143 remain unchanged and authoritative.
+
+### Validation evidence
+
+- Targeted `npx jest --runInBand src/doctor-tmux.test.ts src/doctor-integration.test.ts`: exit 0; 2 suites/41 tests.
+- Built READY stress regression: three consecutive targeted runs exited 0; each passed 1 suite/1 selected test.
+- Direct `just verify-focused`: exit 0; 23 suites/445 tests; `git diff --check` passed.
+- `harness checks --focused --json`: process exit 0; envelope `status: ok`, `scope: focused`, delegated `just verify-focused`, delegated exit code 0; 23 suites/445 tests.
+- Direct `just verify`: exit 0; lint, Prettier, strict TypeScript, 23 suites/445 tests, build, and diff check passed. Coverage: 88.90% statements, 83.99% branches, 95.42% functions, 90.50% lines.
+- `harness checks --json`: process exit 0; envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit code 0; matching 23 suites/445 tests and coverage.
+- Isolation/resource proof: final `soft-factory-doctor-*`, `doctor-ready-process-*`, and `doctor-executable-identity-*` workspace inventory was empty; matching process inventory was empty. Nine helpers retained only by failed debugging runs were removed after fixed-PID compound executable/argv/cwd/start-token rechecks, and the empty inventory was read again. No ambient tmux, Sparkta, credential, network, or live Copilot operation was invoked.
+
+### Friction drain
+
+- `rpiv`, `rpiv-research`, and `rpiv-planner` had zero pending entries. `rpiv-implementer` had five entries (`DL-001`, `INS-001`, `DL-002`, `INS-002`, `DL-003`).
+- All five Implement entries were persisted in `.harness/records/retro/2026-08-14/028-issue-29-rpiv-implementer.md`; read-back proved schema 1.2, matching plan/agent, every ID/fingerprint, and `disposition: kept`. Agent-scoped clear envelopes all returned exit 0 and `status: ok`; Implement cleared 5 and the other allowed buffers cleared 0. Post-clear lists for all four allowed agents were empty.
+- No command listed, drained, cleared, or rewrote `rpiv-verifier`. Existing verifier retro records and verification summaries remain untouched; the user-reported final verifier harvest remains 14 records/61 entries with pending zero.

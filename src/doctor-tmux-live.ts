@@ -1,7 +1,7 @@
 /* istanbul ignore file -- live Doctor tmux lifecycle is exercised through protocol-aware controlled executables */
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { watch, type FSWatcher } from "node:fs";
+import { realpathSync, watch, type FSWatcher } from "node:fs";
 import * as fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -400,6 +400,10 @@ class LiveManagedHandle implements DoctorManagedProcessHandle {
   }
 }
 
+export function resolveDoctorHelperExecutable(executable: string): string {
+  return realpathSync.native(executable);
+}
+
 export function createLiveDoctorTmuxProbe(
   commands: DoctorCommandRunner = new LiveDoctorCommandRunner(),
   clock: DoctorClock = { now: () => Date.now() },
@@ -412,6 +416,7 @@ export function createLiveDoctorTmuxProbe(
     processes,
     sockets: new LiveDoctorSocketWaiter(),
     clock,
+    helperExecutable: resolveDoctorHelperExecutable(process.execPath),
   });
 }
 

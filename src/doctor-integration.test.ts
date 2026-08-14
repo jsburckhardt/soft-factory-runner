@@ -136,10 +136,22 @@ if(args[0]==="-D"){
   const children={dashboard:null,issue:null};let dashboardName="";
   append({server:true,privateSocket:args[1]==="-S",privateConfig:args[3]==="-f",workspaceMode:fs.statSync(process.cwd()).mode&511,configMode:fs.statSync(configPath).mode&511,helperMode:fs.statSync(require("node:path").join(process.cwd(),"helper.js")).mode&511});
   const stopChildren=()=>{for(const child of Object.values(children))if(child!==null){try{child.kill("SIGTERM");}catch{}}};
-  const server=net.createServer((connection)=>{
+  const spawnHelper=(executable,helper,cwd)=>new Promise((resolve)=>{
+    const child=cp.spawn(executable,[helper],{cwd,stdio:"ignore"});
+    child.once("spawn",()=>{
+      const pid=child.pid;
+      const argv=fs.readFileSync("/proc/"+pid+"/cmdline").toString("utf8").split("\0").filter(Boolean);
+      const stat=fs.readFileSync("/proc/"+pid+"/stat","utf8");
+      const fields=stat.slice(stat.lastIndexOf(")")+1).trim().split(/\s+/);
+      append({server:false,privateSocket:true,command:"helper-spawn",executableExact:fs.readlinkSync("/proc/"+pid+"/exe")===executable,executablePhysical:fs.readlinkSync("/proc/"+pid+"/exe")===fs.realpathSync(executable),argsExact:argv.length===2&&argv[1]===helper,cwdExact:fs.readlinkSync("/proc/"+pid+"/cwd")===cwd,parentExact:Number(fields[1])===process.pid});
+      resolve(child);
+    });
+    child.once("error",()=>resolve(null));
+  });
+  const server=net.createServer({allowHalfOpen:true},(connection)=>{
     let input="";
     connection.on("data",(chunk)=>{input+=chunk.toString("utf8");});
-    connection.on("end",()=>{
+    connection.on("end",async()=>{
       const request=JSON.parse(input);
       const command=request.args[0];
       const a=request.args;
@@ -147,7 +159,8 @@ if(args[0]==="-D"){
       let stop=false;
       if(command==="new-session"){
         const cwd=valueAfter(a,"-c");const helper=a.at(-1);dashboardName=valueAfter(a,"-n")||"";
-        children.dashboard=cp.spawn(process.execPath,[helper],{cwd,stdio:"ignore"});
+        const executable=a.at(-2);children.dashboard=await spawnHelper(executable,helper,cwd);
+        if(children.dashboard===null)response.exitCode=1;
       }else if(command==="has-session"){
         if(children.dashboard===null)response.exitCode=1;
       }else if(command==="list-windows"){
@@ -158,7 +171,8 @@ if(args[0]==="-D"){
         if(child===null||child.pid===undefined)response.exitCode=1;else response.stdout=String(child.pid)+"\n";
       }else if(command==="new-window"){
         const cwd=valueAfter(a,"-c");const helper=a.at(-1);
-        children.issue=cp.spawn(process.execPath,[helper],{cwd,stdio:"ignore"});
+        const executable=a.at(-2);children.issue=await spawnHelper(executable,helper,cwd);
+        if(children.issue===null)response.exitCode=1;
         response.stdout=mode==="malformed-create"?"@1\t%1\textra\n":"@1\t%1\n";
       }else if(command==="set-window-option"){
         if(children.issue===null)response.exitCode=1;
@@ -519,6 +533,20 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
       .split("\n")
       .map((line) => JSON.parse(line) as Record<string, unknown>);
     expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
+    const helperSpawns = trace.filter(
+      (entry) => entry.command === "helper-spawn",
+    );
+    expect(helperSpawns).toHaveLength(6);
+    expect(
+      helperSpawns.every(
+        (entry) =>
+          entry.executableExact === true &&
+          entry.executablePhysical === true &&
+          entry.argsExact === true &&
+          entry.cwdExact === true &&
+          entry.parentExact === true,
+      ),
+    ).toBe(true);
     expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
     expect(
       trace

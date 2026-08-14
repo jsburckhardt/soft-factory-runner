@@ -19,7 +19,10 @@ import {
   type DoctorProcessObservationPort,
   type DoctorSocketWaiterPort,
 } from "./doctor-tmux";
-import { LiveDoctorProbeWorkspacePort } from "./doctor-tmux-live";
+import {
+  LiveDoctorProbeWorkspacePort,
+  resolveDoctorHelperExecutable,
+} from "./doctor-tmux-live";
 
 const SECRET = "SENSITIVE_DOCTOR_PROBE_VALUE";
 const workspace: DoctorProbeWorkspace = {
@@ -218,6 +221,7 @@ class ProtocolRunner implements DoctorCommandRunner {
   public cwdMismatch = false;
   public leaveHelpersOnStop = false;
   public cutoffAt: Fault | null = null;
+  public helperExecutable = process.execPath;
 
   public constructor(
     private readonly processes: FakeProcesses,
@@ -245,13 +249,19 @@ class ProtocolRunner implements DoctorCommandRunner {
       return result({ exitCode: 1 });
     }
     if (operation === "session-create")
-      this.processes.alive.set(101, identity(101));
+      this.processes.alive.set(101, {
+        ...identity(101),
+        executable: this.helperExecutable,
+      });
     if (operation === "dashboard-pane-identify")
       return result({ stdout: Buffer.from("101\n") });
     if (operation === "window-list")
       return result({ stdout: Buffer.from(workspace.dashboardName + "\n") });
     if (operation === "window-create") {
-      this.processes.alive.set(102, identity(102));
+      this.processes.alive.set(102, {
+        ...identity(102),
+        executable: this.helperExecutable,
+      });
       return result({ stdout: Buffer.from("@1\t%1\n") });
     }
     if (operation === "issue-pane-identify")
@@ -285,7 +295,10 @@ class MutableClock implements DoctorClock {
   }
 }
 
-function fixture(serverStreams: DoctorCommandResult = result()): {
+function fixture(
+  serverStreams: DoctorCommandResult = result(),
+  helperExecutable: string = process.execPath,
+): {
   probe: DoctorTmuxProbe;
   runner: ProtocolRunner;
   workspaces: FakeWorkspace;
@@ -308,6 +321,7 @@ function fixture(serverStreams: DoctorCommandResult = result()): {
       processes,
       sockets,
       clock,
+      helperExecutable,
     }),
     runner,
     workspaces,
@@ -354,6 +368,52 @@ describe("V-11/V-12 isolated Doctor tmux probe", () => {
     expect(await fs.readFile(created.configPath)).toHaveLength(0);
     await port.remove(created);
     expect(await port.workspaceExists(created)).toBe(false);
+  });
+
+  it("canonicalizes equivalent executable aliases and refuses a distinct executable", async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "doctor-executable-identity-"),
+    );
+    const firstAlias = path.join(root, "node-first");
+    const secondAlias = path.join(root, "node-second");
+    await Promise.all([
+      fs.symlink(process.execPath, firstAlias),
+      fs.symlink(process.execPath, secondAlias),
+    ]);
+    try {
+      const expected = resolveDoctorHelperExecutable(firstAlias);
+      const equivalent = resolveDoctorHelperExecutable(secondAlias);
+      const distinct = resolveDoctorHelperExecutable("/bin/sh");
+      expect(equivalent).toBe(expected);
+      expect(distinct).not.toBe(expected);
+
+      const accepted = fixture(result(), expected);
+      accepted.runner.helperExecutable = equivalent;
+      expect(await run(accepted.probe)).toEqual({
+        ok: true,
+        value: true,
+        message: null,
+        remediation: null,
+      });
+      expect(
+        accepted.runner.calls
+          .filter((call) =>
+            ["session-create", "window-create"].includes(
+              operationFor(call.args),
+            ),
+          )
+          .every((call) => call.args.at(-2) === expected),
+      ).toBe(true);
+
+      const refused = fixture(result(), expected);
+      refused.runner.helperExecutable = distinct;
+      expect((await run(refused.probe)).evidence).toMatchObject({
+        operation: "dashboard-pane-identify",
+        reason: "process-identity-unknown",
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 
   it("runs the exact private foreground protocol once and proves complete cleanup", async () => {

@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   DOCTOR_AGGREGATE_TIMEOUT_MS,
   DOCTOR_EXTERNAL_TIMEOUT_MS,
@@ -191,6 +190,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
       readonly processes: DoctorProcessObservationPort;
       readonly sockets: DoctorSocketWaiterPort;
       readonly clock: DoctorClock;
+      readonly helperExecutable: string;
     },
   ) {}
 
@@ -271,7 +271,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           workspace.dashboardName,
           "-c",
           workspace.root,
-          process.execPath,
+          this.dependencies.helperExecutable,
           workspace.helperPath,
         ]);
         failure = classifyCommand(activeOperation, result);
@@ -327,7 +327,11 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           );
           if (
             identity === null ||
-            !isExpectedHelper(identity, workspace) ||
+            !isExpectedHelper(
+              identity,
+              workspace,
+              this.dependencies.helperExecutable,
+            ) ||
             server === null ||
             !(await this.dependencies.processes.isDescendant(
               identity,
@@ -357,7 +361,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           workspace.issueWindowName,
           "-c",
           workspace.root,
-          process.execPath,
+          this.dependencies.helperExecutable,
           workspace.helperPath,
         ]);
         failure = classifyCommand(activeOperation, result);
@@ -414,7 +418,11 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           );
           if (
             identity === null ||
-            !isExpectedHelper(identity, workspace) ||
+            !isExpectedHelper(
+              identity,
+              workspace,
+              this.dependencies.helperExecutable,
+            ) ||
             server === null ||
             !(await this.dependencies.processes.isDescendant(
               identity,
@@ -875,10 +883,11 @@ function positivePid(buffer: Buffer): number | null {
 function isExpectedHelper(
   identity: DoctorProcessIdentity,
   workspace: DoctorProbeWorkspace,
+  expectedExecutable: string,
 ): boolean {
   return (
     identity.cwd === workspace.root &&
-    path.resolve(identity.executable) === path.resolve(process.execPath) &&
+    identity.executable === expectedExecutable &&
     identity.args.length === 1 &&
     identity.args[0] === workspace.helperPath
   );
