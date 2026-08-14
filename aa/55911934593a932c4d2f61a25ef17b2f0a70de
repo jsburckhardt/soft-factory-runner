@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-14/013-issue-27-rpiv-verifier-publication-blocker.md
+  s_b532a83b96f257::t_77d9fa5dd20f0a 2-13,15-23,25-28,31,33
+  s_b532a83b96f257::t_a7505f6ece8c42 1,14,24,29-30,32
+project/work-items/27-ship-only-the-soft-factory-delivery-agent-at-the-copilot-project-agent-path/verify/summary.md
+  s_b532a83b96f257::t_36218121605805 5,76,78,87-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "aa55911934593a932c4d2f61a25ef17b2f0a70de",
+  "prompts": {},
+  "sessions": {
+    "s_b532a83b96f257": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_4804Jjj9DPGik2mrOpeVrE5c",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
