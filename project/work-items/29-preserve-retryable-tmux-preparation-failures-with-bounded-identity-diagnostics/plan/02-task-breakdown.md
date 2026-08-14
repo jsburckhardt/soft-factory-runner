@@ -408,7 +408,8 @@ Validation-only task; it edits no application documentation. It verifies T-11 an
 
 ## Task T-13: Correct Doctor pane observation targeting and exact command proof
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `src/doctor-tmux.ts` now targets `${workspace.sessionName}:${workspace.issueWindowName}` only for pane observation while retaining `creation.paneId` for issue-pane PID lookup; `src/doctor-tmux.test.ts` asserts both complete command specifications, one observation, private socket/environment, 2000 ms bound, and cleanup. Targeted validation passed 1 suite/33 tests and direct root `just verify-focused` passed 23 suites/442 tests with `git diff --check`.
 - **Complexity:** Medium
 - **Dependencies:** T-12 and independent Verify return
 - **Acceptance Criteria:** AC-9, AC-10
@@ -441,7 +442,8 @@ No application documentation changes belong to this task. The accepted ADR/core-
 
 ## Task T-14: Correct Phase 1 and PRD snapshot documentation with scoped regressions
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** `docs/phase-1-issue-run.md` contains the exact v1-v3/v4 normalization sentence, and PRD Section 33 now contains a complete top-level `RunSnapshotV5` example. `src/documentation.test.ts` extracts only the required sections, proves the `{asset:1, doctor:2, snapshot:5, result:1}` tuple, exact V5/integration key sets and bindings, and production `parseSnapshot` acceptance. Targeted documentation validation passed 1 suite/29 tests and direct root `just verify-focused` passed 23 suites/444 tests with `git diff --check`.
 - **Complexity:** Medium
 - **Dependencies:** T-12
 - **Acceptance Criteria:** AC-4, AC-9
@@ -478,7 +480,8 @@ Edit only `docs/phase-1-issue-run.md` and PRD Section 33. No README, Doctor guid
 
 ## Task T-15: Refresh correction evidence and validation boundaries
 
-- **Status:** Planned
+- **Status:** Completed
+- **Completion Evidence:** V-21 targeted validation passed 3 suites/89 tests; final direct `just verify-focused` passed 23 suites/444 tests; focused harness checks returned `status: ok`, scope `focused`, delegated exit 0; corrected direct `just verify` passed lint, format, strict types, 23 suites/444 tests, 88.90% statements/83.99% branches/95.42% functions/90.50% lines, build, and diff check; full harness checks returned `status: ok`, scope `full`, delegated exit 0. Resource inventory was empty, isolation scans found no forbidden dependency, and Plan/Implement friction was read back from records 022/023/024 before agent-scoped clears of 5 and 4+1 observations.
 - **Complexity:** Medium
 - **Dependencies:** T-13, T-14
 - **Acceptance Criteria:** AC-4, AC-9, AC-10

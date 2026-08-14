@@ -130,7 +130,7 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV5` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
-Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence; Supported v1-v3 inputs normalize through v4 and supported v4 inputs normalize through an explicit revisioned v5 transition; all supported inputs to sole `just verify` and never consult later configuration; malformed persistence fails safe.
+Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence. Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.
 
 The explicit terminal states are:
 

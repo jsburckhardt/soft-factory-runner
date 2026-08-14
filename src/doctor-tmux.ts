@@ -435,7 +435,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
         const result = await this.client(input, workspace, [
           "list-panes",
           "-t",
-          creation.paneId,
+          `${workspace.sessionName}:${workspace.issueWindowName}`,
           "-F",
           "#{window_id}\t#{pane_id}\t#{pane_current_path}",
         ]);

@@ -1133,33 +1133,97 @@ Runtime state became unavailable or ambiguous before successful completion.
 
 # 33. Run Snapshot
 
+New runs write `RunSnapshotV5`. Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.
+
 Example:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 5,
   "runId": "jsburckhardt-example-123-20260810T090000+1000",
+  "ownerId": "runner-owner-123",
   "repository": "jsburckhardt/example",
   "issueNumber": 123,
   "state": "running_rpiv",
-  "attempt": 1,
-  "baseBranch": "main",
+  "branchType": "feat",
   "branch": "feat/123-add-run-command",
   "worktreePath": ".trees/123",
+  "fetchedBaseProof": {
+    "schemaVersion": 1,
+    "remote": "origin",
+    "defaultBranch": "main",
+    "advertisedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+    "trackingRefSha": "0123456789abcdef0123456789abcdef01234567",
+    "fetchedAt": "2026-08-10T09:00:00+10:00",
+    "matches": true
+  },
   "tmux": {
     "sessionName": "sf-jsburckhardt-example",
     "windowName": "123",
     "windowId": "@7",
-    "paneId": "%12"
+    "paneId": "%12",
+    "cwd": ".trees/123"
   },
   "copilot": {
-    "agent": "rpiv",
-    "prompt": "Deliver issue #123",
-    "permissionMode": "yolo",
+    "executable": "copilot",
+    "args": [
+      "--agent=rpiv",
+      "--allow-all-tools"
+    ],
+    "cwd": ".trees/123",
+    "resourceAttributes": "service.name=soft-factory-runner",
     "exitCode": null
   },
-  "result": null,
-  "error": null
+  "error": null,
+  "updatedAt": "2026-08-10T09:00:05+10:00",
+  "revision": 4,
+  "attempt": 1,
+  "admission": null,
+  "launchIntent": null,
+  "workerProcess": null,
+  "rpivProcess": null,
+  "stop": null,
+  "cleanup": null,
+  "logs": [],
+  "mergedPullRequest": null,
+  "requiredAcceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "text": "The run command starts one owned issue run."
+    }
+  ],
+  "finalization": null,
+  "requiredFinalValidation": {
+    "command": "just verify"
+  },
+  "integrationLaunch": {
+    "schemaVersion": 1,
+    "runId": "jsburckhardt-example-123-20260810T090000+1000",
+    "attempt": 1,
+    "issueNumber": 123,
+    "branch": "feat/123-add-run-command",
+    "startedAt": "2026-08-10T09:00:05+10:00",
+    "progressPath": ".trees/123/.soft-factory/rpiv-status.json",
+    "resultPath": ".trees/123/.soft-factory/agent-result.json",
+    "requiredFinalValidation": {
+      "command": "just verify"
+    },
+    "publishProgressCommand": "soft-factory internal publish-progress --issue 123 --phase <phase> --status <status>",
+    "publishResultCommand": "soft-factory internal publish-result --issue 123 --candidate .soft-factory/agent-result.candidate.json",
+    "validateResultCommand": "soft-factory internal validate-result --issue 123"
+  },
+  "progress": {
+    "schemaVersion": 1,
+    "runId": "jsburckhardt-example-123-20260810T090000+1000",
+    "attempt": 1,
+    "issueNumber": 123,
+    "branch": "feat/123-add-run-command",
+    "sequence": 3,
+    "phase": "implement",
+    "status": "running",
+    "updatedAt": "2026-08-10T09:00:05+10:00"
+  },
+  "tmuxIdentityDiagnostic": null
 }
 ```
 

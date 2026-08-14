@@ -157,3 +157,61 @@ AC-1 through AC-9 were implemented and committed before the Doctor requirement i
 ## Divergence and blockers
 
 No architecture or Plan divergence was required. AC-10 conforms to the revised Doctor ADR/core-component and decisions 135–143 while leaving the tmux identity architecture unchanged. All implementation/validation friction was corrected within the accepted contract; no blocker remains for Verify handoff.
+
+## Verification-return target and persistence-documentation correction (T-13 through T-15)
+
+The correction Plan at `971eb223c0c44ffac125c09d8c5f340c88d90d47` required no architecture change. ADR-260812 decisions 135–143 remain authoritative; no ADR, core-component, or decision-log file changed. This section records only the post-`c58151adb48cfe8d1213f1004d627d5861cb5e05` correction. It does not rewrite the AC-1 through AC-9 baseline or claim independent AC-10 acceptance.
+
+### Completed correction tasks
+
+- **T-13 / V-18:** `src/doctor-tmux.ts` now issues pane observation as private-socket `list-panes -t ${workspace.sessionName}:${workspace.issueWindowName} -F #{window_id}<HT>#{pane_id}<HT>#{pane_current_path}`. The issue-pane PID `display-message` remains targeted by parsed `creation.paneId`. `src/doctor-tmux.test.ts` selects each operation separately and compares its complete executable, argument vector, cwd, exact private environment, `shell: false`, and 2000ms timeout. Existing protocol, one-pass, failure, cutoff, confidentiality, and awaited-cleanup matrices remain passing.
+- **T-14 / V-19:** `docs/phase-1-issue-run.md` now contains the exact planned v1-v3 and v4 normalization sentence. The regression slices only `## Persistence and status` through `## Troubleshooting`, requires the complete sentence, and rejects the stale malformed phrase in that slice.
+- **T-14 / V-20:** PRD Section 33 now states that new runs write `RunSnapshotV5` and v1-v4 are compatibility inputs migrated only through supported explicit transitions. Its first JSON object has the exact 30 required top-level V5 keys and a complete bound `IntegrationLaunchV1`. The production `parseSnapshot` accepts and returns the example unchanged. Section-scoped evidence proves top-level schemas `{asset: 1, doctor: 2, snapshot: 5, result: 1}` while permitting nested schema-v1 integration/proof objects.
+- **T-15 / V-21:** all targeted, root, harness, isolation, resource, diff, and evidence boundaries below completed. Final acceptance remains owned by Verify.
+
+### Corrected acceptance evidence
+
+#### AC-4
+- **Product/documentation:** the persisted product contract remains unchanged; PRD Section 33 now accurately represents all `RunSnapshotV5` fields, including nullable `tmuxIdentityDiagnostic`, revision/recovery facts, final-validation binding, integration launch, and progress.
+- **Test:** `src/documentation.test.ts` compares the exact top-level key set, validates nested launch identity/path/command bindings, and invokes production `parseSnapshot(JSON.stringify(example), 123)` with exact equality.
+- **Command evidence:** targeted documentation validation passed 1 suite/29 tests; V-21 passed the persistence-aware documentation regression within 3 suites/89 tests; final focused/full gates passed 23 suites/444 tests.
+
+#### AC-9
+- **Product/test isolation:** the correction uses only the existing controlled Doctor adapter and repository-local documentation parser. No live tmux, ambient/default tmux selector, Sparkta/consumer path, credential, GitHub/Copilot process, or network endpoint was accessed. A changed-test sentinel scan found no forbidden external dependency; the post-test `/tmp` inventory contained no `soft-factory-doctor-*`, `doctor-actual-check-*`, or `doctor-built-*` root.
+- **Documentation:** the Phase 1 and PRD assertions are bounded by exact section headings. No global schema replacement or broad negative schema assertion is used.
+- **Command evidence:** direct targeted, focused, and full root recipes exited 0 after the recorded formatting correction; both harness envelopes returned `status: ok` with the expected scope/delegated recipe and delegated exit code 0.
+
+#### AC-10
+- **Product:** Doctor pane observation now matches `LiveTmuxPort.observe` exactly by targeting the owned session/window, while the Runner-equivalent pane PID lookup still targets `%1` through the parsed pane ID. Private `-S`, strict original-byte parsing/equality/cwd proof, one observation, operation order, bounds, value-free evidence, unconditional cleanup, and final absence behavior did not change.
+- **Test:** V-18 compares the one pane-observe call with `-t session-<controlled>:issue-<controlled>` and separately compares the issue-pane-identify call with `-t %1`; it rejects `%1` in pane-observe. The complete 33-test Doctor protocol/failure/cutoff/cleanup suite and broader Doctor integration regressions pass.
+- **Documentation:** existing Doctor guidance already described the accepted Runner-equivalent session/window target, so T-13 required no Doctor documentation change. The only application-document changes are the T-14 Phase 1 and PRD snapshot corrections.
+- **Command evidence:** targeted Doctor validation passed 1 suite/33 tests; combined V-21 passed 3 suites/89 tests; final focused/full validation passed all 23 suites/444 tests.
+
+### Documentation evidence and no-impact rationale
+
+- Changed application documentation: `docs/phase-1-issue-run.md` (exact normalization semantics) and PRD Section 33 (parser-valid V5 example and compatibility statement).
+- Regression coverage: `src/documentation.test.ts` section extraction, exact wording, exact top-level/nested keys, schema-family tuple, and production parser equality.
+- No README, Doctor guide, recovery guide, API reference/specification, configuration instruction/default, deployment/runbook, or architecture document needed correction.
+- No API, configuration, public command grammar, data/database migration, service, container, deployment, normal issue-run runtime, or operational-procedure behavior changed. No migration note beyond the corrected existing snapshot compatibility wording is applicable.
+
+### Correction validation results
+
+- T-13 targeted `just verify-focused src/doctor-tmux.test.ts`: exit 0; 1 suite/33 tests; diff check passed.
+- T-13 root `just verify-focused`: exit 0; 23 suites/442 tests; diff check passed.
+- T-14 targeted `just verify-focused src/documentation.test.ts`: exit 0; 1 suite/29 tests; production V5 parser assertion passed; diff check passed.
+- T-14 root `just verify-focused`: exit 0; 23 suites/444 tests; diff check passed.
+- V-21 targeted `just verify-focused src/doctor-tmux.test.ts src/tmux-identity.test.ts src/documentation.test.ts`: exit 0; 3 suites/89 tests; diff check passed.
+- Final direct `just verify-focused`: exit 0; 23 suites/444 tests; diff check passed.
+- `harness checks --focused --json`: process exit 0; envelope `status: ok`, `scope: focused`, delegated `just verify-focused`, delegated exit code 0; 23 suites/444 tests.
+- First direct `just verify`: exit 1 at Prettier for `src/documentation.test.ts`; no tests ran. The file was formatter-normalized and the gate was rerun.
+- Corrected direct `just verify`: exit 0; lint, Prettier, strict TypeScript, 23 suites/444 tests, build, and diff check passed. Global coverage was 88.90% statements, 83.99% branches, 95.42% functions, and 90.50% lines.
+- `harness checks --json`: process exit 0; envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit code 0 with matching 23 suites/444 tests and coverage.
+- Final resource inventory: no controlled Doctor workspace/socket roots remained. `git diff --check` passed.
+
+### Correction friction drain and verifier ownership
+
+- `rpiv` and `rpiv-research` list envelopes returned exit 0, `status: ok`, and no pending observations; no records or clears were needed.
+- Five `rpiv-planner` observations were persisted in `.harness/records/retro/2026-08-14/022-issue-29-rpiv-planner.md`; read-back proved schema 1.2, matching plan/agent, all five IDs/fingerprints, and `disposition: kept`. The agent-scoped clear returned exit 0, `status: ok`, `cleared: 5`; the post-clear list was empty.
+- Four `rpiv-implementer` observations were persisted in `.harness/records/retro/2026-08-14/023-issue-29-rpiv-implementer.md`; read-back proved schema 1.2, matching plan/agent, all four IDs/fingerprints, and `disposition: kept`. The agent-scoped clear returned exit 0, `status: ok`, `cleared: 4`; the post-clear list was empty.
+- One post-evidence `rpiv-implementer` observation was persisted and read back in `.harness/records/retro/2026-08-14/024-issue-29-rpiv-implementer-evidence-eof.md`; schema 1.2, plan/agent, ID/fingerprint, and `disposition: kept` all matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`.
+- No command listed, drained, cleared, or rewrote `rpiv-verifier`. The user-reported verifier observations `DL-001`, `COORD-001`, `DL-002`, and `INS-001` remain owned by resumed Verify and were not used as Implement evidence.

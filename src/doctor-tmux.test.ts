@@ -394,6 +394,59 @@ describe("V-11/V-12 isolated Doctor tmux probe", () => {
           call.args[0] === "-S" && call.args[1] === workspace.socketPath,
       ),
     ).toBe(true);
+    const issuePaneIdentifyCalls = f.runner.calls.filter(
+      (call) => operationFor(call.args) === "issue-pane-identify",
+    );
+    expect(issuePaneIdentifyCalls).toEqual([
+      {
+        executable: "/tools/tmux",
+        args: [
+          "-S",
+          workspace.socketPath,
+          "display-message",
+          "-p",
+          "-t",
+          "%1",
+          "#{pane_pid}",
+        ],
+        cwd: workspace.root,
+        timeoutMs: 2000,
+        shell: false,
+        environment: {
+          HOME: workspace.homePath,
+          XDG_CONFIG_HOME: workspace.xdgPath,
+          TMPDIR: workspace.tempPath,
+        },
+        abortSignal: undefined,
+      },
+    ]);
+    const paneObserveCalls = f.runner.calls.filter(
+      (call) => operationFor(call.args) === "pane-observe",
+    );
+    expect(paneObserveCalls).toEqual([
+      {
+        executable: "/tools/tmux",
+        args: [
+          "-S",
+          workspace.socketPath,
+          "list-panes",
+          "-t",
+          `${workspace.sessionName}:${workspace.issueWindowName}`,
+          "-F",
+          "#{window_id}\t#{pane_id}\t#{pane_current_path}",
+        ],
+        cwd: workspace.root,
+        timeoutMs: 2000,
+        shell: false,
+        environment: {
+          HOME: workspace.homePath,
+          XDG_CONFIG_HOME: workspace.xdgPath,
+          TMPDIR: workspace.tempPath,
+        },
+        abortSignal: undefined,
+      },
+    ]);
+    expect(paneObserveCalls[0]?.args).not.toContain("%1");
     expect(
       f.runner.calls.every(
         (call) => call.timeoutMs <= 2000 && call.shell === false,

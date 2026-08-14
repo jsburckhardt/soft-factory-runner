@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import path from "node:path";
+import { parseSnapshot } from "./persistence";
 
 const root = path.resolve(__dirname, "..");
 const read = (relative: string) =>
@@ -23,6 +24,37 @@ const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
 const prd = read("PRD.md");
+
+function sectionBetween(
+  document: string,
+  startHeading: string,
+  endHeading: string,
+): string {
+  const start = document.indexOf(startHeading);
+  const end = document.indexOf(endHeading, start + startHeading.length);
+  if (start < 0 || end <= start)
+    throw new Error(
+      `Missing or reversed documentation section: ${startHeading}`,
+    );
+  return document.slice(start, end);
+}
+
+function firstFencedJson(section: string): unknown {
+  const match = /```json\n([\s\S]*?)\n```/.exec(section);
+  if (match?.[1] === undefined)
+    throw new Error("Documentation section has no fenced JSON object.");
+  return JSON.parse(match[1]);
+}
+
+function requiredObject(value: unknown): object {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("Expected a JSON object.");
+  return value;
+}
+
+function objectValue(value: unknown, key: string): unknown {
+  return Reflect.get(requiredObject(value), key);
+}
 
 describe("V-11 Phase 3 operator documentation", () => {
   it("documents executable RPIV integration, migration, safety, and no API/deployment service", () => {
@@ -342,6 +374,146 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       expect(readme + operations + prd).toContain(phrase);
     expect(issueRun).toContain("TMUX_IDENTITY_MALFORMED");
     expect(operations).toContain("RESOURCE_OWNERSHIP_UNKNOWN");
+  });
+
+  it("locks the Phase 1 persistence grammar and version semantics to its section", () => {
+    const section = sectionBetween(
+      issueRun,
+      "## Persistence and status",
+      "## Troubleshooting",
+    );
+    expect(section).toContain(
+      "Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.",
+    );
+    expect(section).not.toContain("all supported inputs to sole");
+    expect(section).toContain("new runs use revisioned `RunSnapshotV5`");
+    expect(section).toContain(
+      "Valid Phase 1 `RunSnapshotV1` files remain readable",
+    );
+    expect(section).toContain(
+      "Only an explicit proved versioned transition can carry required evidence",
+    );
+  });
+
+  it("parses the exact current PRD RunSnapshotV5 and distinguishes schema families", () => {
+    const assetSection = sectionBetween(
+      prd,
+      "# 12. Asset Manifest",
+      "# 13. Installation Safety",
+    );
+    const doctorSection = sectionBetween(
+      prd,
+      "# 21. Doctor JSON Output",
+      "# 22. Issue Execution",
+    );
+    const snapshotSection = sectionBetween(
+      prd,
+      "# 33. Run Snapshot",
+      "# 34. Transition Events",
+    );
+    const resultSection = sectionBetween(
+      prd,
+      "# 35. RPIV Result Artifact",
+      "# 36. Completion Reconciliation",
+    );
+    expect(snapshotSection).toContain("New runs write `RunSnapshotV5`");
+    expect(snapshotSection).toContain(
+      "Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.",
+    );
+
+    const assetExample = firstFencedJson(assetSection);
+    const doctorExample = firstFencedJson(doctorSection);
+    const snapshotExample = firstFencedJson(snapshotSection);
+    const resultExample = firstFencedJson(resultSection);
+    expect({
+      asset: objectValue(assetExample, "schemaVersion"),
+      doctor: objectValue(doctorExample, "schemaVersion"),
+      snapshot: objectValue(snapshotExample, "schemaVersion"),
+      result: objectValue(resultExample, "schemaVersion"),
+    }).toEqual({ asset: 1, doctor: 2, snapshot: 5, result: 1 });
+
+    const expectedKeys = [
+      "schemaVersion",
+      "runId",
+      "ownerId",
+      "repository",
+      "issueNumber",
+      "state",
+      "branchType",
+      "branch",
+      "worktreePath",
+      "fetchedBaseProof",
+      "tmux",
+      "copilot",
+      "error",
+      "updatedAt",
+      "revision",
+      "attempt",
+      "admission",
+      "launchIntent",
+      "workerProcess",
+      "rpivProcess",
+      "stop",
+      "cleanup",
+      "logs",
+      "mergedPullRequest",
+      "requiredAcceptanceCriteria",
+      "finalization",
+      "requiredFinalValidation",
+      "integrationLaunch",
+      "progress",
+      "tmuxIdentityDiagnostic",
+    ].sort();
+    expect(Object.keys(requiredObject(snapshotExample)).sort()).toEqual(
+      expectedKeys,
+    );
+    expect(parseSnapshot(JSON.stringify(snapshotExample), 123)).toEqual(
+      snapshotExample,
+    );
+
+    const launch = objectValue(snapshotExample, "integrationLaunch");
+    expect(Object.keys(requiredObject(launch)).sort()).toEqual(
+      [
+        "schemaVersion",
+        "runId",
+        "attempt",
+        "issueNumber",
+        "branch",
+        "startedAt",
+        "progressPath",
+        "resultPath",
+        "requiredFinalValidation",
+        "publishProgressCommand",
+        "publishResultCommand",
+        "validateResultCommand",
+      ].sort(),
+    );
+    expect(objectValue(launch, "schemaVersion")).toBe(1);
+    for (const key of ["runId", "attempt", "issueNumber", "branch"])
+      expect(objectValue(launch, key)).toEqual(
+        objectValue(snapshotExample, key),
+      );
+    expect(objectValue(launch, "startedAt")).toBe(
+      objectValue(snapshotExample, "updatedAt"),
+    );
+    expect(objectValue(launch, "progressPath")).toBe(
+      ".trees/123/.soft-factory/rpiv-status.json",
+    );
+    expect(objectValue(launch, "resultPath")).toBe(
+      ".trees/123/.soft-factory/agent-result.json",
+    );
+    expect(objectValue(launch, "requiredFinalValidation")).toEqual(
+      objectValue(snapshotExample, "requiredFinalValidation"),
+    );
+    expect(objectValue(launch, "publishProgressCommand")).toBe(
+      "soft-factory internal publish-progress --issue 123 --phase <phase> --status <status>",
+    );
+    expect(objectValue(launch, "publishResultCommand")).toBe(
+      "soft-factory internal publish-result --issue 123 --candidate .soft-factory/agent-result.candidate.json",
+    );
+    expect(objectValue(launch, "validateResultCommand")).toBe(
+      "soft-factory internal validate-result --issue 123",
+    );
   });
 
   it("documents controlled validation and no API configuration or deployment impact", () => {
