@@ -67,36 +67,14 @@ Human
      Software Delivery
 ```
 
-Runner also provides an installation mechanism for official Soft Factory agents and skills.
-
-A user who has installed the package can run:
+Runner provides one installation mechanism for the sole official Soft Factory delivery agent. Both forms run the same convergence:
 
 ```bash
 soft-factory install agent soft-factory
-soft-factory install agent soft-factory-assessor
-soft-factory install skill soft-factory
-```
-
-or:
-
-```bash
 soft-factory install --recommended
 ```
 
-The initial official assets are:
-
-* **Soft Factory Operator Agent** — knows how to operate Runner correctly.
-* **Soft Factory Assessor Agent** — determines whether the current repository is ready for Runner.
-* **Soft Factory Skill** — teaches compatible agent environments the concepts, CLI, states, and operating rules of Runner.
-
-Repository readiness is grounded in deterministic Runner checks exposed through:
-
-```bash
-soft-factory doctor
-soft-factory doctor --json
-```
-
-The assessor agent explains those results rather than independently guessing whether the repository is ready.
+The package publishes only `assets/official/soft-factory.agent.md`, installs it at `.github/agents/soft-factory.agent.md`, and keeps strict schema-v1 ownership at `.agents/manifest.json`. Removed assessor and skill selectors are unsupported; their historical records are accepted only as exact digest retirement proof. Repository readiness remains grounded in `soft-factory doctor [--json]` and its canonical 24 checks.
 
 ---
 
@@ -408,15 +386,11 @@ A compatible project may look like:
 my-project/
 ├── .git/
 │
+├── .github/
+│   └── agents/
+│       └── soft-factory.agent.md
+│
 ├── .agents/
-│   ├── agents/
-│   │   ├── soft-factory.agent.md
-│   │   └── soft-factory-assessor.agent.md
-│   │
-│   ├── skills/
-│   │   └── soft-factory/
-│   │       └── SKILL.md
-│   │
 │   └── manifest.json
 │
 ├── .trees/
@@ -489,63 +463,20 @@ soft-factory doctor --json
 
 ---
 
-## 9.5 Install official assets
+## 9.5 Install the official delivery agent
 
 ```bash
 soft-factory install agent soft-factory
-
-soft-factory install agent soft-factory-assessor
-
-soft-factory install skill soft-factory
-```
-
-Convenience command:
-
-```bash
 soft-factory install --recommended
 ```
+
+Both forms run the same one-agent convergence.
 
 ---
 
 # 10. Asset Installation
 
-Runner distributes or retrieves versioned official Soft Factory assets.
-
-Supported asset types:
-
-```text
-agent
-skill
-```
-
-Example:
-
-```bash
-soft-factory install agent soft-factory
-```
-
-Result:
-
-```text
-.agents/
-└── agents/
-    └── soft-factory.agent.md
-```
-
-Example:
-
-```bash
-soft-factory install skill soft-factory
-```
-
-Result:
-
-```text
-.agents/
-└── skills/
-    └── soft-factory/
-        └── SKILL.md
-```
+Runner distributes exactly one versioned official asset: `agent:soft-factory`. Trusted package-local bytes install at `.github/agents/soft-factory.agent.md`; no assessor or skill is current or consumable. The installed agent requires exactly one canonical issue, reads instructions before Doctor, dispatches only when ready, preserves applicable Runner output unchanged, and separates dispatch acceptance from Runner-proved ticket completion.
 
 ---
 
@@ -561,23 +492,7 @@ cd my-project
 soft-factory install --recommended
 ```
 
-Expected output:
-
-```text
-Installing recommended Soft Factory assets...
-
-✓ Soft Factory Operator Agent
-✓ Soft Factory Assessor Agent
-✓ Soft Factory Skill
-
-Installed under .agents/
-```
-
-Then:
-
-```bash
-soft-factory doctor
-```
+Expected state is one delivery agent at `.github/agents/soft-factory.agent.md` and one manifest at `.agents/manifest.json`. Repeating installation performs zero mutations. Invoke delivery with `soft-factory run --issue 123 --json`.
 
 ---
 
@@ -599,19 +514,9 @@ Example:
       "type": "agent",
       "name": "soft-factory",
       "version": "1.0.0",
-      "runnerProtocol": 1
-    },
-    {
-      "type": "agent",
-      "name": "soft-factory-assessor",
-      "version": "1.0.0",
-      "runnerProtocol": 1
-    },
-    {
-      "type": "skill",
-      "name": "soft-factory",
-      "version": "1.0.0",
-      "runnerProtocol": 1
+      "runnerProtocol": 1,
+      "destination": ".github/agents/soft-factory.agent.md",
+      "sha256": "<lowercase-sha256>"
     }
   ]
 }
@@ -645,14 +550,9 @@ The installed file contains local modifications.
 No files were changed.
 ```
 
-A future release MAY support:
+Migration recognizes only the exact current destination and three historical identity-destination pairs. Matching old operator bytes migrate; absent old files retire stale metadata. Matching assessor and skill files retire, while modified or unproved bytes refuse the complete operation with `No files changed`. Skill siblings and unrelated content are preserved, and legacy directories are removed only when a proved retirement leaves them empty. There is no force option.
 
-```bash
---diff
---force
-```
-
-MVP only requires safe refusal.
+Mutations span `.github/` and `.agents/` in one manifest-last transaction. Failure restores exact bytes and path kinds or reports `ASSET_ROLLBACK_UNCERTAIN` with every affected path and restore-before-retry remediation.
 
 ---
 
@@ -671,7 +571,7 @@ runner_protocol: 1
 
 Runner must not silently install incompatible assets.
 
-Remote assets SHOULD have integrity verification such as a checksum.
+Package-local bytes MUST match the compiled SHA-256 digest. The exact npm allowlist excludes every other `assets/official/` path. The product adds no API, service, daemon, webhook, container, configuration-default, or deployment change.
 
 ---
 
@@ -739,37 +639,11 @@ The Runner CLI is authoritative.
 
 ---
 
-# 17. Soft Factory Assessor Agent
+# 17. Delivery Agent Readiness Boundary
 
-The official Assessor Agent answers questions such as:
-
-```text
-Is this repository ready for Soft Factory?
-```
-
-and:
-
-```text
-What do I need to change before I can use Runner?
-```
-
-The Assessor must primarily use:
-
-```bash
-soft-factory doctor --json
-```
-
-The assessor uses AI reasoning for:
-
-* explanation;
-* remediation advice;
-* interpreting repository context;
-* helping the user resolve failures.
-
-It does not independently determine the authoritative readiness state.
+The sole official delivery agent invokes `soft-factory doctor --json` after reading Runner instructions and dispatches only when the complete result explicitly reports ready. It does not replace, reinterpret, or weaken Doctor. The removed Assessor is not a current catalog or package asset.
 
 ---
-
 # 18. Repository Doctor
 
 Runner MUST provide:
@@ -1564,15 +1438,15 @@ soft-factory doctor --json
 
 ---
 
-## FR-003 — Install official agents
+## FR-003 — Install the official delivery agent
 
-Runner MUST support installing official Soft Factory agents beneath `.agents/`.
+Runner MUST install only `agent:soft-factory` at `.github/agents/soft-factory.agent.md`.
 
 ---
 
-## FR-004 — Install official skills
+## FR-004 — Retire closed historical ownership
 
-Runner MUST support installing official Soft Factory skills beneath `.agents/`.
+Runner MUST recognize only enumerated historical records and retire files only with exact digest proof while preserving siblings.
 
 ---
 
@@ -1745,21 +1619,21 @@ Runner MUST enforce configured concurrent-run limits.
 
 ---
 
-## FR-027 — Provide Operator Agent
+## FR-027 — Provide the delivery agent
 
-The official asset catalog MUST include the Soft Factory Operator Agent.
-
----
-
-## FR-028 — Provide Assessor Agent
-
-The official asset catalog MUST include the Soft Factory Assessor Agent.
+The current catalog and recommended set MUST contain exactly the Soft Factory delivery agent.
 
 ---
 
-## FR-029 — Provide Soft Factory Skill
+## FR-028 — Reject removed selectors
 
-The official asset catalog MUST include the Soft Factory skill.
+Assessor and skill install selectors MUST return stable unsupported CLI behavior.
+
+---
+
+## FR-029 — Preserve migration content
+
+Historical retirement MUST preserve untracked siblings and unrelated content and remove only empty eligible directories.
 
 ---
 
@@ -1795,31 +1669,19 @@ returns a valid versioned structured document.
 
 ## AC-004
 
-```bash
-soft-factory install agent soft-factory
-```
-
-installs the Operator Agent under `.agents/`.
+`soft-factory install agent soft-factory` installs the sole agent at `.github/agents/soft-factory.agent.md` and records one current manifest entry.
 
 ---
 
 ## AC-005
 
-```bash
-soft-factory install agent soft-factory-assessor
-```
-
-installs the Assessor Agent under `.agents/`.
+`soft-factory install --recommended` converges to the same inventory and is a no-op when repeated.
 
 ---
 
 ## AC-006
 
-```bash
-soft-factory install skill soft-factory
-```
-
-installs the official skill under `.agents/`.
+Removed assessor and skill selectors are unsupported; exact historical ownership may retire only through complete safe convergence.
 
 ---
 
@@ -1929,10 +1791,9 @@ The Operator Agent delegates issue execution to Runner rather than directly perf
 
 ## AC-020
 
-The Assessor Agent uses Runner's deterministic readiness information as its authoritative source.
+The delivery agent treats Runner Doctor as the authoritative readiness result and never infers READY independently.
 
 ---
-
 # 45. Non-Functional Requirements
 
 ## Reliability
@@ -2104,29 +1965,13 @@ Success criterion:
 
 ## Prototype 5 — Agent Experience
 
-Add:
-
-```bash
-soft-factory install agent
-soft-factory install skill
-soft-factory install --recommended
-```
-
-Deliver:
-
-* Operator Agent;
-* Assessor Agent;
-* Soft Factory Skill;
-* asset manifest;
-* asset versioning;
-* safe installation.
+Add `soft-factory install agent soft-factory` and `soft-factory install --recommended`. Deliver one Copilot project delivery agent, strict schema-v1 ownership, closed legacy retirement, package-coupled versioning, and safe manifest-last installation.
 
 Success criterion:
 
-> A user can install Runner and then interact with it naturally through their coding agent without needing to memorise Runner commands.
+> A user can install Runner and interact through one delivery agent without memorising lifecycle commands or weakening Runner authority.
 
 ---
-
 # 47. Recommended User Journey
 
 ## Step 1
@@ -2160,9 +2005,7 @@ soft-factory install --recommended
 Output:
 
 ```text
-✓ Soft Factory Operator Agent
-✓ Soft Factory Assessor Agent
-✓ Soft Factory Skill
+✓ Soft Factory delivery agent at .github/agents/soft-factory.agent.md
 ```
 
 ---

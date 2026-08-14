@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "validation": "V3",
+      "scenarios": [
+        "clean-individual",
+        "clean-recommended",
+        "repeat-individual",
+        "repeat-recommended"
+      ]
+    },
+    {
+      "validation": "V4",
+      "scenarios": [
+        "matching-old-agent",
+        "absent-old-agent",
+        "both-destinations-desired-current",
+        "both-destinations-owned-older-current",
+        "both-destinations-modified-old-refusal",
+        "both-destinations-unproved-current-refusal"
+      ]
+    },
+    {
+      "validation": "V5",
+      "scenarios": [
+        "matching-assessor-retirement",
+        "absent-assessor-entry",
+        "modified-assessor-refusal",
+        "matching-skill-retirement",
+        "absent-skill-entry",
+        "modified-skill-refusal",
+        "skill-sibling-preservation",
+        "empty-legacy-directory-cleanup",
+        "unrelated-content-preservation"
+      ]
+    },
+    {
+      "validation": "V6",
+      "scenarios": [
+        "malformed-manifest",
+        "duplicate-ownership",
+        "contradictory-ownership",
+        "unsafe-path-indirection",
+        "unrecorded-legacy-file",
+        "unproved-current-collision"
+      ]
+    },
+    {
+      "validation": "V7",
+      "scenarios": [
+        "desired-current-adoption",
+        "owned-current-upgrade",
+        "upgrade-with-all-retirements",
+        "retirement-only"
+      ]
+    },
+    {
+      "validation": "V8",
+      "scenarios": [
+        "fault-clean-install",
+        "fault-cross-root-migration",
+        "fault-adoption-retirement",
+        "fault-upgrade-retirement",
+        "fault-retirement-only",
+        "fault-post-current-pre-legacy"
+      ]
+    },
+    {
+      "validation": "V9",
+      "scenarios": [
+        "uncertain-clean-install",
+        "uncertain-cross-root-migration",
+        "uncertain-adoption-retirement",
+        "uncertain-upgrade-retirement",
+        "uncertain-retirement-only"
+      ]
+    },
+    {
+      "validation": "V11",
+      "scenarios": [
+        "packed-static-agent",
+        "packed-individual-install",
+        "packed-recommended-install",
+        "packed-legacy-migration",
+        "packed-removed-selector-refusal"
+      ]
+    }
+  ]
+}

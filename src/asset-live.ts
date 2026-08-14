@@ -32,6 +32,11 @@ export class NodeAssetFileSystem implements AssetFileSystemPort {
       throw cause;
     }
   }
+  public async listDirectory(
+    directoryPath: string,
+  ): Promise<readonly string[]> {
+    return fs.readdir(directoryPath);
+  }
   public async createDirectory(directoryPath: string): Promise<void> {
     await fs.mkdir(directoryPath);
   }

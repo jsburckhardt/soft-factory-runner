@@ -7,9 +7,12 @@ import type {
   AssetInstaller,
   AssetInstallationResultV1,
 } from "./asset-installation";
+import { sha256 } from "./asset-installation";
+import { serializeAssetManifest } from "./asset-manifest";
 import { parseCommand } from "./command";
 import { RunnerError } from "./errors";
 import { runCli } from "./index";
+import { checkOperatorContract } from "./official-agent-contracts";
 import {
   OFFICIAL_ASSET_CATALOG,
   type OfficialAssetIdentity,
@@ -17,7 +20,9 @@ import {
 import type { RunnerPorts } from "./ports";
 
 const root = path.resolve(__dirname, "..");
+const current = OFFICIAL_ASSET_CATALOG[0];
 const emptyPorts = {} as RunnerPorts;
+
 class CapturingInstaller implements AssetInstaller {
   public selected: readonly OfficialAssetIdentity[] = [];
   public constructor(
@@ -32,6 +37,7 @@ class CapturingInstaller implements AssetInstaller {
     return this.result;
   }
 }
+
 const success: AssetInstallationResultV1 = {
   schemaVersion: 1,
   code: "ASSETS_INSTALLED",
@@ -43,54 +49,65 @@ const success: AssetInstallationResultV1 = {
       name: "soft-factory",
       version: "0.1.0",
       runnerProtocol: 1,
-      destination: ".agents/agents/soft-factory.agent.md",
+      destination: ".github/agents/soft-factory.agent.md",
       sha256: "a".repeat(64),
       status: "installed",
     },
   ],
+  retirements: [
+    {
+      type: "skill",
+      name: "soft-factory",
+      destination: ".agents/skills/soft-factory/SKILL.md",
+      status: "stale-entry-retired",
+    },
+  ],
 };
 
-describe("V-6 strict install command integration", () => {
-  it("accepts exactly the three individual forms and recommended batch", () => {
+describe("V1 strict one-agent install command integration", () => {
+  it("accepts only the current individual and recommended forms", () => {
     expect(parseCommand(["install", "agent", "soft-factory"])).toEqual({
       kind: "install",
       assets: [{ type: "agent", name: "soft-factory" }],
     });
-    expect(parseCommand(["install", "agent", "soft-factory-assessor"])).toEqual(
-      {
-        kind: "install",
-        assets: [{ type: "agent", name: "soft-factory-assessor" }],
-      },
-    );
-    expect(parseCommand(["install", "skill", "soft-factory"])).toEqual({
-      kind: "install",
-      assets: [{ type: "skill", name: "soft-factory" }],
-    });
     expect(parseCommand(["install", "--recommended"])).toEqual({
       kind: "install",
-      assets: [
-        { type: "agent", name: "soft-factory" },
-        { type: "agent", name: "soft-factory-assessor" },
-        { type: "skill", name: "soft-factory" },
-      ],
+      assets: [{ type: "agent", name: "soft-factory" }],
     });
     for (const args of [
       ["install"],
       ["install", "agent"],
+      ["install", "agent", "soft-factory-assessor"],
+      ["install", "skill", "soft-factory"],
       ["install", "agent", "unknown"],
-      ["install", "skill", "soft-factory-assessor"],
-      ["install", "other", "soft-factory"],
       ["install", "--recommended", "extra"],
-      ["install", "--recommended", "--json"],
       ["install", "agent", "soft-factory", "--json"],
     ])
-      expect(() => parseCommand(args)).toThrow(RunnerError);
+      expect(() => parseCommand(args)).toThrow(
+        expect.objectContaining({ code: "CLI_INVALID" }),
+      );
   });
 
-  it("dispatches structured selection and renders shared metadata", async () => {
+  it.each([
+    ["agent", "soft-factory-assessor"],
+    ["skill", "soft-factory"],
+  ])("returns stable exit 2 for removed %s selector", async (type, name) => {
+    const result = await runCli(
+      ["install", type, name],
+      "/repository",
+      emptyPorts,
+      undefined,
+      new CapturingInstaller(success),
+    );
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("CLI_INVALID");
+    expect(result.stderr).toContain("soft-factory --help");
+  });
+
+  it("dispatches the sole selection and renders current plus retirement outcomes", async () => {
     const installer = new CapturingInstaller(success);
     const result = await runCli(
-      ["install", "agent", "soft-factory"],
+      ["install", "--recommended"],
       "/repository",
       emptyPorts,
       undefined,
@@ -100,31 +117,23 @@ describe("V-6 strict install command integration", () => {
       { type: "agent", name: "soft-factory" },
     ]);
     expect(result.exitCode).toBe(0);
-    for (const phrase of [
-      "Installation: ASSETS_INSTALLED",
-      "Changed: yes",
-      "Manifest: .agents/manifest.json",
-      "agent soft-factory: installed",
-      "version=0.1.0",
-      "runnerProtocol=1",
-      "sha256=",
-    ])
-      expect(result.stdout).toContain(phrase);
+    expect(result.stdout).toContain("agent soft-factory: installed");
+    expect(result.stdout).toContain("skill soft-factory: stale-entry-retired");
+    expect(result.stdout).toContain(
+      "destination=.github/agents/soft-factory.agent.md",
+    );
   });
 
-  it("maps actionable typed failures to stable nonzero CLI output without raw bytes", async () => {
-    for (const [code, expectedExit] of [
-      ["ASSET_LOCAL_MODIFIED", 4],
-      ["ASSET_PROTOCOL_INCOMPATIBLE", 3],
-      ["ASSET_INTEGRITY_INVALID", 3],
+  it("maps no-change and uncertain failures to stable safe output", async () => {
+    for (const [code, expectedExit, message] of [
+      ["ASSET_LOCAL_MODIFIED", 4, "No files changed."],
+      ["ASSET_ROLLBACK_UNCERTAIN", 4, "Rollback is uncertain."],
+      ["ASSET_INTEGRITY_INVALID", 3, "No files changed."],
     ] as const) {
       const installer = new CapturingInstaller(
-        new RunnerError(
-          code,
-          "Selected asset was refused. No files changed.",
-          "Repair the official installation evidence and retry.",
-          { details: { destination: ".agents/safe" } },
-        ),
+        new RunnerError(code, message, "Inspect safe paths and retry.", {
+          details: { destination: ".github/agents/safe" },
+        }),
       );
       const result = await runCli(
         ["install", "--recommended"],
@@ -135,119 +144,164 @@ describe("V-6 strict install command integration", () => {
       );
       expect(result.exitCode).toBe(expectedExit);
       expect(result.stderr).toContain(code);
-      expect(result.stderr).toContain("No files changed");
       expect(result.stderr).toContain("Remediation:");
       expect(result.stderr).not.toContain("secret asset bytes");
     }
   });
 });
 
-describe("built local install CLI", () => {
-  beforeAll(() => {
+function invoke(packageRoot: string, cwd: string, args: readonly string[]) {
+  return spawnSync(
+    process.execPath,
+    [path.join(packageRoot, "dist", "index.js"), ...args],
+    { cwd, encoding: "utf8", env: { ...process.env } },
+  );
+}
+
+async function tree(rootPath: string): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  async function visit(directory: string): Promise<void> {
+    let names: string[];
+    try {
+      names = await fsp.readdir(directory);
+    } catch {
+      return;
+    }
+    for (const name of names.sort()) {
+      const absolute = path.join(directory, name);
+      const relative = path
+        .relative(rootPath, absolute)
+        .split(path.sep)
+        .join("/");
+      const stat = await fsp.lstat(absolute);
+      if (stat.isDirectory()) {
+        result[relative + "/"] = "directory";
+        await visit(absolute);
+      } else result[relative] = sha256(await fsp.readFile(absolute));
+    }
+  }
+  await visit(rootPath);
+  return result;
+}
+
+describe("V3 and V11 packed built-CLI installation smoke", () => {
+  jest.setTimeout(60_000);
+  let temp: string;
+  let packageRoot: string;
+
+  beforeAll(async () => {
     expect(
       spawnSync("just", ["build"], { cwd: root, encoding: "utf8" }).status,
     ).toBe(0);
-  });
-  function invoke(packageRoot: string, cwd: string, args: readonly string[]) {
-    return spawnSync(
-      process.execPath,
-      [path.join(packageRoot, "dist", "index.js"), ...args],
-      {
-        cwd,
-        encoding: "utf8",
-        env: { ...process.env },
-      },
+    temp = await fsp.mkdtemp(path.join(os.tmpdir(), "asset-packed-cli-"));
+    const packed = spawnSync(
+      "npm",
+      ["pack", "--json", "--pack-destination", temp],
+      { cwd: root, encoding: "utf8" },
     );
-  }
-
-  it("installs individual and recommended assets, repeats, and refuses local edits", async () => {
-    const individual = await fsp.mkdtemp(
-      path.join(os.tmpdir(), "asset-cli-one-"),
+    expect(packed.status).toBe(0);
+    const filename = JSON.parse(packed.stdout)[0].filename as string;
+    const prefix = path.join(temp, "prefix");
+    const installed = spawnSync(
+      "npm",
+      [
+        "install",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--prefix",
+        prefix,
+        path.join(temp, filename),
+      ],
+      { cwd: temp, encoding: "utf8" },
     );
-    const one = invoke(root, individual, ["install", "agent", "soft-factory"]);
-    expect(one.status).toBe(0);
-    expect(one.stdout).toContain("agent soft-factory: installed");
-    expect(
-      fs.existsSync(
-        path.join(individual, OFFICIAL_ASSET_CATALOG[0].destination),
-      ),
-    ).toBe(true);
-    expect(
-      fs.existsSync(
-        path.join(individual, OFFICIAL_ASSET_CATALOG[1].destination),
-      ),
-    ).toBe(false);
-    await fsp.rm(individual, { recursive: true, force: true });
-
-    const repository = await fsp.mkdtemp(
-      path.join(os.tmpdir(), "asset-cli-all-"),
-    );
-    const installed = invoke(root, repository, ["install", "--recommended"]);
     expect(installed.status).toBe(0);
-    expect(installed.stdout).toContain("Installation: ASSETS_INSTALLED");
-    const repeated = invoke(root, repository, ["install", "--recommended"]);
-    expect(repeated.status).toBe(0);
-    expect(repeated.stdout).toContain("Installation: ASSETS_UP_TO_DATE");
-    expect(repeated.stdout).toContain("Changed: no");
-    await fsp.writeFile(
-      path.join(repository, OFFICIAL_ASSET_CATALOG[0].destination),
-      "secret asset bytes",
-    );
-    const collision = invoke(root, repository, ["install", "--recommended"]);
-    expect(collision.status).toBe(4);
-    expect(collision.stderr).toContain("ASSET_LOCAL_MODIFIED");
-    expect(collision.stderr).toContain("No files changed");
-    expect(collision.stderr).not.toContain("secret asset bytes");
-    await fsp.rm(repository, { recursive: true, force: true });
+    packageRoot = path.join(prefix, "node_modules", "soft-factory-runner");
   });
 
-  it("rejects integrity and protocol faults in isolated package copies", async () => {
-    const copied = await fsp.mkdtemp(
-      path.join(os.tmpdir(), "asset-cli-package-"),
-    );
-    await fsp.cp(path.join(root, "dist"), path.join(copied, "dist"), {
-      recursive: true,
-    });
-    await fsp.cp(path.join(root, "assets"), path.join(copied, "assets"), {
-      recursive: true,
-    });
-    const target = await fsp.mkdtemp(
-      path.join(os.tmpdir(), "asset-cli-target-"),
-    );
-    await fsp.appendFile(
-      path.join(copied, OFFICIAL_ASSET_CATALOG[0].source),
-      "tampered",
-    );
-    const integrity = invoke(copied, target, [
-      "install",
-      "agent",
-      "soft-factory",
-    ]);
-    expect(integrity.status).toBe(3);
-    expect(integrity.stderr).toContain("ASSET_INTEGRITY_INVALID");
-    expect(fs.existsSync(path.join(target, ".agents"))).toBe(false);
+  afterAll(async () => {
+    await fsp.rm(temp, { recursive: true, force: true });
+  });
 
-    await fsp.rm(path.join(copied, "assets"), { recursive: true, force: true });
-    await fsp.cp(path.join(root, "assets"), path.join(copied, "assets"), {
+  it("ships the exact agent and passes the static contract from packed bytes", async () => {
+    const official = path.join(packageRoot, "assets", "official");
+    expect(await fsp.readdir(official)).toEqual(["soft-factory.agent.md"]);
+    const agent = await fsp.readFile(
+      path.join(official, "soft-factory.agent.md"),
+      "utf8",
+    );
+    expect(checkOperatorContract(agent).valid).toBe(true);
+    expect(sha256(Buffer.from(agent))).toBe(current.sha256);
+  });
+
+  it("installs individual and recommended forms identically and repeats as a no-op", async () => {
+    const roots = [
+      await fsp.mkdtemp(path.join(os.tmpdir(), "asset-packed-one-")),
+      await fsp.mkdtemp(path.join(os.tmpdir(), "asset-packed-rec-")),
+    ];
+    const args = [
+      ["install", "agent", "soft-factory"],
+      ["install", "--recommended"],
+    ];
+    const inventories: Record<string, string>[] = [];
+    for (let index = 0; index < roots.length; index += 1) {
+      const installed = invoke(packageRoot, roots[index], args[index]);
+      expect(installed.status).toBe(0);
+      expect(installed.stdout).toContain("agent soft-factory: installed");
+      const repeat = invoke(packageRoot, roots[index], args[index]);
+      expect(repeat.status).toBe(0);
+      expect(repeat.stdout).toContain("ASSETS_UP_TO_DATE");
+      inventories.push(await tree(roots[index]));
+    }
+    expect(inventories[1]).toEqual(inventories[0]);
+    for (const repository of roots)
+      await fsp.rm(repository, { recursive: true, force: true });
+  });
+
+  it("migrates matching legacy ownership and rejects removed selectors", async () => {
+    const repository = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "asset-packed-migrate-"),
+    );
+    const oldDestination = ".agents/agents/soft-factory.agent.md";
+    const old = Buffer.from("packed legacy owned bytes\n");
+    await fsp.mkdir(path.join(repository, ".agents", "agents"), {
       recursive: true,
     });
-    const compiledCatalog = path.join(copied, "dist", "official-assets.js");
-    const compiled = await fsp.readFile(compiledCatalog, "utf8");
-    const incompatible = compiled.replace(
-      /runnerProtocol: doctor_1\.DOCTOR_PROTOCOL_VERSION/,
-      "runnerProtocol: 2",
+    await fsp.writeFile(path.join(repository, oldDestination), old);
+    await fsp.writeFile(
+      path.join(repository, ".agents", "manifest.json"),
+      serializeAssetManifest({
+        schemaVersion: 1,
+        assets: [
+          {
+            type: "agent",
+            name: "soft-factory",
+            version: "0.0.9",
+            runnerProtocol: 1,
+            destination: oldDestination,
+            sha256: sha256(old),
+          },
+        ],
+      }),
     );
-    expect(incompatible).not.toBe(compiled);
-    await fsp.writeFile(compiledCatalog, incompatible);
-    const protocol = invoke(copied, target, [
+    const migrated = invoke(packageRoot, repository, [
       "install",
-      "agent",
-      "soft-factory",
+      "--recommended",
     ]);
-    expect(protocol.status).toBe(3);
-    expect(protocol.stderr).toContain("ASSET_PROTOCOL_INCOMPATIBLE");
-    expect(fs.existsSync(path.join(target, ".agents"))).toBe(false);
-    await fsp.rm(copied, { recursive: true, force: true });
-    await fsp.rm(target, { recursive: true, force: true });
+    expect(migrated.status).toBe(0);
+    expect(migrated.stdout).toContain("agent soft-factory: retired");
+    expect(fs.existsSync(path.join(repository, oldDestination))).toBe(false);
+    expect(
+      sha256(await fsp.readFile(path.join(repository, current.destination))),
+    ).toBe(current.sha256);
+    for (const removed of [
+      ["install", "agent", "soft-factory-assessor"],
+      ["install", "skill", "soft-factory"],
+    ]) {
+      const rejected = invoke(packageRoot, repository, removed);
+      expect(rejected.status).toBe(2);
+      expect(rejected.stderr).toContain("CLI_INVALID");
+    }
+    await fsp.rm(repository, { recursive: true, force: true });
   });
 });

@@ -2,6 +2,8 @@ import { DOCTOR_PROTOCOL_VERSION } from "./doctor";
 
 export const OFFICIAL_ASSET_VERSION = "0.1.0" as const;
 export const OFFICIAL_MANIFEST_PATH = ".agents/manifest.json" as const;
+export const CURRENT_AGENT_DESTINATION =
+  ".github/agents/soft-factory.agent.md" as const;
 
 export type OfficialAssetType = "agent" | "skill";
 export interface OfficialAssetIdentity {
@@ -15,6 +17,12 @@ export interface OfficialAssetCatalogEntry extends OfficialAssetIdentity {
   readonly runnerProtocol: number;
   readonly sha256: string;
 }
+export interface OfficialAssetOwnershipDescriptor extends OfficialAssetIdentity {
+  readonly destination: string;
+  readonly rank: number;
+  readonly current: boolean;
+  readonly legacyAncestors: readonly string[];
+}
 
 export const OFFICIAL_ASSET_CATALOG: readonly OfficialAssetCatalogEntry[] =
   Object.freeze([
@@ -22,36 +30,64 @@ export const OFFICIAL_ASSET_CATALOG: readonly OfficialAssetCatalogEntry[] =
       type: "agent" as const,
       name: "soft-factory",
       source: "assets/official/soft-factory.agent.md",
-      destination: ".agents/agents/soft-factory.agent.md",
+      destination: CURRENT_AGENT_DESTINATION,
       version: OFFICIAL_ASSET_VERSION,
       runnerProtocol: DOCTOR_PROTOCOL_VERSION,
       sha256:
-        "46b96e18bbf06178c8163d34bd0698ec82c80015af782c22ce6bc44527ced760",
+        "a77899dbd3d4d3e3d89a637b736f80690334363908b6d593d9742579924c8cad",
+    }),
+  ]);
+
+export const OFFICIAL_ASSET_OWNERSHIP_CATALOG: readonly OfficialAssetOwnershipDescriptor[] =
+  Object.freeze([
+    Object.freeze({
+      type: "agent" as const,
+      name: "soft-factory",
+      destination: ".agents/agents/soft-factory.agent.md",
+      rank: 0,
+      current: false,
+      legacyAncestors: Object.freeze([".agents/agents"]),
+    }),
+    Object.freeze({
+      type: "agent" as const,
+      name: "soft-factory",
+      destination: CURRENT_AGENT_DESTINATION,
+      rank: 1,
+      current: true,
+      legacyAncestors: Object.freeze([]),
     }),
     Object.freeze({
       type: "agent" as const,
       name: "soft-factory-assessor",
-      source: "assets/official/soft-factory-assessor.agent.md",
       destination: ".agents/agents/soft-factory-assessor.agent.md",
-      version: OFFICIAL_ASSET_VERSION,
-      runnerProtocol: DOCTOR_PROTOCOL_VERSION,
-      sha256:
-        "40054f0959a92710cdaed42b8bb870867faae29d5e3c1acf6087349762b7ed3d",
+      rank: 2,
+      current: false,
+      legacyAncestors: Object.freeze([".agents/agents"]),
     }),
     Object.freeze({
       type: "skill" as const,
       name: "soft-factory",
-      source: "assets/official/soft-factory/SKILL.md",
       destination: ".agents/skills/soft-factory/SKILL.md",
-      version: OFFICIAL_ASSET_VERSION,
-      runnerProtocol: DOCTOR_PROTOCOL_VERSION,
-      sha256:
-        "07d0c15bb765281f7d47cb0d8e1784b70cb5d2ec06f3943880420f8c579d3b6f",
+      rank: 3,
+      current: false,
+      legacyAncestors: Object.freeze([
+        ".agents/skills/soft-factory",
+        ".agents/skills",
+      ]),
     }),
   ]);
 
 export function officialAssetKey(identity: OfficialAssetIdentity): string {
   return `${identity.type}:${identity.name}`;
+}
+
+export function ownershipKey(
+  identity: Pick<
+    OfficialAssetOwnershipDescriptor,
+    "type" | "name" | "destination"
+  >,
+): string {
+  return `${officialAssetKey(identity)}@${identity.destination}`;
 }
 
 export function findOfficialAsset(

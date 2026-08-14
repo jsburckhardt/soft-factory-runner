@@ -19,6 +19,7 @@ const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
+const prd = read("PRD.md");
 
 describe("V-11 Phase 3 operator documentation", () => {
   it("documents executable RPIV integration, migration, safety, and no API/deployment service", () => {
@@ -472,113 +473,109 @@ describe("V-9 Copilot child environment documentation", () => {
   });
 });
 
-describe("V-9 Phase 5 official asset documentation", () => {
-  it("documents every install command, exact destination, and strict manifest metadata", () => {
+describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
+  it("documents exact current commands, destination, manifest, and invocation", () => {
     for (const command of [
       "just run install agent soft-factory",
-      "just run install agent soft-factory-assessor",
-      "just run install skill soft-factory",
       "just run install --recommended",
-    ]) {
+      "soft-factory run --issue <number> --json",
+    ])
       expect(assetGuide).toContain(command);
-      expect(readme).toContain(command);
-    }
+    expect(readme).toContain("just run install agent soft-factory");
+    expect(readme).toContain("just run install --recommended");
     for (const phrase of [
-      ".agents/agents/soft-factory.agent.md",
-      ".agents/agents/soft-factory-assessor.agent.md",
-      ".agents/skills/soft-factory/SKILL.md",
+      "exactly one consumable official asset",
+      "assets/official/soft-factory.agent.md",
+      ".github/agents/soft-factory.agent.md",
       ".agents/manifest.json",
-      "schemaVersion",
+      "schema version 1",
       "runnerProtocol",
       "destination",
       "sha256",
-      "stable catalog",
-      "package version",
+      "package-coupled",
       "protocol 1",
     ])
       expect(assetGuide).toContain(phrase);
   });
 
-  it("documents integrity, all-or-nothing safety, idempotency, collisions, rollback, and remediation", () => {
+  it("documents complete migration, refusal, sibling, idempotency, and rollback behavior", () => {
     for (const phrase of [
-      "package-local",
-      "integrity trust source",
-      "ASSET_PROTOCOL_INCOMPATIBLE",
-      "ASSET_INTEGRITY_INVALID",
-      "ASSET_MANIFEST_INVALID",
-      "ASSET_PATH_INVALID",
+      ".agents/agents/soft-factory.agent.md",
+      "absent old file",
+      "Both agent destinations",
+      "Adopt without rewriting",
+      "upgrade",
+      "historical assessor or skill",
       "ASSET_LOCAL_MODIFIED",
-      "ASSET_FILESYSTEM_FAILED",
-      "ASSET_ROLLBACK_UNCERTAIN",
-      "all-or-nothing",
-      "Existing desired bytes are never rewritten",
-      "prior manifest digest",
       "No files changed",
-      "no force option",
-      "same-volume staged files",
+      "An untracked sibling",
+      "only when a file retired in that operation leaves them empty",
+      "zero mutations",
       "manifest last",
-      "version control",
-      "preserves every unrelated `.agents/` path",
+      "ASSET_ROLLBACK_UNCERTAIN",
+      "every listed path",
+      "version control or backup",
+      "retry only after restoration",
     ])
       expect(assetGuide).toContain(phrase);
   });
 
-  it("documents Operator, Assessor, and unchanged Doctor authority boundaries", () => {
+  it("documents exact package allowlist, Doctor authority, and no API or deployment impact", () => {
     for (const phrase of [
-      "soft-factory run --issue <number>",
-      "soft-factory doctor --json",
-      "complete result",
-      "top-level `ready` value as authoritative",
-      "cannot infer READY",
-      "canonical 24 ordered blocking checks",
-      ".github/agents/rpiv.agent.md",
-      "does not inspect",
-      "worktrees, locks, state, tmux/process",
-    ])
-      expect(assetGuide).toContain(phrase);
-  });
-
-  it("documents npm packaging, additive migration, configuration/API no-impact, and local deployment", () => {
-    for (const phrase of [
-      "explicit npm `files` allowlist",
-      "dist/",
-      "assets/official/",
+      "explicit npm",
+      "exact `assets/official/soft-factory.agent.md` source",
+      "assets/official/theoutsideone.agent.md",
       "npm pack --dry-run --json",
-      "no configuration migration",
+      "canonical 24 ordered Doctor checks",
+      ".github/agents/rpiv.agent.md",
       "no network API contract",
       "API specification",
-      "API migration",
-      "short-lived CLI invocation",
-      "no-network",
-      "does not fetch a remote catalog",
-      "invoke a subprocess",
-      "just verify-focused",
-      "just verify",
+      "service endpoint",
+      "daemon",
+      "webhook",
+      "container",
+      "deployment change",
+      "no configuration migration",
+      "short-lived",
     ])
       expect(assetGuide).toContain(phrase);
     expect(docsIndex).toContain(
-      "Phase 5 official asset installation and operations",
+      "Phase 5 official delivery-agent installation and migration",
     );
     expect(readme).toContain("docs/phase-5-official-assets.md");
-    expect(assetGuide).not.toMatch(/^soft-factory\s/m);
+    expect(prd).toContain("exactly one versioned official asset");
+    expect(prd).toContain("no API, service, daemon, webhook, container");
   });
 
-  it("exposes the cumulative Phase 5 command grammar in help", () => {
+  it("does not advertise removed selectors or old destination as the current surface", () => {
+    for (const document of [readme, docsIndex]) {
+      expect(document).not.toContain(
+        "soft-factory install agent soft-factory-assessor",
+      );
+      expect(document).not.toContain("soft-factory install skill soft-factory");
+      expect(document).not.toContain(
+        "installs the Operator at .agents/agents/soft-factory.agent.md",
+      );
+    }
+    expect(assetGuide).toContain("removed assessor and skill selectors");
+  });
+
+  it("exposes only current installation forms in cumulative help", () => {
     const help = spawnSync("just", ["run", "--help"], {
       cwd: root,
       encoding: "utf8",
     });
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Soft Factory Runner Phase 5");
     for (const command of [
       "soft-factory install agent soft-factory",
-      "soft-factory install agent soft-factory-assessor",
-      "soft-factory install skill soft-factory",
       "soft-factory install --recommended",
       "soft-factory doctor [--json]",
       "soft-factory instructions [--json]",
       "soft-factory run --issue <number> [--json]",
+      ".github/agents/soft-factory.agent.md",
     ])
       expect(help.stdout).toContain(command);
+    expect(help.stdout).not.toContain("soft-factory-assessor");
+    expect(help.stdout).not.toContain("install skill");
   });
 });

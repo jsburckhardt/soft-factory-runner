@@ -1,62 +1,39 @@
-# Phase 5 official asset installation and operations
+# Phase 5 official delivery-agent installation and migration
 
-Soft Factory Runner ships a closed catalog of three official assets in the same
-npm package as the short-lived CLI. Installation is local, deterministic, and
-no-network: it does not fetch a remote catalog, invoke a subprocess, start a
-daemon, or contact a service.
+Soft Factory Runner ships exactly one consumable official asset: the APS `soft-factory` delivery agent. Installation is a local, short-lived, no-network CLI operation. It does not fetch a remote catalog, invoke a subprocess, start a daemon, or contact a service.
 
-## Commands and exact layout
+## Commands and current layout
 
-From the target repository root, use the root command interface:
+Run either supported form from the target repository root:
 
 ```text
 just run install agent soft-factory
-just run install agent soft-factory-assessor
-just run install skill soft-factory
 just run install --recommended
 ```
 
-Only those names and forms are valid. `install --recommended` is one
-all-or-nothing batch containing the complete recommended set:
+Published-package consumers use the equivalent commands:
 
-| Type | Name | Installed destination |
-|---|---|---|
-| agent | `soft-factory` | `.agents/agents/soft-factory.agent.md` |
-| agent | `soft-factory-assessor` | `.agents/agents/soft-factory-assessor.agent.md` |
-| skill | `soft-factory` | `.agents/skills/soft-factory/SKILL.md` |
+```text
+soft-factory install agent soft-factory
+soft-factory install --recommended
+soft-factory run --issue <number> --json
+```
 
-The installer preserves every unrelated `.agents/` path. Each individual
-command selects only its named asset but uses the same manifest, integrity,
-collision, and transaction policy as the recommended batch.
+Both install forms perform the same complete convergence. The sole current source is `assets/official/soft-factory.agent.md`, and trusted bytes converge to `.github/agents/soft-factory.agent.md`. Ownership remains in `.agents/manifest.json`. The removed assessor and skill selectors are unsupported CLI syntax and are mentioned below only as closed legacy migration identities.
 
-## Catalog, release metadata, and integrity
+The installed Copilot project agent requires exactly one canonical positive issue number before terminal use, runs `soft-factory instructions --json` before `soft-factory doctor --json`, dispatches only from a ready Doctor result, and then runs exactly one `soft-factory run --issue <number> --json`. It makes no retry or status query, embeds the applicable Runner output unchanged, and reports dispatch acceptance separately from ticket completion. Completion remains `unknown` unless Runner explicitly reports it. Runner remains the sole authority for worktrees, locks, state, processes, cleanup, and completion.
 
-The npm package includes authoritative source bytes under `assets/official/`
-and a compiled immutable catalog. Each catalog entry records `type`, `name`,
-package-relative `source`, fixed `destination`, asset `version`,
-`runnerProtocol`, and lowercase SHA-256 `sha256`. Asset version equals the npm
-package version that released the bytes (currently `0.1.0`); Runner protocol 1
-is an independent compatibility contract. The catalog digest, not remote or
-installed metadata, is the integrity trust source.
+## Package, catalog, and integrity
 
-Before inspecting mutation eligibility, Runner reads every selected
-package-local source, requires exact protocol 1, and compares its SHA-256 with
-the catalog. `ASSET_PROTOCOL_INCOMPATIBLE`, `ASSET_INTEGRITY_INVALID`, and
-`ASSET_CATALOG_INVALID` refuse the entire selected batch with no writes. The
-remediation is to install a compatible trusted `soft-factory-runner` package;
-there is no remote fallback.
+The current catalog and recommended set contain only `agent:soft-factory`. Catalog metadata records `type`, `name`, package-relative `source`, fixed `destination`, package-coupled `version`, `runnerProtocol`, and lowercase SHA-256 `sha256`. Protocol 1 and the compiled digest are the integrity trust source.
 
-`package.json` uses an explicit npm `files` allowlist for `dist/`,
-`assets/official/`, `README.md`, and `docs/`. Repository state, fixtures,
-source tests, project evidence, `.agents/`, `.soft-factory/`, and `.harness/`
-are not published runtime assets. Validate package contents without publishing
-through the root verification recipes; the package test performs
-`npm pack --dry-run --json` locally.
+`package.json` uses an explicit npm `files` allowlist for `dist/`, the exact `assets/official/soft-factory.agent.md` source, `README.md`, and `docs/`. It does not publish any other `assets/official/` path. In particular, retired sources and local comparison material such as `assets/official/theoutsideone.agent.md` are excluded without deleting local files. Inspect this boundary with `npm pack --dry-run --json` through repository validation.
 
-## Strict manifest v1
+Runner reads the package-local source and verifies protocol and SHA-256 before mutation. `ASSET_PROTOCOL_INCOMPATIBLE`, `ASSET_INTEGRITY_INVALID`, and `ASSET_CATALOG_INVALID` refuse with `No files changed`. Reinstall a compatible trusted package before retrying; there is no remote fallback.
 
-Managed metadata is written last to `.agents/manifest.json` in stable catalog
-order. The only accepted schema is version 1:
+## Strict manifest schema version 1
+
+The final manifest is always one current entry:
 
 ```json
 {
@@ -67,94 +44,64 @@ order. The only accepted schema is version 1:
       "name": "soft-factory",
       "version": "0.1.0",
       "runnerProtocol": 1,
-      "destination": ".agents/agents/soft-factory.agent.md",
+      "destination": ".github/agents/soft-factory.agent.md",
       "sha256": "<lowercase-64-character-sha256>"
     }
   ]
 }
 ```
 
-Every entry must identify one closed-catalog asset once, use its exact safe
-`.agents/` destination, declare protocol 1, and carry a valid digest. Unknown
-fields, unsupported schema/protocol values, duplicate identities or
-destinations, unsafe paths, malformed JSON, and unstable order are rejected as
-`ASSET_MANIFEST_INVALID` or `ASSET_PATH_INVALID` before mutation.
+Migration parsing recognizes only this closed stable-rank vocabulary:
 
-## Idempotency, collision policy, and transaction safety
+| Rank | Identity | Destination | Final role |
+|---:|---|---|---|
+| 0 | `agent:soft-factory` | `.agents/agents/soft-factory.agent.md` | legacy retirement proof |
+| 1 | `agent:soft-factory` | `.github/agents/soft-factory.agent.md` | sole current entry |
+| 2 | `agent:soft-factory-assessor` | `.agents/agents/soft-factory-assessor.agent.md` | legacy retirement proof |
+| 3 | `skill:soft-factory` | `.agents/skills/soft-factory/SKILL.md` | legacy retirement proof |
 
-Runner preflights all selected sources, manifest metadata, paths, and target
-bytes before the first mutation.
+Every entry has exact fields, a nonempty version, protocol 1, and a lowercase digest. Only the exact old/current agent bridge may repeat an identity. Malformed JSON, unknown fields, unsupported schema or protocol, duplicate or contradictory ownership, unsafe paths, and unstable order return `ASSET_MANIFEST_INVALID` or `ASSET_PATH_INVALID` with `No files changed`.
 
-- An absent target is installed.
-- Existing desired bytes are never rewritten. If unmanaged, they are adopted
-  by recording metadata; once manifest bytes also converge, repeat output is
-  `ASSETS_UP_TO_DATE` with `Changed: no` and zero writes.
-- Differing bytes are upgraded only when their current SHA-256 exactly equals
-  the prior manifest digest for the same type, name, and destination. This is
-  the only safe upgrade proof.
-- A differing target without that exact proof is a local collision.
-  `ASSET_LOCAL_MODIFIED` refuses the complete selected batch, explicitly says
-  `No files changed`, and preserves all local and unrelated bytes. Move the
-  local file, restore its recorded official bytes, or remove the destination
-  before retrying. There is no force option.
-- Symlinks, directories at file destinations, malformed ownership, integrity
-  mismatch, and protocol incompatibility fail safe with actionable paths and
-  remediation and no writes.
+## Finite migration behavior
 
-After preflight, Runner creates same-volume staged files and exact backups,
-atomically replaces selected targets in catalog order, and replaces the
-manifest last. A commit failure rolls back every attempted path and removes
-transaction resources. `ASSET_FILESYSTEM_FAILED` means exact restoration was
-proved; correct permissions or space and retry. `ASSET_ROLLBACK_UNCERTAIN`
-means restoration could not be proved: stop, inspect the listed `.agents/`
-paths, restore them from version control, and only then retry. Recommended
-installation never intentionally leaves a partial release.
+| Observed state | Convergence outcome |
+|---|---|
+| Current destination absent | Install trusted bytes and current metadata. A stale current entry does not block recreation. |
+| Current bytes equal desired bytes | Adopt without rewriting and normalize metadata. |
+| Current bytes differ but match their recorded current digest | Upgrade to desired bytes. |
+| Current bytes differ without proof | `ASSET_LOCAL_MODIFIED`; no mutation. |
+| Matching old operator bytes plus its record | Move to the current destination and retire the old owned file. |
+| Old operator record but absent old file | Install current bytes and retire stale metadata without deleting a pre-existing directory. |
+| Both agent destinations | Require old digest proof and require current bytes to be desired or current-digest-proved; otherwise refuse all mutation. |
+| Matching historical assessor or skill | Retire the record and file in the same transaction. |
+| Absent historical assessor or skill | Retire stale metadata only. |
+| Modified or unproved legacy bytes | Refuse the complete operation with `ASSET_LOCAL_MODIFIED` and `No files changed`. |
+| Converged current bytes plus proved obsolete assets | Perform one adoption-plus-retirement or retirement-only transaction. |
+| Successful operation repeated | `ASSETS_UP_TO_DATE`, one current entry, and zero mutations. |
 
-## Operator, Assessor, and Doctor authority
+Only digest-proved legacy files can be removed. An untracked sibling beside historical `SKILL.md` is preserved byte-for-byte. Known legacy ancestors are considered deepest first and removed only when a file retired in that operation leaves them empty. Nonempty directories, unrelated content under `.github/` or `.agents/`, and `.agents/` itself remain unchanged. There is no force option.
 
-The official Operator delegates explicit execution to
-`soft-factory run --issue <number>`, discovers integration facts with `soft-factory instructions --json`, and delegates `doctor`, `list`, `status`,
-`attach`, `logs`, `reconcile`, `resume`, `stop`, and `clean` to Runner. It does
-not select issues or directly create worktrees, locks, state, tmux/process
-resources, cleanup, completion decisions, or invariant overrides.
+## Atomic transaction and rollback
 
-The official Assessor invokes exactly `soft-factory doctor --json`, consumes
-the complete result, preserves its top-level `ready` value as authoritative,
-and limits its reasoning to explanation and remediation. It cannot infer READY
-independently, assess issues, or bypass failed or incomplete Doctor output.
+Runner preflights package bytes, the complete manifest, all recognized path kinds and digests, root containment, parent kinds, destination collisions, final manifest bytes, empty-directory eligibility, and every affected path before the first mutation. Symlink or other indirection beneath either managed root fails safe.
 
-Installation does not change Doctor. Product Doctor still emits exactly the
-canonical 24 ordered blocking checks and reads only
-`.github/agents/rpiv.agent.md` as RPIV authority. It does not inspect or fall
-back to official `.agents/` assets or `.agents/manifest.json`.
+Mutating clean installation, migration, adoption-plus-retirement, upgrade, and retirement-only plans use same-volume staged files and reversible backups. Runner applies the current destination, retires proved legacy files, removes only eligible empty directories, and replaces the manifest last. Every create, stage, backup, rename, retirement, directory removal, manifest replacement, and cleanup boundary is rollback-protected.
 
-## Migration, configuration, API, and deployment
+`ASSET_FILESYSTEM_FAILED` means the exact pre-invocation path kinds and bytes were restored. Correct permissions or available space, then retry. `ASSET_ROLLBACK_UNCERTAIN` never claims no change: stop, inspect every listed path across `.github/` and `.agents/`, restore each path from version control or backup, and retry only after restoration is proved. Output lists bounded paths and never local file bytes.
 
-Official-asset installation itself changes no configuration default. Runner now also supports `rpiv.final_validation` for issue runs; installed agents discover that separate contract through `soft-factory instructions --json`.
-Existing repositories need no configuration migration. Repositories that
-already have target files should commit or back them up before installation;
-Runner adopts identical bytes but refuses differing bytes without exact prior
-manifest proof. A pre-existing `.agents/manifest.json` must match strict schema
-v1; repair or restore malformed metadata rather than deleting ownership proof
-blindly.
+## Doctor, API, configuration, and deployment scope
 
-The RPIV integration addition changes local CLI, configuration, and RunSnapshotV4 only. There is no network API contract, API specification, API migration, server,
-container, webhook, or long-running deployment. Installation is a local,
-short-lived CLI invocation and exits after a committed result or actionable
-refusal. npm packaging is the only asset distribution boundary.
+Official-agent installation does not alter the canonical 24 ordered Doctor checks. `.github/agents/rpiv.agent.md` remains the sole RPIV readiness authority; Doctor does not inspect `.github/agents/soft-factory.agent.md` or `.agents/manifest.json` as readiness input.
+
+This contraction changes local package contents, CLI selector behavior, current destination, and schema-v1 ownership contents. It changes no Runner configuration option or default and requires no configuration migration. It introduces no network API contract or API specification, service endpoint, daemon, webhook, container, background process, or deployment change. npm remains the distribution boundary, and each install is one local short-lived CLI invocation.
 
 ## Validation and troubleshooting
 
 ```text
-just verify-focused
-just verify
 harness checks --focused --json
+just verify-focused
 harness checks --json
+just verify
 ```
 
-Root `just verify-focused` and `just verify` are authoritative. Harness checks
-are structured delegates and do not replace direct RPIV boundary validation.
-For a refusal, retain the stable code, destination, `No files changed` claim,
-and remediation; never expose or paste local asset bytes as diagnostics.
-
-The Operator, Assessor, and Skill remain interfaces to Runner, not a competing control path. Their packaged bytes direct RPIV integration discovery to `soft-factory instructions --json`; catalog SHA-256 digests and package/install tests bind the updated bytes.
+Root `just verify-focused` and `just verify` remain authoritative. Harness checks are structured delegates. For refusal evidence, retain the stable code, safe paths, `No files changed` fact when applicable, and direct remediation; never paste local asset bytes.

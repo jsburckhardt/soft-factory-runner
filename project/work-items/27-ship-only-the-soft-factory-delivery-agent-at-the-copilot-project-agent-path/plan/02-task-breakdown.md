@@ -4,7 +4,7 @@ Tasks are ordered by dependency. Status values belong to the Implement stage.
 
 ## Task T1: Model the sole current catalog and closed legacy ownership grammar
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** High
 - **Dependencies:** None
 - **Acceptance Criteria:** AC-1, AC-4, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-13
@@ -36,7 +36,7 @@ Keep current selection and legacy ownership types distinct so a removed asset ca
 
 ## Task T2: Implement cross-root convergence, retirement, and rollback
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Very high
 - **Dependencies:** T1
 - **Acceptance Criteria:** AC-4, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-15
@@ -72,7 +72,7 @@ Add explicit retirement outcomes to the typed result and renderer. Individual an
 
 ## Task T3: Finalize the APS Copilot delivery agent contract
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** None
 - **Acceptance Criteria:** AC-2, AC-3, AC-16
@@ -103,7 +103,7 @@ Refactor `src/official-agent-contracts.ts` to use mutation-sensitive static asse
 
 ## Task T4: Contract CLI selectors and package publication
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T1, T3
 - **Acceptance Criteria:** AC-1, AC-4, AC-5, AC-16
@@ -137,7 +137,7 @@ Update the compiled digest only after T3 final agent bytes are stable. Ensure bo
 
 ## Task T5: Build deterministic state and fault-injection coverage
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Very high
 - **Dependencies:** T2, T3, T4
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16
@@ -167,7 +167,7 @@ Create a mutation-boundary enumerator from each concrete transaction plan so cle
 
 ## Task T6: Update consumer, product, migration, and help documentation
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T1, T2, T3, T4
 - **Acceptance Criteria:** AC-5, AC-17
@@ -196,7 +196,7 @@ Document exact local install and invocation commands, schema-v1 manifest locatio
 
 ## Task T7: Run full validation and record acceptance evidence
 
-- **Status:** Not started
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T5, T6
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17
