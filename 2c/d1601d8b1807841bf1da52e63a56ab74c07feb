@@ -1,0 +1,37 @@
+.harness/records/retro/2026-08-14/037-issue-29-rpiv-implementer-owned-descendant-cleanup.md
+  s_724e01f654f4f9::t_3a2e7f2870f246 1-6,9,14-16,24,85-86,88
+  s_724e01f654f4f9::t_08e4084f13fe0c 7-8,10-13,17-23,25-84,87,89
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/plan/02-task-breakdown.md
+  s_724e01f654f4f9::t_b68eb67a6586ac 533-541
+src/doctor-tmux-live.ts
+  s_724e01f654f4f9::t_b21bcb804c7de1 33-34,173-174,179,185,191-195,197-202,204-210,212,228,444-473,475-501,503,510-514,562
+  s_724e01f654f4f9::t_370ea0289931cc 196,474,572-575
+src/doctor-tmux.ts
+  s_724e01f654f4f9::t_370ea0289931cc 580-590
+  s_724e01f654f4f9::t_c7f727e9f2b211 84,209-210,266,353,507-508,564-565,718
+  s_724e01f654f4f9::t_f7e28a36784f8b 578-579,591-595
+project/work-items/29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics/implementation/00-implementation.md
+  s_724e01f654f4f9::t_bb0d57ae40e9ad 325-381
+src/doctor-tmux.test.ts
+  s_724e01f654f4f9::t_370ea0289931cc 481-483
+  s_724e01f654f4f9::t_3cbb32c914db0c 442-480,484-656
+  s_724e01f654f4f9::t_db54d92efba2d3 941-979
+  s_724e01f654f4f9::t_d8efee0f4693cb 13,25,118-119,128-133,249-253
+  s_724e01f654f4f9::t_67924b11164cb5 366-433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "2cd1601d8b1807841bf1da52e63a56ab74c07feb",
+  "prompts": {},
+  "sessions": {
+    "s_724e01f654f4f9": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_NTJ7ptVyU28j3BH6NxrKBvxC",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
