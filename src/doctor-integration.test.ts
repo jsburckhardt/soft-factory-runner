@@ -118,8 +118,17 @@ async function writeExecutable(target: string, body: string): Promise<void> {
   await fs.writeFile(target, "#!" + process.execPath + "\n" + body);
   await fs.chmod(target, 0o700);
 }
+type TmuxProtocolMode = "valid" | "malformed-create" | "malformed-observe";
+type ControlledIdentityReadinessMode = "normal" | "delayed" | "timeout";
+
+const CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS = 1000;
+const CONTROLLED_IDENTITY_READINESS_POLL_MS = 10;
+const CONTROLLED_IDENTITY_STABLE_READS = 2;
+const CONTROLLED_IDENTITY_DELAY_ATTEMPTS = 3;
+
 function protocolTmuxBody(
-  mode: "valid" | "malformed-create" | "malformed-observe",
+  mode: TmuxProtocolMode,
+  readinessMode: ControlledIdentityReadinessMode = "normal",
 ): string {
   return String.raw`
 const fs=require("node:fs");
@@ -127,27 +136,85 @@ const net=require("node:net");
 const cp=require("node:child_process");
 const args=process.argv.slice(2);
 const mode=${JSON.stringify(mode)};
+const readinessMode=${JSON.stringify(readinessMode)};
+const readinessTimeoutMs=${CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS};
+const readinessPollMs=${CONTROLLED_IDENTITY_READINESS_POLL_MS};
+const readinessStableReads=${CONTROLLED_IDENTITY_STABLE_READS};
+const readinessDelayAttempts=${CONTROLLED_IDENTITY_DELAY_ATTEMPTS};
 const log=process.argv[1]+".log";
 const append=(entry)=>fs.appendFileSync(log,JSON.stringify(entry)+"\n");
+const sleep=(durationMs)=>new Promise((resolve)=>setTimeout(resolve,durationMs));
 const valueAfter=(items,key)=>{const index=items.indexOf(key);return index<0?null:items[index+1];};
 if(args[0]==="-D"){
   const socketPath=args[2];
   const configPath=args[4];
   const children={dashboard:null,issue:null};let dashboardName="";
   append({server:true,privateSocket:args[1]==="-S",privateConfig:args[3]==="-f",workspaceMode:fs.statSync(process.cwd()).mode&511,configMode:fs.statSync(configPath).mode&511,helperMode:fs.statSync(require("node:path").join(process.cwd(),"helper.js")).mode&511});
-  const stopChildren=()=>{for(const child of Object.values(children))if(child!==null){try{child.kill("SIGTERM");}catch{}}};
-  const spawnHelper=(executable,helper,cwd)=>new Promise((resolve)=>{
-    const child=cp.spawn(executable,[helper],{cwd,stdio:"ignore"});
-    child.once("spawn",()=>{
-      const pid=child.pid;
-      const argv=fs.readFileSync("/proc/"+pid+"/cmdline").toString("utf8").split("\0").filter(Boolean);
-      const stat=fs.readFileSync("/proc/"+pid+"/stat","utf8");
-      const fields=stat.slice(stat.lastIndexOf(")")+1).trim().split(/\s+/);
-      append({server:false,privateSocket:true,command:"helper-spawn",executableExact:fs.readlinkSync("/proc/"+pid+"/exe")===executable,executablePhysical:fs.readlinkSync("/proc/"+pid+"/exe")===fs.realpathSync(executable),argsExact:argv.length===2&&argv[1]===helper,cwdExact:fs.readlinkSync("/proc/"+pid+"/cwd")===cwd,parentExact:Number(fields[1])===process.pid});
-      resolve(child);
-    });
-    child.once("error",()=>resolve(null));
+  const stopChild=(child)=>new Promise((resolve)=>{
+    if(child===null||child.exitCode!==null||child.signalCode!==null){resolve();return;}
+    let settled=false;let killTimer=null;let settleTimer=null;
+    const finish=()=>{if(settled)return;settled=true;if(killTimer!==null)clearTimeout(killTimer);if(settleTimer!==null)clearTimeout(settleTimer);child.removeListener("exit",finish);resolve();};
+    child.once("exit",finish);
+    killTimer=setTimeout(()=>{if(!settled)child.kill("SIGKILL");},100);
+    settleTimer=setTimeout(finish,250);
+    child.kill("SIGTERM");
   });
+  const stopChildren=async()=>{await Promise.all(Object.values(children).map((child)=>stopChild(child)));children.dashboard=null;children.issue=null;};
+  const emptyChecks=()=>({executable:false,arguments:false,cwd:false,parent:false,processGroup:false,startToken:false});
+  const failedCategory=(checks)=>checks.executable?checks.arguments?checks.cwd?checks.parent?checks.processGroup?checks.startToken?null:"start-token":"process-group":"parent":"cwd":"arguments":"executable";
+  const inspectHelper=(pid,physicalExecutable,helper,cwd,attempt)=>{
+    let executable;let argv;let observedCwd;let stat;
+    try{
+      executable=fs.readlinkSync("/proc/"+pid+"/exe");
+      argv=fs.readFileSync("/proc/"+pid+"/cmdline").toString("utf8").split("\0").filter(Boolean);
+      observedCwd=fs.readlinkSync("/proc/"+pid+"/cwd");
+      stat=fs.readFileSync("/proc/"+pid+"/stat","utf8");
+    }catch(cause){
+      if(cause!==null&&typeof cause==="object"&&["ENOENT","EACCES","EPERM"].includes(cause.code)){return{ready:false,signature:null,failureCategory:"proc-unavailable",checks:emptyChecks()};}
+      throw cause;
+    }
+    const fields=stat.slice(stat.lastIndexOf(")")+1).trim().split(/\s+/);
+    const checks={
+      executable:executable===physicalExecutable,
+      arguments:argv.length===2&&argv[1]===helper,
+      cwd:observedCwd===cwd,
+      parent:Number(fields[1])===process.pid,
+      processGroup:Number.isSafeInteger(Number(fields[2]))&&Number(fields[2])>0,
+      startToken:/^\d+$/.test(fields[19]||""),
+    };
+    if(readinessMode==="timeout"||(readinessMode==="delayed"&&attempt<=readinessDelayAttempts))checks.executable=false;
+    const failureCategory=failedCategory(checks);
+    return{ready:failureCategory===null,signature:failureCategory===null?JSON.stringify([executable,argv,observedCwd,fields[1],fields[2],fields[19]]):null,failureCategory,checks};
+  };
+  const waitForIdentity=async(child,executable,helper,cwd)=>{
+    const physicalExecutable=fs.realpathSync(executable);
+    const deadline=Date.now()+readinessTimeoutMs;
+    let attempts=0;let stableReads=0;let priorSignature=null;
+    let latest={ready:false,signature:null,failureCategory:"proc-unavailable",checks:emptyChecks()};
+    while(Date.now()<=deadline){
+      attempts+=1;
+      latest=inspectHelper(child.pid,physicalExecutable,helper,cwd,attempts);
+      if(latest.ready){
+        stableReads=latest.signature===priorSignature?stableReads+1:1;
+        priorSignature=latest.signature;
+        if(stableReads>=readinessStableReads)return{outcome:"ready",failureCategory:null,attempts,stableReads,checks:latest.checks};
+      }else{stableReads=0;priorSignature=null;}
+      const remaining=deadline-Date.now();
+      if(remaining<=0)break;
+      await sleep(Math.min(readinessPollMs,remaining));
+    }
+    return{outcome:"timeout",failureCategory:latest.failureCategory,attempts,stableReads,checks:latest.checks};
+  };
+  const waitForSpawn=(child)=>new Promise((resolve)=>{child.once("spawn",()=>resolve(true));child.once("error",()=>resolve(false));});
+  const spawnHelper=async(executable,helper,cwd)=>{
+    const child=cp.spawn(executable,[helper],{cwd,stdio:"ignore"});
+    const spawned=await waitForSpawn(child);
+    if(!spawned){append({server:false,privateSocket:true,command:"helper-readiness",spawnObserved:false,outcome:"spawn-error",failureCategory:"spawn",attempts:0,stableReads:0,timeoutMs:readinessTimeoutMs,pollMs:readinessPollMs,requiredStableReads:readinessStableReads,checks:emptyChecks()});return null;}
+    const readiness=await waitForIdentity(child,executable,helper,cwd);
+    append({server:false,privateSocket:true,command:"helper-readiness",spawnObserved:true,outcome:readiness.outcome,failureCategory:readiness.failureCategory,attempts:readiness.attempts,stableReads:readiness.stableReads,timeoutMs:readinessTimeoutMs,pollMs:readinessPollMs,requiredStableReads:readinessStableReads,checks:readiness.checks});
+    if(readiness.outcome!=="ready"){await stopChild(child);return null;}
+    return child;
+  };
   const server=net.createServer({allowHalfOpen:true},(connection)=>{
     let input="";
     connection.on("data",(chunk)=>{input+=chunk.toString("utf8");});
@@ -179,16 +246,18 @@ if(args[0]==="-D"){
       }else if(command==="list-panes"){
         response.stdout=mode==="malformed-observe"?"@1\t%1\n":"@1\t%1\t"+process.cwd()+"\n";
       }else if(command==="kill-window"){
-        if(children.issue!==null){children.issue.kill("SIGTERM");children.issue=null;}
+        await stopChild(children.issue);children.issue=null;
       }else if(command==="kill-server"){
-        stop=true;stopChildren();
+        stop=true;await stopChildren();
       }else response.exitCode=1;
       connection.end(JSON.stringify(response),()=>{if(stop)server.close(()=>process.exit(0));});
     });
   });
   server.listen(socketPath);
-  process.on("SIGTERM",()=>{stopChildren();server.close(()=>process.exit(0));});
-  process.on("SIGINT",()=>{stopChildren();server.close(()=>process.exit(0));});
+  let shuttingDown=false;
+  const shutdown=async()=>{if(shuttingDown)return;shuttingDown=true;await stopChildren();server.close(()=>process.exit(0));};
+  process.on("SIGTERM",()=>void shutdown());
+  process.on("SIGINT",()=>void shutdown());
 }else{
   const socketPath=args[1];
   const commandArgs=args.slice(2);
@@ -211,11 +280,8 @@ async function probeWorkspaces(): Promise<readonly string[]> {
 }
 
 async function readyRepository(
-  tmuxMode:
-    | "valid"
-    | "malformed-create"
-    | "malformed-observe"
-    | "nonfunctional" = "valid",
+  tmuxMode: TmuxProtocolMode | "nonfunctional" = "valid",
+  readinessMode: ControlledIdentityReadinessMode = "normal",
 ): Promise<{ root: string; bin: string }> {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), "doctor-ready-process-"),
@@ -248,7 +314,7 @@ async function readyRepository(
     path.join(bin, "tmux"),
     tmuxMode === "nonfunctional"
       ? "process.exitCode=0;"
-      : protocolTmuxBody(tmuxMode),
+      : protocolTmuxBody(tmuxMode, readinessMode),
   );
   await writeExecutable(path.join(bin, "node"), "process.exitCode=0;");
   return { root, bin };
@@ -434,6 +500,198 @@ function builtDoctor(
   };
 }
 
+type ControlledReadinessCategory =
+  | "arguments"
+  | "cwd"
+  | "executable"
+  | "parent"
+  | "process-group"
+  | "proc-unavailable"
+  | "spawn"
+  | "start-token";
+
+interface ControlledReadinessChecks {
+  readonly executable: boolean;
+  readonly arguments: boolean;
+  readonly cwd: boolean;
+  readonly parent: boolean;
+  readonly processGroup: boolean;
+  readonly startToken: boolean;
+}
+
+interface ControlledReadinessDiagnostic {
+  readonly spawnObserved: boolean;
+  readonly outcome: "ready" | "spawn-error" | "timeout";
+  readonly failureCategory: ControlledReadinessCategory | null;
+  readonly attempts: number;
+  readonly stableReads: number;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+  readonly requiredStableReads: number;
+  readonly checks: ControlledReadinessChecks;
+}
+
+interface BuiltDoctorDiagnostic {
+  readonly status: number | null;
+  readonly stderr: "empty" | "present";
+  readonly doctorFailure: {
+    readonly operation: string;
+    readonly reason: string;
+  } | null;
+  readonly readiness: readonly ControlledReadinessDiagnostic[];
+}
+
+const READY_IDENTITY_CHECKS: ControlledReadinessChecks = {
+  executable: true,
+  arguments: true,
+  cwd: true,
+  parent: true,
+  processGroup: true,
+  startToken: true,
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseBuiltDoctorOutput(output: string, json: boolean): unknown {
+  if (!json) return normalizeHuman(output);
+  try {
+    return JSON.parse(output);
+  } catch (cause: unknown) {
+    if (cause instanceof SyntaxError) return null;
+    throw cause;
+  }
+}
+
+function doctorFailure(
+  output: string,
+  json: boolean,
+): BuiltDoctorDiagnostic["doctorFailure"] {
+  const parsed = parseBuiltDoctorOutput(output, json);
+  if (!isRecord(parsed) || !Array.isArray(parsed.checks))
+    return { operation: "output-unparseable", reason: "output-unparseable" };
+  const check = parsed.checks.find(
+    (candidate: unknown) =>
+      isRecord(candidate) && candidate.id === "command.tmux",
+  );
+  if (!isRecord(check))
+    return { operation: "check-missing", reason: "check-missing" };
+  if (check.status === "passed") return null;
+  if (!isRecord(check.evidence))
+    return { operation: "evidence-missing", reason: "evidence-missing" };
+  return {
+    operation:
+      typeof check.evidence.operation === "string"
+        ? check.evidence.operation
+        : "operation-missing",
+    reason:
+      typeof check.evidence.reason === "string"
+        ? check.evidence.reason
+        : "reason-missing",
+  };
+}
+
+function numberField(record: Record<string, unknown>, field: string): number {
+  const value = record[field];
+  if (!Number.isSafeInteger(value) || typeof value !== "number" || value < 0)
+    throw new Error("Malformed value-free controlled readiness count.");
+  return value;
+}
+
+function booleanField(record: Record<string, unknown>, field: string): boolean {
+  const value = record[field];
+  if (typeof value !== "boolean")
+    throw new Error("Malformed value-free controlled readiness fact.");
+  return value;
+}
+
+function readinessDiagnostic(
+  value: unknown,
+): ControlledReadinessDiagnostic | null {
+  if (!isRecord(value) || value.command !== "helper-readiness") return null;
+  if (!isRecord(value.checks))
+    throw new Error("Malformed value-free controlled readiness checks.");
+  const outcomes = ["ready", "spawn-error", "timeout"] as const;
+  const categories = [
+    "arguments",
+    "cwd",
+    "executable",
+    "parent",
+    "process-group",
+    "proc-unavailable",
+    "spawn",
+    "start-token",
+  ] as const;
+  const outcome = outcomes.find((candidate) => candidate === value.outcome);
+  const failureCategory =
+    value.failureCategory === null
+      ? null
+      : categories.find((candidate) => candidate === value.failureCategory);
+  if (outcome === undefined || failureCategory === undefined)
+    throw new Error(
+      "Malformed value-free controlled readiness classification.",
+    );
+  return {
+    spawnObserved: booleanField(value, "spawnObserved"),
+    outcome,
+    failureCategory,
+    attempts: numberField(value, "attempts"),
+    stableReads: numberField(value, "stableReads"),
+    timeoutMs: numberField(value, "timeoutMs"),
+    pollMs: numberField(value, "pollMs"),
+    requiredStableReads: numberField(value, "requiredStableReads"),
+    checks: {
+      executable: booleanField(value.checks, "executable"),
+      arguments: booleanField(value.checks, "arguments"),
+      cwd: booleanField(value.checks, "cwd"),
+      parent: booleanField(value.checks, "parent"),
+      processGroup: booleanField(value.checks, "processGroup"),
+      startToken: booleanField(value.checks, "startToken"),
+    },
+  };
+}
+
+async function controlledReadinessDiagnostics(
+  bin: string,
+): Promise<readonly ControlledReadinessDiagnostic[]> {
+  let content: string;
+  try {
+    content = await fs.readFile(path.join(bin, "tmux.log"), "utf8");
+  } catch (cause: unknown) {
+    if (isRecord(cause) && cause.code === "ENOENT") return [];
+    throw cause;
+  }
+  if (content.trim() === "") return [];
+  return content
+    .trim()
+    .split("\n")
+    .map((line) => {
+      try {
+        return JSON.parse(line) as unknown;
+      } catch (cause: unknown) {
+        if (cause instanceof SyntaxError)
+          throw new Error("Malformed controlled readiness trace.");
+        throw cause;
+      }
+    })
+    .map(readinessDiagnostic)
+    .filter((entry): entry is ControlledReadinessDiagnostic => entry !== null);
+}
+
+async function builtDoctorDiagnostic(
+  result: ReturnType<typeof builtDoctor>,
+  bin: string,
+  json: boolean,
+): Promise<BuiltDoctorDiagnostic> {
+  return {
+    status: result.status,
+    stderr: result.stderr === "" ? "empty" : "present",
+    doctorFailure: doctorFailure(result.stdout, json),
+    readiness: (await controlledReadinessDiagnostics(bin)).slice(-2),
+  };
+}
+
 describe("Doctor manifest-driven acceptance fixtures", () => {
   beforeAll(() => {
     const build = spawnSync("just", ["build"], {
@@ -510,87 +768,232 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
   it("runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing", async () => {
     const fixture = await readyRepository();
     const beforeProbeWorkspaces = await probeWorkspaces();
-    const manifest = await readManifest<DoctorResultV2>("ready.json");
-    const jsonFirst = builtDoctor(fixture.root, fixture.bin, true);
-    const jsonSecond = builtDoctor(fixture.root, fixture.bin, true);
-    const human = builtDoctor(fixture.root, fixture.bin, false);
-    expect(jsonFirst.status).toBe(0);
-    expect(jsonSecond.status).toBe(0);
-    expect(human.status).toBe(0);
-    expect(jsonFirst.stderr).toBe("");
-    const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV2;
-    expect(parsed).toEqual(manifest);
-    expect(JSON.parse(jsonSecond.stdout)).toEqual(parsed);
-    expect(normalizeHuman(human.stdout)).toEqual(parsed);
-    expect(jsonFirst.elapsedMs).toBeLessThanOrEqual(10_000);
-    expect(jsonSecond.elapsedMs).toBeLessThanOrEqual(10_000);
-    expect(human.elapsedMs).toBeLessThanOrEqual(10_000);
-    expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
-    const trace = (
-      await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
-    )
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
-    expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
-    const helperSpawns = trace.filter(
-      (entry) => entry.command === "helper-spawn",
-    );
-    expect(helperSpawns).toHaveLength(6);
-    expect(
-      helperSpawns.every(
-        (entry) =>
-          entry.executableExact === true &&
-          entry.executablePhysical === true &&
-          entry.argsExact === true &&
-          entry.cwdExact === true &&
-          entry.parentExact === true,
-      ),
-    ).toBe(true);
-    expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
-    expect(
-      trace
-        .filter((entry) => entry.server === true)
-        .every(
+    try {
+      const manifest = await readManifest<DoctorResultV2>("ready.json");
+      const jsonFirst = builtDoctor(fixture.root, fixture.bin, true);
+      const jsonFirstDiagnostic = await builtDoctorDiagnostic(
+        jsonFirst,
+        fixture.bin,
+        true,
+      );
+      const jsonSecond = builtDoctor(fixture.root, fixture.bin, true);
+      const jsonSecondDiagnostic = await builtDoctorDiagnostic(
+        jsonSecond,
+        fixture.bin,
+        true,
+      );
+      const human = builtDoctor(fixture.root, fixture.bin, false);
+      const humanDiagnostic = await builtDoctorDiagnostic(
+        human,
+        fixture.bin,
+        false,
+      );
+      const expectedReadiness = expect.objectContaining({
+        spawnObserved: true,
+        outcome: "ready",
+        failureCategory: null,
+        stableReads: CONTROLLED_IDENTITY_STABLE_READS,
+        timeoutMs: CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS,
+        pollMs: CONTROLLED_IDENTITY_READINESS_POLL_MS,
+        requiredStableReads: CONTROLLED_IDENTITY_STABLE_READS,
+        checks: READY_IDENTITY_CHECKS,
+      });
+      expect([
+        jsonFirstDiagnostic,
+        jsonSecondDiagnostic,
+        humanDiagnostic,
+      ]).toEqual(
+        Array.from({ length: 3 }, () => ({
+          status: 0,
+          stderr: "empty",
+          doctorFailure: null,
+          readiness: [expectedReadiness, expectedReadiness],
+        })),
+      );
+      const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV2;
+      expect(parsed).toEqual(manifest);
+      expect(JSON.parse(jsonSecond.stdout)).toEqual(parsed);
+      expect(normalizeHuman(human.stdout)).toEqual(parsed);
+      expect(jsonFirst.elapsedMs).toBeLessThanOrEqual(10_000);
+      expect(jsonSecond.elapsedMs).toBeLessThanOrEqual(10_000);
+      expect(human.elapsedMs).toBeLessThanOrEqual(10_000);
+      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+      const trace = (
+        await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
+      )
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
+      const helperReadiness = await controlledReadinessDiagnostics(fixture.bin);
+      expect(helperReadiness).toHaveLength(6);
+      expect(
+        helperReadiness.every(
           (entry) =>
-            entry.privateConfig === true &&
-            entry.workspaceMode === 0o700 &&
-            entry.configMode === 0o600 &&
-            entry.helperMode === 0o600,
+            entry.outcome === "ready" &&
+            entry.spawnObserved &&
+            entry.failureCategory === null &&
+            entry.stableReads === CONTROLLED_IDENTITY_STABLE_READS &&
+            Object.values(entry.checks).every(Boolean),
         ),
-    ).toBe(true);
-    await fs.rm(fixture.root, { recursive: true, force: true });
+      ).toBe(true);
+      expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
+      expect(
+        trace
+          .filter((entry) => entry.server === true)
+          .every(
+            (entry) =>
+              entry.privateConfig === true &&
+              entry.workspaceMode === 0o700 &&
+              entry.configMode === 0o600 &&
+              entry.helperMode === 0o600,
+          ),
+      ).toBe(true);
+    } finally {
+      await fs.rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("waits for two stable identities after deterministic post-spawn delay", async () => {
+    const fixture = await readyRepository("valid", "delayed");
+    const beforeProbeWorkspaces = await probeWorkspaces();
+    try {
+      const response = builtDoctor(fixture.root, fixture.bin, true);
+      const diagnostic = await builtDoctorDiagnostic(
+        response,
+        fixture.bin,
+        true,
+      );
+      expect(diagnostic).toMatchObject({
+        status: 0,
+        stderr: "empty",
+        doctorFailure: null,
+        readiness: [
+          {
+            spawnObserved: true,
+            outcome: "ready",
+            failureCategory: null,
+            stableReads: CONTROLLED_IDENTITY_STABLE_READS,
+            checks: READY_IDENTITY_CHECKS,
+          },
+          {
+            spawnObserved: true,
+            outcome: "ready",
+            failureCategory: null,
+            stableReads: CONTROLLED_IDENTITY_STABLE_READS,
+            checks: READY_IDENTITY_CHECKS,
+          },
+        ],
+      });
+      expect(
+        diagnostic.readiness.every(
+          (entry) =>
+            entry.attempts >=
+            CONTROLLED_IDENTITY_DELAY_ATTEMPTS +
+              CONTROLLED_IDENTITY_STABLE_READS,
+        ),
+      ).toBe(true);
+      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+    } finally {
+      await fs.rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it("times out fixture identity readiness without returning a pane PID", async () => {
+    const fixture = await readyRepository("valid", "timeout");
+    const beforeProbeWorkspaces = await probeWorkspaces();
+    try {
+      const response = builtDoctor(fixture.root, fixture.bin, true);
+      const diagnostic = await builtDoctorDiagnostic(
+        response,
+        fixture.bin,
+        true,
+      );
+      expect(diagnostic).toMatchObject({
+        status: 3,
+        stderr: "empty",
+        doctorFailure: {
+          operation: "session-create",
+          reason: "nonzero-exit",
+        },
+        readiness: [
+          {
+            spawnObserved: true,
+            outcome: "timeout",
+            failureCategory: "executable",
+            stableReads: 0,
+            timeoutMs: CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS,
+            pollMs: CONTROLLED_IDENTITY_READINESS_POLL_MS,
+            requiredStableReads: CONTROLLED_IDENTITY_STABLE_READS,
+            checks: {
+              ...READY_IDENTITY_CHECKS,
+              executable: false,
+            },
+          },
+        ],
+      });
+      expect(diagnostic.readiness[0]?.attempts).toBeGreaterThan(1);
+      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+    } finally {
+      await fs.rm(fixture.root, { recursive: true, force: true });
+    }
   });
 
   it.each([
-    ["nonfunctional", "socket-unavailable"],
-    ["malformed-create", "malformed-output"],
-    ["malformed-observe", "malformed-output"],
+    ["nonfunctional", "socket-ready", "socket-unavailable"],
+    ["malformed-create", "window-create", "malformed-output"],
+    ["malformed-observe", "pane-observe", "malformed-output"],
   ] as const)(
     "reports installed %s tmux as NOT READY with cleanup proof",
-    async (mode, reason) => {
+    async (mode, operation, reason) => {
       const fixture = await readyRepository(mode);
       const beforeProbeWorkspaces = await probeWorkspaces();
-      const response = builtDoctor(fixture.root, fixture.bin, true);
-      expect(response.status).toBe(3);
-      const parsed = JSON.parse(response.stdout) as DoctorResultV2;
-      const check = parsed.checks.find((entry) => entry.id === "command.tmux");
-      expect(check).toMatchObject({
-        status: "failed",
-        evidence: {
-          schemaVersion: 1,
-          kind: "tmux-functional-probe",
-          reason,
-          cleanup: {
-            server: expect.stringMatching(/^(absent|not-created)$/),
-            paneProcesses: expect.stringMatching(/^(absent|not-created)$/),
-            socket: expect.stringMatching(/^(absent|not-created)$/),
-            workspace: "absent",
+      try {
+        const response = builtDoctor(fixture.root, fixture.bin, true);
+        const diagnostic = await builtDoctorDiagnostic(
+          response,
+          fixture.bin,
+          true,
+        );
+        expect(diagnostic).toMatchObject({
+          status: 3,
+          stderr: "empty",
+          doctorFailure: { operation, reason },
+        });
+        expect(diagnostic.readiness).toHaveLength(
+          mode === "nonfunctional" ? 0 : 2,
+        );
+        expect(
+          diagnostic.readiness.every(
+            (entry) =>
+              entry.outcome === "ready" &&
+              entry.failureCategory === null &&
+              Object.values(entry.checks).every(Boolean),
+          ),
+        ).toBe(true);
+        const parsed = JSON.parse(response.stdout) as DoctorResultV2;
+        const check = parsed.checks.find(
+          (entry) => entry.id === "command.tmux",
+        );
+        expect(check).toMatchObject({
+          status: "failed",
+          evidence: {
+            schemaVersion: 1,
+            kind: "tmux-functional-probe",
+            operation,
+            reason,
+            cleanup: {
+              server: expect.stringMatching(/^(absent|not-created)$/),
+              paneProcesses: expect.stringMatching(/^(absent|not-created)$/),
+              socket: expect.stringMatching(/^(absent|not-created)$/),
+              workspace: "absent",
+            },
           },
-        },
-      });
-      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
-      await fs.rm(fixture.root, { recursive: true, force: true });
+        });
+        expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+      } finally {
+        await fs.rm(fixture.root, { recursive: true, force: true });
+      }
     },
   );
 

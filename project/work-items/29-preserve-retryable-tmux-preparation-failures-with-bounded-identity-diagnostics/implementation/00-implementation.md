@@ -266,3 +266,58 @@ No application documentation changed. The correction implements the already docu
 - `rpiv`, `rpiv-research`, and `rpiv-planner` had zero pending entries. `rpiv-implementer` had five entries (`DL-001`, `INS-001`, `DL-002`, `INS-002`, `DL-003`).
 - All five Implement entries were persisted in `.harness/records/retro/2026-08-14/028-issue-29-rpiv-implementer.md`; read-back proved schema 1.2, matching plan/agent, every ID/fingerprint, and `disposition: kept`. Agent-scoped clear envelopes all returned exit 0 and `status: ok`; Implement cleared 5 and the other allowed buffers cleared 0. Post-clear lists for all four allowed agents were empty.
 - No command listed, drained, cleared, or rewrote `rpiv-verifier`. Existing verifier retro records and verification summaries remain untouched; the user-reported final verifier harvest remains 14 records/61 entries with pending zero.
+
+## Repeated hosted-CI return: stable controlled helper readiness
+
+This fixture/evidence correction is implemented on top of verification-return metadata HEAD `a2023f7485aece20668b75e30b594416b2bf4a0f`. It preserves remote PR head `33eecb8c4f5fe13d37f86aac1cba1b8434253579` and all prior commits; no reset, amend, push, issue edit, or PR edit was performed. Final acceptance and hosted publication remain owned by Verify.
+
+### Exact race and correction
+
+- CI run `31809715459` failed the same four built Doctor cases on Node 22 and Node 24 after `33eecb8`, while local direct/harness validation passed 445 tests. This disproved `ChildProcess` `spawn` plus one immediate procfs read as a portable stable-identity barrier. `spawn` proves launch initiation, not that a second process can safely consume a stable compound `/proc/<pid>` snapshot.
+- The controlled fake now waits at most 1000 ms, checking every 10 ms. It publishes a pane PID only after two consecutive identical snapshots prove the requested executable physical path, exact sole helper argument, exact cwd, direct server parent, positive process group, and numeric start token. The snapshot signature is ephemeral; only booleans, closed categories, bounded counts, and cap values enter test diagnostics.
+- A deterministic delayed mode keeps `spawnObserved: true` while making the first three identity checks non-authorizing. Both dashboard and issue helpers then require at least five attempts: three delayed checks followed by two identical accepted snapshots. A timeout mode keeps spawn successful but forces the executable category non-authorizing until the 1000 ms cap, terminates the exact child, returns command failure, and never publishes a pane PID.
+- The fake also awaits exact helper termination on `kill-window`, `kill-server`, and server signals, with fixture-local SIGTERM/SIGKILL settlement bounds. This prevents failed assertions from orphaning controlled helpers.
+- Production source is unchanged in this correction. The canonical physical executable behavior from `33eecb8` remains, as do Doctor single-observation semantics, PID/PGID/start-token/executable/argument/cwd/launch-window/server-lineage requirements, exact pre-signal identity checks, unknown refusal, private socket isolation, command order, byte caps, deadlines, cleanup, 24 checks, and DoctorResultV2.
+
+### Acceptance evidence
+
+#### AC-1 through AC-8
+
+No product, parser, persistence, recovery, logs, documentation, or validation-contract behavior changed. Prior independently passed evidence remains authoritative.
+
+#### AC-9
+
+- **Deterministic isolation:** Changes are confined to `src/doctor-integration.test.ts`, work-item evidence, and the Implement retro. The fixture uses only temporary roots, a private local Unix socket, requested local executables, and procfs for its exact owned child. No ambient/default tmux, Sparkta path, credential, network endpoint, or live Copilot process is used.
+- **Regression:** Delayed and timeout modes prove bounded synchronization/refusal. Existing equivalent physical aliases remain accepted and a truly distinct executable remains refused as `process-identity-unknown`.
+- **Validation:** Targeted, stress, direct focused/full, and harness focused/full validation all exited zero with 23 suites/447 tests in repository gates.
+
+#### AC-10
+
+- **Fixture readiness:** Pane PID publication now follows two stable exact compound snapshots, not only `spawn`. The 1000 ms/10 ms fixture barrier is test synchronization only and cannot retry or broaden production Doctor observation.
+- **Value-free failure proof:** Built assertions expose status, Doctor operation/reason, readiness outcome/failure category, spawn boolean, attempts/stable reads, 1000/10/2 bounds, and six identity-category booleans. Hosted failures can no longer stop at opaque `expect(status).toBe(0)` without showing controlled readiness and Doctor classification.
+- **Outcome matrix:** READY exits 0 after both helpers become stable; nonfunctional reaches `socket-ready`/`socket-unavailable`; malformed create reaches `window-create`/`malformed-output`; malformed observe reaches `pane-observe`/`malformed-output`; readiness timeout reaches `session-create`/`nonzero-exit` without returning a PID.
+- **Preserved safety:** Production one-pass observation, exact identity and lineage proof, session/window target, private `-S`, original-byte parsing, caps, aggregate/cleanup milestones, final absence proof, and value-free product evidence are unchanged.
+
+### Documentation evidence and no-impact rationale
+
+No application documentation changed because public setup, behavior, output, schemas, configuration, usage, troubleshooting, migration, API, data/database, service, container, deployment, operations, and architecture contracts are unchanged. ADR-260812, CORE-COMPONENT-260812, and decisions 135-143 remain authoritative.
+
+### Validation evidence
+
+- `harness boot --json`: process exit 0, envelope `status: ok`; application exit 0 with the exact bootstrap signal and composed baseline full checks 23 suites/445 tests.
+- Targeted `npx jest --runInBand src/doctor-integration.test.ts`: exit 0; 1 suite/9 tests.
+- Repeated READY stress: three selected-suite invocations exited 0; each ran the READY test containing three built processes, for nine stress-process passes.
+- Direct `just verify-focused`: exit 0; 23 suites/447 tests; diff check passed.
+- `harness checks --focused --json`: process exit 0; envelope `status: ok`, `scope: focused`, delegated `just verify-focused`, delegated exit 0; 23 suites/447 tests.
+- Direct `just verify`: exit 0; lint, Prettier, strict TypeScript, 23 suites/447 tests, build, and diff check passed. Coverage was 88.90% statements, 83.99% branches, 95.42% functions, and 90.50% lines.
+- `harness checks --json`: process exit 0; envelope `status: ok`, `scope: full`, delegated `just verify`, delegated exit 0; matching 23 suites/447 tests and coverage.
+- Isolation/resource audit: final `soft-factory-doctor-*`, `doctor-ready-process-*`, and `doctor-executable-identity-*` directory inventories were empty; the matching process inventory was empty. Static changed-fixture scanning found no Sparkta, credential, network, or ambient tmux dependency. Product source and verifier-owned records/summaries had zero diff.
+
+### Friction drain
+
+- `rpiv`, `rpiv-research`, and `rpiv-planner` each had zero pending observations. `rpiv-implementer` had `DL-001`, `DL-002`, and `INS-001`.
+- All three Implement observations were persisted and read back in `.harness/records/retro/2026-08-14/030-issue-29-rpiv-implementer-second-ci-return.md`, with schema 1.2, matching plan/agent, every ID/fingerprint, and `disposition: kept`. Agent-scoped clear envelopes returned exit 0 and `status: ok`; Implement cleared 3 and each other allowed buffer cleared 0.
+- No command listed, drained, cleared, or rewrote `rpiv-verifier`. Existing verifier records and `verify/summary.md` remain untouched; the user-reported verifier pending count remains zero.
+- One post-evidence `rpiv-implementer` observation was persisted and read back in `.harness/records/retro/2026-08-14/031-issue-29-rpiv-implementer-second-ci-evidence-eof.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`; the post-clear list was empty.
+- One final `rpiv-implementer` command-shape observation was persisted and read back in `.harness/records/retro/2026-08-14/032-issue-29-rpiv-implementer-commit-guidance.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`; the post-clear list was empty.
+- One final `rpiv-implementer` evidence-edit observation was persisted and read back in `.harness/records/retro/2026-08-14/033-issue-29-rpiv-implementer-final-evidence-command.md`; schema 1.2, matching plan/agent, ID/fingerprint, and `disposition: kept` matched. Its agent-scoped clear returned exit 0, `status: ok`, and `cleared: 1`.
