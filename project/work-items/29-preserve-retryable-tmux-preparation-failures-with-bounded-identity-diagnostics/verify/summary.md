@@ -4,7 +4,7 @@
 
 **Failed — return to Implement.** Product/test correction commit `eca87ade5c65a8054a1c49b4849a5ed57189cc53` and handoff head `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9` passed independent local validation, but PR CI run `31814521678` failed the root `just verify` recipe on both Node 22 and Node 24. Each job failed 6 tests in `src/doctor-integration.test.ts`; Package smoke was skipped. AC-9 and AC-10 therefore remain failed, all Issue #29 criteria remain unchecked, and no AgentResultV1 was published.
 
-No application code, tests, fixtures, application documentation, architecture artifact, or implementation commit was modified by Verify. Verify generated only this summary and `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md`.
+No application code, tests, fixtures, application documentation, architecture artifact, or implementation commit was modified by Verify. Verify generated only this summary and verifier retros `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md` and `.harness/records/retro/2026-08-14/036-issue-29-rpiv-verifier-final-return.md`.
 
 ## Identity and scope
 
@@ -60,22 +60,26 @@ ADR-260812, ADR-260814, related core-components, and Decisions 123–143 remain 
 | PR CI Node 24 | **Failed** | [Job 94812869657](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678/job/94812869657): identical 1 failed suite, 6 failed tests, 441 passed. |
 | Package smoke | **Skipped** | [Job 94813132978](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678/job/94813132978) skipped after matrix failure. |
 
-Hosted run: https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678
+Hosted product run: https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678
+
+The metadata-only verifier head `25274a0b1e40c45faca943cc05eddf6f21bcd2ed` automatically reran [CI 31815331249](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31815331249). [Node 22 job 94815510545](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31815331249/job/94815510545) and [Node 24 job 94815510641](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31815331249/job/94815510641) each repeated 1 failed suite, 6 failed tests, and 441 passed tests; [Package smoke 94815736925](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31815331249/job/94815736925) was skipped.
 
 ## CI return history
 
-1. Initial hosted return after the 444-test local baseline: Node 22 and Node 24 each failed four built Doctor integration cases at `process-identity-unknown`; AC-9/AC-10 were returned.
-2. Run `31809715459` at corrected product head `33eecb8c4f5fe13d37f86aac1cba1b8434253579`: both supported jobs again failed four of 445 tests at `process-identity-unknown`; Package smoke skipped.
-3. Run `31814521678` at handoff head `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9`, containing test correction `eca87ad`: both supported jobs failed six of 447 tests because cleanup replaced intended outcomes with `helper-stop` / `process-identity-unknown`; Package smoke skipped.
+1. [Run 31805586261](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31805586261) at product head `8ffd7eaf6910c1ee179553609e0721bd9d7fdddc`: Node 22 and Node 24 each failed four of 444 built Doctor integration tests at `process-identity-unknown`; Package smoke skipped.
+2. [Run 31805718222](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31805718222) at first failure-metadata head `95330573569e5459c7ac9dd6eded22fbbc63f189`: the unchanged product repeated the same four-of-444 Node 22/24 failures; Package smoke skipped.
+3. [Run 31809715459](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31809715459) at corrected product head `33eecb8c4f5fe13d37f86aac1cba1b8434253579`: both supported jobs again failed four of 445 tests at `process-identity-unknown`; Package smoke skipped.
+4. [Run 31814521678](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31814521678) at handoff head `49c1cef8ceab9efb77c05c571e7f5dc1e2d1a4a9`, containing test correction `eca87ad`: both supported jobs failed six of 447 tests because cleanup replaced intended outcomes with `helper-stop` / `process-identity-unknown`; Package smoke skipped.
+5. [Run 31815331249](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31815331249) at failure-metadata head `25274a0b1e40c45faca943cc05eddf6f21bcd2ed`: both jobs repeated the same six-of-447 failure and Package smoke skipped; this head changed only the verification summary and verifier retro.
 
 ## RPIV Retro Harvest
 
-Verifier observations `DL-001` through `DL-005` were persisted and read back in `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md` with schema 1.2, matching plan/agent, exact fingerprints, and kept dispositions before an agent-scoped clear of five entries. Post-clear listing returned `status: ok` with zero observations.
+The first verifier drain persisted observations `DL-001` through `DL-005` in `.harness/records/retro/2026-08-14/035-issue-29-rpiv-verifier.md`. Exact historical CI backtracking and the automatic metadata rerun were subsequently persisted as `DL-001` and `COORD-001` in `.harness/records/retro/2026-08-14/036-issue-29-rpiv-verifier-final-return.md`. Both schema 1.2 records were read back with matching plan/agent, exact fingerprints, and kept dispositions before their respective agent-scoped clears. The final post-clear buffer has zero observations.
 
-`harness retro insights --plan 29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics --json` returned exit 0, `status: ok`, schema `harness.retro-insights/v1`, 22 records, 80 entries, all four RPIV agents, 80 kept dispositions, zero malformed/unsupported records, and `buffer_pending: 0`.
+`harness retro insights --plan 29-preserve-retryable-tmux-preparation-failures-with-bounded-identity-diagnostics --json` returned exit 0, `status: ok`, schema `harness.retro-insights/v1`, 23 records, 82 entries, all four RPIV agents, 82 kept dispositions, zero malformed/unsupported records, and `buffer_pending: 0`.
 
 ## Issue, PR, and publication
 
 Issue #29 retains all ten original criteria unchecked. PR #30 remains the existing PR; no duplicate was created and no merge was attempted. Its Conventional Commit title remains valid. The PR body was not changed to claim acceptance after hosted failure.
 
-No accepted green product head or final verification metadata head exists. No AgentResultV1 was published because AC-9/AC-10 and snapshotted `just verify` hosted proof failed; additionally, no Issue #29-specific injected no-clobber publication binding was available. Any unrelated pre-existing artifact remains unchanged.
+No accepted green product head or successful final verification metadata head exists. No AgentResultV1 was published because AC-9/AC-10 and snapshotted `just verify` hosted proof failed; additionally, no Issue #29-specific injected no-clobber publication binding was available. Any unrelated pre-existing artifact remains unchanged.
