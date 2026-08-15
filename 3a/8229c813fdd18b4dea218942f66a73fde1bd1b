@@ -1,0 +1,25 @@
+.harness/records/retro/2026-08-15/010-issue-31-rpiv-verifier-closeout.md
+  s_8aa27e64108afb::t_48ffa830a2da06 7-8,10-13,17-23,25-28,31,33
+  s_8aa27e64108afb::t_941acde491a567 1-6,9,14-16,24,29-30,32
+project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/verify/summary.md
+  s_8aa27e64108afb::t_1b869eee51c5b1 173-265
+.harness/records/retro/2026-08-15/009-issue-31-rpiv-verifier-final.md
+  s_8aa27e64108afb::t_e8d4d1ad57ab85 1-6,9,14-16,24,43-44,46
+  s_8aa27e64108afb::t_21696525e24973 7-8,10-13,17-23,25-42,45,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3a8229c813fdd18b4dea218942f66a73fde1bd1b",
+  "prompts": {},
+  "sessions": {
+    "s_8aa27e64108afb": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_JP5kFHCJTis7r3gYSeg41FQO",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
