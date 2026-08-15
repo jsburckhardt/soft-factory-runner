@@ -170,3 +170,96 @@ Every criterion is failed for this verification attempt because a required root 
 ## Resumed RPIV retro harvest
 
 The resumed verifier observations were persisted to `.harness/records/retro/2026-08-15/006-issue-31-rpiv-verifier-resume.md` as schema 1.2 with matching plan/agent and both observations, read back, then cleared successfully. Plan-scoped retro harvest returned `status: ok`, schema `harness.retro-insights/v1`, one matching plan, six records, 29 entries, four agents, and zero pending observations. Prior failed summary and retro history remain preserved above and in record 004.
+
+
+---
+
+# Final Resumed Verification Attempt — Second Corrected Handoff
+
+## Outcome
+
+**Accepted.** Exact corrected implementation commit `aab75ef20fa04714813d9f1437d199fefdea5f17` passed independent scope, architecture, documentation, acceptance, local validation, and hosted product-head validation. Pull request [#32](https://github.com/jsburckhardt/soft-factory-runner/pull/32) is open; Issue #31 remains open with all 13 structured criteria checked. No merge occurred.
+
+- Work item: `project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance`
+- Branch: `fix/31-portable-tmux-identity`
+- Accepted implementation commit: `aab75ef20fa04714813d9f1437d199fefdea5f17`
+- Parent preserved failed-verification metadata: `1d3615fc4118d227ba40b12ed445f472051e2634`
+- Original product implementation: `8a6f1472319d8013f832bf0612a1ec4b3b3633aa`
+- Base: `d1e3c589191a753a8d4d460b185caac17f800844`
+
+## Exact handoff, scope, architecture, and commit review
+
+- Exact branch, implementation SHA, parent, and initially clean tree matched the Implement handoff.
+- Exactly one Issue #31 action plan resolved to the preserved work-item directory above.
+- Complete `origin/main...aab75ef` diff: 45 files, 3,370 insertions, 441 deletions; all changes map to planned product, tests, architecture, documentation, release metadata, governance, and retained RPIV evidence.
+- All six implementation-lineage commits use Conventional Commits and the required `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer.
+- Revised tmux/Doctor ADRs and core-components, new `CORE-COMPONENT-260815-package-semver-governance`, and decision rows 127/144–162 match the implementation; no architecture deviation or unrelated scope was found.
+- Latest correction changes only the Doctor integration test, task/implementation evidence, and Implement retros 007/008. Product behavior, docs, architecture, governance, and version surfaces are unchanged from the independently accepted correction baseline.
+
+## Timeout correction decision
+
+Passed. `BUILT_DOCTOR_PRODUCT_DEADLINE_MS` remains exactly 10,000ms and is both the `spawnSync` timeout and each invocation evidence bound. The two-invocation and three-invocation tests receive only local aggregate Jest wrappers of 25,000ms and 35,000ms. Every real built invocation calls the strict helper; deterministic evidence at 10,000ms passes and 10,001ms throws. No sleep, retry, global Jest timeout, product deadline, or cleanup behavior changed.
+
+## Application documentation decision
+
+Passed. README, PRD, docs index, issue-run, recovery, Doctor, official-assets, and package/installation guidance match the committed 0.1.1 behavior. The repaired issue-run guide is 178 coherent lines with one H1, nine unique ordered H2s, one H3, one body, complete strict ID expressions, exact pipe/LF transport, ownership/retry safety, bounded confidentiality, and cleanup guidance.
+
+| Category | Status | Evidence |
+| --- | --- | --- |
+| README/current release | Passed | Both client states, 0.1.1, upgrade/reinstall, package and manifest confirmation, asset reconvergence, confidentiality. |
+| API/reference/specification | No impact | No network API or API specification changed. |
+| Configuration | No impact | No configuration option/default or config migration changed. |
+| Usage | Passed | Issue-run and phase guides state exact create/observe grammar and safe recovery behavior. |
+| Migration/upgrade | Passed | Copyable local 0.1.0→0.1.1 upgrade/reinstall and confirmation are present without registry claims. |
+| Architecture explanation | Passed | PRD and global architecture artifacts match portable framing and preserved safety. |
+| Operations | Passed | Doctor/recovery docs match 24 checks, private isolation, timeout/cancellation, and unconditional cleanup. |
+| Deployment/installation | Passed | Local package and official-asset installation/reconvergence guidance matches committed behavior; no remote service deployment changed. |
+
+## Acceptance decisions
+
+| ID | Status | Concrete evidence |
+| --- | --- | --- |
+| AC-1 | Passed | Explicit UTF-8/non-UTF8 fixture rows exercise normal create/observe and installed Doctor with tripwires excluding ambient locale/tmux; all integration tests passed. |
+| AC-2 | Passed | Shared parser accepts only `@digits|%digits<LF>` and `@digits|%digits|cwd<LF>`; tests prove exact IDs, valid nonempty UTF-8 cwd, and first-two-pipe cwd retention. |
+| AC-3 | Passed | Finite malformed matrices cover empty/missing/extra/multiple/invalid-ID/invalid-cwd/terminator/printable/control separators; normal returns `TMUX_IDENTITY_MALFORMED`, Doctor reports `malformed-output`, no partial identity. |
+| AC-4 | Passed | Recovery suites retain exact lock/lease/worktree/branch/fetched-HEAD ownership, same-name no-adoption, zero-candidate authorization, immediate recheck, and one-attempt retry. |
+| AC-5 | Passed | Schema-v1 diagnostics remain value-free and bounded to 8 records, 8 fields, 32 tokens; `vertical_bar` is added while legacy `horizontal_tab` remains readable; sentinel scans passed. |
+| AC-6 | Passed | Tests prove exactly 24 canonical Doctor IDs/order, full isolated protocol, compound process identity/lineage, and server/panes/socket/workspace absence for success/failure/timeout/cancellation. |
+| AC-7 | Passed | Six APS-style `You MUST` SemVer lines are one imperative each and preserve unrelated AGENTS content/order. |
+| AC-8 | Passed | PATCH 0.1.1 is correct; package, both lock roots, catalog, fixtures, packed/installed metadata, generated/reconverged manifests, and current docs agree; dependency graph is unchanged. |
+| AC-9 | Passed | Controlled built path proves six stdout bytes, zero stderr, one LF record, no HT, exact identity acceptance, and no external tmux 3.7b/locale dependency. |
+| AC-10 | Passed | Repeated rows are equal; barrier-held normal and Doctor overlaps retain owner-specific identities/cwds, disjoint resources, no cross-adoption, and empty final inventories. |
+| AC-11 | Passed | Temporary/private fixtures and tripwires prove no Sparkta, credentials, network, ambient/default tmux, or unowned access. |
+| AC-12 | Passed | Affected docs accurately cover both client modes, upgrade/reinstall/confirmation, official-asset reconvergence, and the raw-value confidentiality boundary. |
+| AC-13 | Passed | Direct focused/full root gates, focused/full harness delegates, 23 suites/558 tests, and all three hosted product-head jobs passed. |
+
+## Validation results
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Root command interface | Passed | `just --list` exposes `verify-focused` and `verify`. |
+| `just verify-focused` | Passed | 23/23 suites, 558/558 tests, diff check. |
+| `harness checks --focused --json` | Passed | Exit 0, `status: ok`, scope `focused`, delegated `just verify-focused`, 23/558. |
+| `just verify` | Passed | ESLint, Prettier, typecheck, 23/23 suites and 558/558 tests with coverage, build, diff check. |
+| `harness checks --json` | Passed | Exit 0, `status: ok`, scope `full`, delegated `just verify`, 23/558. |
+| Version/package/resource evidence | Passed | Package/lock roots/catalog are 0.1.1; package/install tests and hosted smoke passed; Doctor has 24 unique canonical checks and controlled inventories are empty. |
+| Hosted Verify Node 22 | Passed | [Run 31862850743 / job 94959082433](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31862850743/job/94959082433) on product head `aab75ef`. |
+| Hosted Verify Node 24 | Passed | [Run 31862850743 / job 94959082421](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31862850743/job/94959082421) on product head `aab75ef`. |
+| Hosted Package smoke | Passed | [Run 31862850743 / job 94959183657](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31862850743/job/94959183657) on product head `aab75ef`. |
+| Required final metadata-head validation | Post-commit gate | The same three hosted jobs must pass after this summary and verifier retros are committed and pushed; final closeout binds that independently observed head. |
+
+## RPIV retro harvest and publication
+
+Verifier records `.harness/records/retro/2026-08-15/009-issue-31-rpiv-verifier-final.md` and `.harness/records/retro/2026-08-15/010-issue-31-rpiv-verifier-closeout.md` preserve all three concrete final-attempt observations. Each transient buffer was cleared only after schema-1.2, plan, agent, and entry read-back; the final verifier buffer is empty.
+
+Plan-scoped `harness retro insights --plan 31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance --json` returned exit 0, `status: ok`, schema `harness.retro-insights/v1`, the exact plan in scope, 10 records, 38 entries, all four RPIV agents, zero malformed/unsupported records, and zero pending observations. Prior failed summaries and verifier retros 004/006 remain preserved.
+
+No exact injected Runner run binding or snapshotted `requiredFinalValidation` binding was available in this verifier environment. AgentResultV1 publication is therefore inapplicable and must not be fabricated; the PR, issue, commit, hosted checks, and final response provide the durable acceptance evidence.
+
+## GitHub state at summary generation
+
+- Pull request: [#32](https://github.com/jsburckhardt/soft-factory-runner/pull/32), open, product head `aab75ef20fa04714813d9f1437d199fefdea5f17`.
+- Issue #31: open, 13 checked and 0 unchecked structured acceptance criteria.
+- Product-head hosted run: [31862850743](https://github.com/jsburckhardt/soft-factory-runner/actions/runs/31862850743), all three required jobs successful.
+- Metadata-head hosted validation and final branch synchronization are required immediately after committing this summary and generated verifier retros.
+- Merge: not performed.
