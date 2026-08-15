@@ -40,7 +40,7 @@ Documentation passed: README, docs index, Phase 3 recovery operations, and Phase
 
 ## RPIV retro harvest
 
-Verifier observations were persisted with schema 1.2 and exact plan ID in `.harness/records/retro/2026-08-15/015-issue-5-rpiv-verifier.md` and `.harness/records/retro/2026-08-15/016-issue-5-rpiv-verifier-publication-binding.md`, read back, then the buffer was cleared successfully. `harness retro insights --plan 5-phase-3-recover-safely-and-run-distinct-issues-concurrently --json` passed with schema `harness.retro-insights/v1`: 14 records, 44 entries, five agents, 40 open / 1 suggested / 3 encoded lifecycle statuses, no malformed records, and zero pending buffer entries.
+Verifier observations were persisted with schema 1.2 and exact plan ID in `.harness/records/retro/2026-08-15/015-issue-5-rpiv-verifier.md` , `.harness/records/retro/2026-08-15/016-issue-5-rpiv-verifier-publication-binding.md`, and `.harness/records/retro/2026-08-15/017-issue-5-rpiv-verifier-pr-head-confirmation.md`, read back, then the buffer was cleared successfully. `harness retro insights --plan 5-phase-3-recover-safely-and-run-distinct-issues-concurrently --json` passed with schema `harness.retro-insights/v1`: 15 records, 45 entries, five agents, 41 open / 1 suggested / 3 encoded lifecycle statuses, no malformed records, and zero pending buffer entries.
 
 ## Final-result binding
 
