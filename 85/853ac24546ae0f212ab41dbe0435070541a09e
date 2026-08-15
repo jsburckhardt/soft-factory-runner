@@ -1,0 +1,38 @@
+project/architecture/ADR/ADR-260812-repository-doctor-readiness.md
+  s_70547afd8f92b1::t_3b101dc1e9a31c 13-14,25,28,78,86
+project/architecture/core-components/CORE-COMPONENT-260812-repository-doctor-contract.md
+  s_70547afd8f92b1::t_c1172cfe9397f8 27,74-75,87,99
+project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/plan/03-test-plan.md
+  s_70547afd8f92b1::t_c304cf6b702d7a 1-262
+project/architecture/ADR/DECISION-LOG.md
+  s_70547afd8f92b1::t_ef09bcb507ad8c 211-215
+  s_70547afd8f92b1::t_3becd9a2dfb2e1 46,180,197-210
+project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/plan/02-task-breakdown.md
+  s_70547afd8f92b1::t_09e00007ce154d 1-209
+project/architecture/ADR/ADR-260814-tmux-identity-failure-recovery.md
+  s_70547afd8f92b1::t_d47ccb2cde339e 9,11,15,17,19-20,22,24,26,28,34-37,42-44,47-48,51,56,61,63
+project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md
+  s_70547afd8f92b1::t_e3b6167255b09c 9,13,19-26,28-30,32-39,43-48,52-57,61,66-69,74,76-79,83,94
+  s_70547afd8f92b1::t_aa5cff7f91c59d 31
+project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/plan/01-action-plan.md
+  s_70547afd8f92b1::t_17b4ac878bcfe7 1-62
+project/architecture/core-components/CORE-COMPONENT-260815-package-semver-governance.md
+  s_70547afd8f92b1::t_bf0dcdc8e1d9fe 2-4,6-8,10-12,14-18,32,39-41,47-48,50-53,58-61,67-69,73-75,79-81
+  s_70547afd8f92b1::t_98fb85e2237172 1,5,9,13,19-31,33-38,42-46,49,54-57,62-66,70-72,76-78,82-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "85853ac24546ae0f212ab41dbe0435070541a09e",
+  "prompts": {},
+  "sessions": {
+    "s_70547afd8f92b1": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_zHH70YTr1iQcJyr3S8aSmvBq",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
