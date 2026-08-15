@@ -125,6 +125,20 @@ const CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS = 1000;
 const CONTROLLED_IDENTITY_READINESS_POLL_MS = 10;
 const CONTROLLED_IDENTITY_STABLE_READS = 2;
 const CONTROLLED_IDENTITY_DELAY_ATTEMPTS = 3;
+const BUILT_DOCTOR_PRODUCT_DEADLINE_MS = 10_000;
+const BUILT_DOCTOR_TEST_OVERHEAD_MS = 5_000;
+const CONTROLLED_READY_BUILT_INVOCATION_COUNT = 3;
+
+function builtDoctorTestTimeout(invocationCount: number): number {
+  return (
+    invocationCount * BUILT_DOCTOR_PRODUCT_DEADLINE_MS +
+    BUILT_DOCTOR_TEST_OVERHEAD_MS
+  );
+}
+
+const CONTROLLED_READY_BUILT_TEST_TIMEOUT_MS = builtDoctorTestTimeout(
+  CONTROLLED_READY_BUILT_INVOCATION_COUNT,
+);
 
 function protocolTmuxBody(
   mode: TmuxProtocolMode,
@@ -496,7 +510,7 @@ function builtDoctor(
       cwd,
       env: { PATH: pathValue, HOME: cwd },
       encoding: "utf8",
-      timeout: 10_000,
+      timeout: BUILT_DOCTOR_PRODUCT_DEADLINE_MS,
     },
   );
   return {
@@ -505,6 +519,14 @@ function builtDoctor(
     stderr: result.stderr,
     elapsedMs: Number(process.hrtime.bigint() - start) / 1_000_000,
   };
+}
+
+function expectBuiltDoctorWithinProductDeadline(
+  result: Pick<ReturnType<typeof builtDoctor>, "elapsedMs">,
+): void {
+  expect(result.elapsedMs).toBeLessThanOrEqual(
+    BUILT_DOCTOR_PRODUCT_DEADLINE_MS,
+  );
 }
 
 type ControlledReadinessCategory =
@@ -709,6 +731,19 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
       throw new Error("Fixture build failed: " + build.stdout + build.stderr);
   });
 
+  it("rejects controlled built Doctor evidence above the product deadline", () => {
+    expect(() =>
+      expectBuiltDoctorWithinProductDeadline({
+        elapsedMs: BUILT_DOCTOR_PRODUCT_DEADLINE_MS,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      expectBuiltDoctorWithinProductDeadline({
+        elapsedMs: BUILT_DOCTOR_PRODUCT_DEADLINE_MS + 1,
+      }),
+    ).toThrow();
+  });
+
   it("validates complete ordered ready, blocked, and isolated-failure manifests", async () => {
     const ready = await readManifest<DoctorResultV2>("ready.json");
     const blocked = await readManifest<DoctorResultV2>("blocked.json");
@@ -791,6 +826,7 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
           builtDoctor(fixture.root, fixture.bin, true),
         ];
         for (const response of results) {
+          expectBuiltDoctorWithinProductDeadline(response);
           expect(response).toMatchObject({ status: 0, stderr: "" });
           const parsed = JSON.parse(response.stdout) as DoctorResultV2;
           expect(parsed).toEqual(manifest);
@@ -837,96 +873,103 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
         await fs.rm(fixture.root, { recursive: true, force: true });
       }
     },
+    builtDoctorTestTimeout(2),
   );
 
-  it("runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing", async () => {
-    const fixture = await readyRepository();
-    const beforeProbeWorkspaces = await probeWorkspaces();
-    try {
-      const manifest = await readManifest<DoctorResultV2>("ready.json");
-      const jsonFirst = builtDoctor(fixture.root, fixture.bin, true);
-      const jsonFirstDiagnostic = await builtDoctorDiagnostic(
-        jsonFirst,
-        fixture.bin,
-        true,
-      );
-      const jsonSecond = builtDoctor(fixture.root, fixture.bin, true);
-      const jsonSecondDiagnostic = await builtDoctorDiagnostic(
-        jsonSecond,
-        fixture.bin,
-        true,
-      );
-      const human = builtDoctor(fixture.root, fixture.bin, false);
-      const humanDiagnostic = await builtDoctorDiagnostic(
-        human,
-        fixture.bin,
-        false,
-      );
-      const expectedReadiness = expect.objectContaining({
-        spawnObserved: true,
-        outcome: "ready",
-        failureCategory: null,
-        stableReads: CONTROLLED_IDENTITY_STABLE_READS,
-        timeoutMs: CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS,
-        pollMs: CONTROLLED_IDENTITY_READINESS_POLL_MS,
-        requiredStableReads: CONTROLLED_IDENTITY_STABLE_READS,
-        checks: READY_IDENTITY_CHECKS,
-      });
-      expect([
-        jsonFirstDiagnostic,
-        jsonSecondDiagnostic,
-        humanDiagnostic,
-      ]).toEqual(
-        Array.from({ length: 3 }, () => ({
-          status: 0,
-          stderr: "empty",
-          doctorFailure: null,
-          readiness: [expectedReadiness, expectedReadiness],
-        })),
-      );
-      const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV2;
-      expect(parsed).toEqual(manifest);
-      expect(JSON.parse(jsonSecond.stdout)).toEqual(parsed);
-      expect(normalizeHuman(human.stdout)).toEqual(parsed);
-      expect(jsonFirst.elapsedMs).toBeLessThanOrEqual(10_000);
-      expect(jsonSecond.elapsedMs).toBeLessThanOrEqual(10_000);
-      expect(human.elapsedMs).toBeLessThanOrEqual(10_000);
-      expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
-      const trace = (
-        await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
-      )
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line) as Record<string, unknown>);
-      expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
-      const helperReadiness = await controlledReadinessDiagnostics(fixture.bin);
-      expect(helperReadiness).toHaveLength(6);
-      expect(
-        helperReadiness.every(
-          (entry) =>
-            entry.outcome === "ready" &&
-            entry.spawnObserved &&
-            entry.failureCategory === null &&
-            entry.stableReads === CONTROLLED_IDENTITY_STABLE_READS &&
-            Object.values(entry.checks).every(Boolean),
-        ),
-      ).toBe(true);
-      expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
-      expect(
-        trace
-          .filter((entry) => entry.server === true)
-          .every(
+  it(
+    "runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing",
+    async () => {
+      const fixture = await readyRepository();
+      const beforeProbeWorkspaces = await probeWorkspaces();
+      try {
+        const manifest = await readManifest<DoctorResultV2>("ready.json");
+        const jsonFirst = builtDoctor(fixture.root, fixture.bin, true);
+        const jsonFirstDiagnostic = await builtDoctorDiagnostic(
+          jsonFirst,
+          fixture.bin,
+          true,
+        );
+        const jsonSecond = builtDoctor(fixture.root, fixture.bin, true);
+        const jsonSecondDiagnostic = await builtDoctorDiagnostic(
+          jsonSecond,
+          fixture.bin,
+          true,
+        );
+        const human = builtDoctor(fixture.root, fixture.bin, false);
+        const humanDiagnostic = await builtDoctorDiagnostic(
+          human,
+          fixture.bin,
+          false,
+        );
+        const expectedReadiness = expect.objectContaining({
+          spawnObserved: true,
+          outcome: "ready",
+          failureCategory: null,
+          stableReads: CONTROLLED_IDENTITY_STABLE_READS,
+          timeoutMs: CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS,
+          pollMs: CONTROLLED_IDENTITY_READINESS_POLL_MS,
+          requiredStableReads: CONTROLLED_IDENTITY_STABLE_READS,
+          checks: READY_IDENTITY_CHECKS,
+        });
+        expect([
+          jsonFirstDiagnostic,
+          jsonSecondDiagnostic,
+          humanDiagnostic,
+        ]).toEqual(
+          Array.from({ length: 3 }, () => ({
+            status: 0,
+            stderr: "empty",
+            doctorFailure: null,
+            readiness: [expectedReadiness, expectedReadiness],
+          })),
+        );
+        const parsed = JSON.parse(jsonFirst.stdout) as DoctorResultV2;
+        expect(parsed).toEqual(manifest);
+        expect(JSON.parse(jsonSecond.stdout)).toEqual(parsed);
+        expect(normalizeHuman(human.stdout)).toEqual(parsed);
+        expectBuiltDoctorWithinProductDeadline(jsonFirst);
+        expectBuiltDoctorWithinProductDeadline(jsonSecond);
+        expectBuiltDoctorWithinProductDeadline(human);
+        expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+        const trace = (
+          await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
+        )
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line) as Record<string, unknown>);
+        expect(trace.filter((entry) => entry.server === true)).toHaveLength(3);
+        const helperReadiness = await controlledReadinessDiagnostics(
+          fixture.bin,
+        );
+        expect(helperReadiness).toHaveLength(6);
+        expect(
+          helperReadiness.every(
             (entry) =>
-              entry.privateConfig === true &&
-              entry.workspaceMode === 0o700 &&
-              entry.configMode === 0o600 &&
-              entry.helperMode === 0o600,
+              entry.outcome === "ready" &&
+              entry.spawnObserved &&
+              entry.failureCategory === null &&
+              entry.stableReads === CONTROLLED_IDENTITY_STABLE_READS &&
+              Object.values(entry.checks).every(Boolean),
           ),
-      ).toBe(true);
-    } finally {
-      await fs.rm(fixture.root, { recursive: true, force: true });
-    }
-  });
+        ).toBe(true);
+        expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
+        expect(
+          trace
+            .filter((entry) => entry.server === true)
+            .every(
+              (entry) =>
+                entry.privateConfig === true &&
+                entry.workspaceMode === 0o700 &&
+                entry.configMode === 0o600 &&
+                entry.helperMode === 0o600,
+            ),
+        ).toBe(true);
+      } finally {
+        await fs.rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+    CONTROLLED_READY_BUILT_TEST_TIMEOUT_MS,
+  );
 
   it("waits for two stable identities after deterministic post-spawn delay", async () => {
     const fixture = await readyRepository("valid", "delayed");

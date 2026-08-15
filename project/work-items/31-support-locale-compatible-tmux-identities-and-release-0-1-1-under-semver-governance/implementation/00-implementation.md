@@ -200,3 +200,50 @@ Documentation-category rationale remains unchanged: no network API/specification
 - Existing verifier summary and `.harness/records/retro/2026-08-15/004-issue-31-rpiv-verifier.md` were not altered, and the verifier buffer was not accessed or mutated.
 
 Final acceptance remains owned by Verify.
+
+## Second Verify Return and Deterministic Doctor Timeout Correction
+
+Verify inspected corrected implementation commit `b2197fef5cb2123a1a0e4fbd5bf1c2bfa1239712`, committed the second failed verification metadata as `1d3615fc4118d227ba40b12ed445f472051e2634`, and returned one configured-validation defect: the three-process controlled Doctor parity test exceeded Jest default 5000ms even though each independently bounded product invocation remained within its 10000ms contract. The prior implementation, failed summaries, and retros remain preserved; no reset, amend, push, GitHub mutation, hosted check, or AgentResult occurred.
+
+### Timeout Semantics and Regression
+
+- `BUILT_DOCTOR_PRODUCT_DEADLINE_MS` names the unchanged 10000ms per-invocation process and evidence bound.
+- `builtDoctorTestTimeout(invocationCount)` calculates only a local Jest wrapper allowance as `invocationCount * 10000ms + 5000ms` bounded scheduler/CI overhead.
+- `CONTROLLED_READY_BUILT_INVOCATION_COUNT` is three for JSON-first, JSON-repeat, and human processes, so the returned test has an explicit 35000ms aggregate Jest wrapper. It may outlive ten seconds only because it contains three sequential invocations.
+- Each of the three real results still passes `expectBuiltDoctorWithinProductDeadline`, which asserts `elapsedMs <= 10000`; `spawnSync` retains the same 10000ms timeout and no product Doctor deadline or cleanup milestone changed.
+- A deterministic no-sleep regression accepts exactly 10000ms evidence and proves 10001ms evidence throws through the same assertion helper, so a genuinely over-bound invocation fails.
+- Adjacent inspection found the portable UTF-8/non-UTF8 built test also performs two sequential functional Doctor invocations. It alone receives the same local helper with a 25000ms wrapper and a strict per-result product-deadline assertion. Single-invocation and nonfunctional quick paths retain their existing Jest bounds; no global timeout was inflated.
+
+### Resumed Acceptance Evidence
+
+- **AC-1 through AC-5:** No parser, normal flow, ownership, retry, or diagnostics behavior changed; the existing accepted/rejected matrices and confidentiality evidence remain intact.
+- **AC-6:** The complete Doctor integration suite now supplies deterministic 24-check, built-process, deadline, parity, and cleanup proof without changing the 9-second product aggregate or 10-second built-fixture bound.
+- **AC-7:** APS SemVer instructions remain unchanged.
+- **AC-8:** Package, lock roots, official catalog, fixtures, installed metadata, manifests, and current docs remain 0.1.1 with no dependency churn.
+- **AC-9 and AC-10:** Repeated six-byte client rows and the three-process human/JSON parity test retain strict per-invocation timing, exact identity, deterministic output, and absent resource assertions.
+- **AC-11:** Tests remain repository-controlled and retain private sockets/workspaces plus no ambient tmux, credentials, network, or Sparkta access.
+- **AC-12:** Verify independently passed all corrected application-documentation categories; this test-harness-only correction changes no user behavior or documentation.
+- **AC-13:** Exact repeated, targeted Doctor, focused/full direct, and focused/full harness gates pass with 558 tests.
+
+### Validation Evidence
+
+- Exact test via root `just verify-focused` and a shell-safe `testNamePattern`: five final consecutive passes. Product invocation durations were 1980ms, 2119ms, 2130ms, 2014ms, and 1986ms; each run exercised three sequential invocations and the strict <=10000ms assertions.
+- Complete `src/doctor-integration.test.ts`: 1 suite, 12 tests passed, including the 10001ms rejection regression; observed parity-test duration was 1799ms.
+- Direct `just verify-focused`: 23 suites, 558 tests, and diff check passed.
+- `harness checks --focused --json`: exit 0, `status: ok`, `scope: focused`, delegated `just verify-focused`, 23 suites/558 tests.
+- Direct `just verify`: ESLint, Prettier, typecheck, 23 suites/558 tests, coverage, build, and diff check passed.
+- `harness checks --json`: exit 0, `status: ok`, `scope: full`, delegated `just verify`, 23 suites/558 tests.
+- `npm pack --dry-run --json`: `soft-factory-runner@0.1.1`, filename `soft-factory-runner-0.1.1.tgz`.
+
+### Documentation and Architecture Evidence
+
+No application documentation changed because the correction affects only Jest aggregate scheduling around multiple existing built invocations. Setup, user behavior, API/specification, configuration/defaults, usage examples, migration, architecture explanation, operations, deployment, and package upgrade guidance remain accurate and unchanged. No ADR or core-component deviation occurred; the correction follows the Doctor contract requirement that each controlled built invocation finish within 10000ms while leaving product deadlines and cleanup milestones intact. The 0.1.1 PATCH classification remains the correct delivery version.
+
+### Resumed Friction Drain
+
+- Coordinator, Research, and Plan buffers were empty.
+- Five resumed-Implement observations were persisted to `.harness/records/retro/2026-08-15/007-issue-31-rpiv-implementer-timeout-resume.md`, read back as schema 1.2 with matching plan/agent and all entries, then cleared successfully.
+- One post-note diff-hygiene observation was persisted to `.harness/records/retro/2026-08-15/008-issue-31-rpiv-implementer-evidence-resume.md`, read back under the same schema/plan/agent requirements, then cleared successfully.
+- Existing Verify summaries and verifier retros 004 and 006 were not altered, and the verifier buffer was not accessed or mutated.
+
+Final acceptance remains owned by Verify.

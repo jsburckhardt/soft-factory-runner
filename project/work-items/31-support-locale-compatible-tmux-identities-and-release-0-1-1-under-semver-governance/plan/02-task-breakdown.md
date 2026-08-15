@@ -103,6 +103,13 @@ Change Doctor `new-window` and `list-panes` formats to the shared vertical-bar g
 - V-4/V-5 coverage: full create/observe malformed matrices, every prior cleanup/deadline path, and a barrier-held two-probe overlap with disjoint servers, helpers, sockets, and workspaces.
 - Targeted 90 tests passed; complete focused gate passed 23 suites/550 tests.
 
+
+### Second Verify-Return Timeout Correction Evidence
+- Preserved corrected implementation commit `b2197fef5cb2123a1a0e4fbd5bf1c2bfa1239712` and second failed Verify metadata commit `1d3615fc4118d227ba40b12ed445f472051e2634`; changed only the controlled Doctor integration timeout test and resumed evidence on top.
+- Replaced the implicit 5000ms Jest wrapper bound with `CONTROLLED_READY_BUILT_TEST_TIMEOUT_MS`: three sequential controlled built Doctor invocations times the unchanged 10000ms per-invocation product deadline, plus one bounded 5000ms scheduler/CI overhead allowance, for an explicit 35000ms aggregate wrapper.
+- Kept each JSON-first, JSON-repeat, and human invocation measured by `expectBuiltDoctorWithinProductDeadline`; the underlying `spawnSync` bound remains 10000ms and a deterministic boundary regression proves 10001ms is rejected without sleeping or retrying.
+- Inspected adjacent built-process tests and applied the same local aggregate helper only to the directly comparable portable creation test that runs two sequential functional Doctor invocations. No global Jest timeout or product Doctor deadline changed.
+
 ## Task T-4: Add APS SemVer delivery instructions
 
 - **Status:** Complete
@@ -252,3 +259,9 @@ Run the finite test matrix and root-authoritative gates after implementation. Re
 - Targeted documentation validation passed 1 suite/34 tests. Direct `just verify-focused` and focused harness feedback passed 23 suites/557 tests with clean diff checks.
 - Direct `just verify` and full harness feedback passed lint, formatting, typecheck, 23 suites/557 tests with coverage, build, and clean diff checks.
 - Package dry-run still reports `soft-factory-runner@0.1.1` and `soft-factory-runner-0.1.1.tgz`; package/lock roots/catalog remain 0.1.1 and unrelated dependency 0.1.0 entries remain unchanged.
+
+### Second Verify-Return Validation Evidence
+- The exact three-process timing test passed five final consecutive root-focused runs with invocation durations 1980ms, 2119ms, 2130ms, 2014ms, and 1986ms; every run retained the strict <=10000ms assertion.
+- The complete `src/doctor-integration.test.ts` suite passed 12/12 tests, including the deterministic over-deadline rejection regression and unchanged 24-check, isolation, parity, cleanup, and failure-path assertions.
+- Direct `just verify-focused` and focused harness feedback passed 23 suites/558 tests; direct `just verify` and full harness feedback passed lint, formatting, typecheck, 23 suites/558 tests with coverage, build, and clean diff checks.
+- `npm pack --dry-run --json` still reports `soft-factory-runner@0.1.1` and `soft-factory-runner-0.1.1.tgz`; no product, architecture, documentation, package, lock, dependency, or version surface changed.
