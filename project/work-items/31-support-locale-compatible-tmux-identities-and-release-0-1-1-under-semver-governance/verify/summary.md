@@ -78,3 +78,95 @@ Every criterion is marked failed for this verification attempt because configure
 ## RPIV retro harvest
 
 Verifier observations were read back into `.harness/records/retro/2026-08-15/004-issue-31-rpiv-verifier.md` as schema 1.2 for the preserved work-item ID, then the four-entry transient verifier buffer was cleared successfully. Plan-scoped `harness retro insights` returned `status: ok`, schema `harness.retro-insights/v1`, one matching plan, four records, 26 entries, four agents, and zero pending buffer entries.
+
+
+---
+
+# Resumed Verification Attempt — Corrected Handoff
+
+## Outcome
+
+**Failed — return to Implement.** The exact corrected handoff and application-documentation correction passed inspection, but authoritative `just verify-focused` failed on the corrected implementation commit. No branch push, pull request, issue checkbox update, hosted check, merge, or AgentResult publication occurred.
+
+- Work item: `project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance`
+- Branch: `fix/31-portable-tmux-identity`
+- Corrected implementation commit: `b2197fef5cb2123a1a0e4fbd5bf1c2bfa1239712`
+- Parent failed-verification metadata commit: `3dc353673597f577eb8cede961ed986fae31154b`
+- Original product commit: `8a6f1472319d8013f832bf0612a1ec4b3b3633aa`
+- Base commit: `d1e3c589191a753a8d4d460b185caac17f800844`
+- Return stage: Implement
+
+## Exact handoff and correction review
+
+- Branch, corrected SHA, parent SHA, and initial clean tree matched exactly.
+- Complete corrected branch inventory contains 42 changed files and preserves the earlier failed summary and verifier retro.
+- The correction changes only the resumed Implement retro, issue-run guide, structural documentation test, implementation notes, and task evidence.
+- All four branch commits use Conventional Commits and the required Copilot co-author trailer.
+- No architecture, AGENTS, package, lock, parser, normal tmux, or Doctor product file changed after the original product commit.
+
+## Application documentation decision
+
+**Passed.** `docs/phase-1-issue-run.md` is one coherent 178-line guide with one H1, nine unique ordered H2 headings, one H3, one introductory body, complete `^@[0-9]+$` and `^%[0-9]+$` expressions, exact pipe/LF forms, first-two-separator cwd behavior, bounded confidentiality, and unchanged ownership/retry semantics. Independent scans found no embedded title, duplicate heading, or orphan fragment in README, PRD, docs index, issue-run, recovery, Doctor, or official-assets guidance.
+
+| Category | Status | Evidence |
+| --- | --- | --- |
+| README/current release | Passed | 0.1.1, both client states, upgrade/reinstall, package/manifest confirmation, and confidentiality are current. |
+| API/specification | No impact | No network API or specification changed. |
+| Configuration | No impact | No option, default, or configuration migration changed. |
+| Usage/issue-run | Passed | Correct structure, grammar, commands, ownership, diagnostics, and completion guidance. |
+| Migration/upgrade | Passed | README and Phase 5 provide local 0.1.0-to-0.1.1 upgrade/reinstall and confirmation. |
+| Architecture explanation | Passed | PRD and committed architecture agree with exact pipe/LF transport. |
+| Operations/Doctor/recovery | Passed | 24-check, isolation, cleanup, retry, and confidentiality guidance matches committed behavior. |
+| Deployment | No impact | No service, container, registry publication, or remote deployment procedure changed. |
+
+## Architecture, SemVer, and version decisions
+
+- Architecture remains compliant with the revised tmux/Doctor ADRs and core-components, package SemVer core-component, and decision rows 127 and 144–162.
+- The correction introduces no architecture deviation or reusable contract change.
+- The six AGENTS SemVer lines remain one absolute `You MUST` instruction each with unrelated order preserved.
+- The backward-compatible defect remains correctly classified as PATCH `0.1.0 -> 0.1.1`.
+- Static inventory remains 0.1.1 at package, both lock roots, official catalog, fixture, and current docs; dependency `get-package-type` and `yocto-queue` 0.1.0 values remain legitimate and unchanged.
+
+## Blocking validation defect
+
+`just verify-focused` exited 1 on `b2197fef5cb2123a1a0e4fbd5bf1c2bfa1239712`. Jest reported 23 suites total: 22 passed and `src/doctor-integration.test.ts` failed. The test `Doctor manifest-driven acceptance fixtures › runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing` exceeded Jest’s 5000 ms test timeout at line 842. Totals were 557 tests: 556 passed and one failed. The root recipe therefore failed before its diff check.
+
+Safe next action: make the controlled Doctor integration test bound deterministic and consistent with its documented ten-second completion assertion without weakening product deadlines, rerun all root/harness gates, commit the test correction with the required trailer, and provide a new exact clean Implement SHA.
+
+## Acceptance decisions
+
+Every criterion is failed for this verification attempt because a required root validation command failed. The documentation defect from the prior attempt is corrected; the current concrete defect is the Doctor integration test timeout.
+
+| ID | Status | Evidence |
+| --- | --- | --- |
+| AC-1 | Failed | Two-row fixture code and documentation pass inspection, but the Doctor integration suite failed the root gate. |
+| AC-2 | Failed | Closed parser/forms pass inspection; configured validation did not pass. |
+| AC-3 | Failed | Rejection matrices pass inspection; configured validation did not pass. |
+| AC-4 | Failed | Ownership/retry implementation is unchanged and inspected; configured validation did not pass. |
+| AC-5 | Failed | Bounded value-free diagnostics pass inspection; configured validation did not pass. |
+| AC-6 | Failed | The failing Doctor integration suite prevents acceptance of complete 24-check/cleanup proof. |
+| AC-7 | Failed | APS SemVer instructions pass static inspection; configured validation did not pass. |
+| AC-8 | Failed | Static/package test inventory is 0.1.1, but the required root command failed overall. |
+| AC-9 | Failed | Six-byte fixtures pass inspection, but the Doctor integration suite failed. |
+| AC-10 | Failed | Repeat/overlap fixtures pass inspection; configured validation did not pass. |
+| AC-11 | Failed | Controlled isolation tripwires pass inspection; configured validation did not pass. |
+| AC-12 | Failed | Documentation now passes, but overall acceptance requires green configured validation. |
+| AC-13 | Failed | Direct `just verify-focused` exited 1; later direct, harness, and hosted gates were not run. |
+
+## Validation and GitHub state
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| `just --list` | Passed | Root exposes `verify-focused` and `verify`. |
+| Documentation review | Passed | Corrected guide structure and all affected categories independently inspected. |
+| `just verify-focused` | **Failed** | 22/23 suites and 556/557 tests passed; Doctor integration parity test exceeded 5000 ms. |
+| `just verify` | Not run | Stopped after the preceding root command failed. |
+| `harness checks --json` | Not run | Stopped after the preceding root command failed. |
+| Hosted Node 22 / Node 24 / Package smoke | Not started | Branch was not pushed and no PR was created. |
+| Issue #31 | Unchanged | Open with all 13 acceptance checkboxes unchecked. |
+| Pull request | Not created | Shipping is prohibited after validation failure. |
+| AgentResultV1 | Not published | Acceptance failed and no injected run-binding variable was present. |
+
+## Resumed RPIV retro harvest
+
+The resumed verifier observations were persisted to `.harness/records/retro/2026-08-15/006-issue-31-rpiv-verifier-resume.md` as schema 1.2 with matching plan/agent and both observations, read back, then cleared successfully. Plan-scoped retro harvest returned `status: ok`, schema `harness.retro-insights/v1`, one matching plan, six records, 29 entries, four agents, and zero pending observations. Prior failed summary and retro history remain preserved above and in record 004.
