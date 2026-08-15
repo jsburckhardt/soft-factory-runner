@@ -147,3 +147,56 @@ Implementation stays within revised `ADR-260814-tmux-identity-failure-recovery`,
 - Original Research handoff: `project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/research/00-research.md`.
 - Completed task evidence: `project/work-items/31-support-locale-compatible-tmux-identities-and-release-0-1-1-under-semver-governance/plan/02-task-breakdown.md`.
 - Durable retros: the three `.harness/records/retro/2026-08-15/*issue-31*.md` records listed above.
+
+## Verify Return and Resumed Implement Correction
+
+Verify inspected product commit `8a6f1472319d8013f832bf0612a1ec4b3b3633aa`, recorded the failed verification metadata commit `3dc353673597f577eb8cede961ed986fae31154b`, and returned one blocking application-documentation defect before independent configured validation. Both commits and the failed summary/verifier retro remain preserved; no reset, amend, push, GitHub mutation, hosted check, or AgentResult occurred.
+
+### Correction
+
+- Reconstructed `docs/phase-1-issue-run.md` from its canonical 178-line pre-Issue-31 content and then applied only the three intended Issue #31 edits: portable transport wording, the `vertical_bar` diagnostic vocabulary, and the deterministic fixture description.
+- The corrected guide has one title, one ordered copy of each original level-two section, one Copilot subsection, and one introductory guide body. It retains all unrelated readiness, configuration, completion, persistence, troubleshooting, validation, and continuation content.
+- The transport paragraph contains complete whole-field `^@[0-9]+$` and `^%[0-9]+$` expressions, exact create/observe pipe/LF grammar, first-two-separator cwd retention, rejected HT/sanitized/alternate/malformed forms, diagnostic bounds, nonzero-observation absence, and existing ownership/retry/cleanup guidance.
+- No architecture artifact changed. The correction aligns with the already committed tmux identity ADR/core-component and requires no return to Plan.
+
+### Structural Regression
+
+`src/documentation.test.ts` now proves:
+
+- the guide title and introductory body anchor each occur exactly once;
+- all level-one through level-three headings are unique;
+- the canonical nine level-two headings occur once and remain in order;
+- each anchored ID expression occurs exactly once;
+- truncated ID-plus-embedded-title forms are absent; and
+- orphan `and pane ID` or `validation.` fragments are absent.
+
+The regression is semantic and structural; it does not pin the file length.
+
+### Independent Application-Documentation Reinspection
+
+Reinspected `README.md`, `PRD.md`, `docs/README.md`, `docs/phase-1-issue-run.md`, `docs/phase-3-recovery-operations.md`, `docs/phase-4-repository-doctor.md`, and `docs/phase-5-official-assets.md`. All have no duplicate exact headings, embedded issue-run title, truncated strict-ID grammar marker, or orphan fragment. The corrected issue-run guide is 178 lines and its Issue #31 diff against the Plan parent is exactly three additions and three deletions; neighboring documents are unchanged from the inspected product commit. No additional corruption was found or repaired.
+
+Documentation-category rationale remains unchanged: no network API/specification, configuration option/default, data/database migration, service, container, or remote deployment behavior changed. Existing local 0.1.0-to-0.1.1 package and manifest reconvergence guidance remains accurate.
+
+### Resumed Acceptance Evidence
+
+- **AC-1/AC-5/AC-12:** The authoritative issue-run guide is coherent and accurately documents both tmux client states, exact pipe/LF framing, complete ID grammar, delimiter-bearing cwd retention, bounded value-free diagnostics, and unchanged ownership/retry safety.
+- **AC-8:** Corrected documentation is included in the 0.1.1 package dry-run; package, lock roots, and official catalog remain 0.1.1 while dependency 0.1.0 entries remain unchanged.
+- **AC-13:** Targeted documentation, direct focused/full root gates, and focused/full harness delegates pass on the correction with 557 total tests.
+
+### Resumed Validation
+
+- Targeted `just verify-focused src/documentation.test.ts`: 1 suite, 34 tests, diff check passed.
+- Direct `just verify-focused`: 23 suites, 557 tests, diff check passed.
+- `harness checks --focused --json`: exit 0, `status: ok`, `scope: focused`, delegated `just verify-focused`, 23 suites/557 tests.
+- Direct `just verify`: ESLint, Prettier, typecheck, 23 suites/557 tests, coverage, build, and diff check passed.
+- `harness checks --json`: exit 0, `status: ok`, `scope: full`, delegated `just verify`, 23 suites/557 tests.
+- `npm pack --dry-run --json`: `soft-factory-runner@0.1.1`, filename `soft-factory-runner-0.1.1.tgz`, corrected issue-run guide included.
+
+### Resumed Friction Drain
+
+- Coordinator, Research, and Plan buffers were empty.
+- One new resumed-Implement observation was persisted to `.harness/records/retro/2026-08-15/005-issue-31-rpiv-implementer-resume.md`, read back with schema 1.2, matching agent/plan and complete entry content, then cleared successfully; the Implement buffer is empty.
+- Existing verifier summary and `.harness/records/retro/2026-08-15/004-issue-31-rpiv-verifier.md` were not altered, and the verifier buffer was not accessed or mutated.
+
+Final acceptance remains owned by Verify.

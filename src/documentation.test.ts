@@ -1036,6 +1036,32 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
 });
 
 describe("Issue 31 portable tmux and 0.1.1 user guidance", () => {
+  it("keeps the issue-run guide structurally unique and grammatically complete", () => {
+    const title = "# Issue run and Phase 2 completion proof";
+    const bodyAnchor =
+      "Runner validates and exclusively owns an explicit GitHub issue";
+    const headings = issueRun.match(/^#{1,3} .+$/gm) ?? [];
+    const levelTwoHeadings = issueRun.match(/^## .+$/gm) ?? [];
+
+    expect(issueRun.split(title)).toHaveLength(2);
+    expect(issueRun.split(bodyAnchor)).toHaveLength(2);
+    expect(new Set(headings).size).toBe(headings.length);
+    expect(levelTwoHeadings).toEqual([
+      "## Prerequisites and commands",
+      "## Configuration and readiness",
+      "## Strict tmux identity transport and diagnostics",
+      "## RPIV result artifact",
+      "## Finalization and false-completion protection",
+      "## Persistence and status",
+      "## Troubleshooting",
+      "## Deterministic evidence fixtures",
+      "## Phase 3 continuation",
+    ]);
+    expect(issueRun.split("^@[0-9]+$")).toHaveLength(2);
+    expect(issueRun.split("^%[0-9]+$")).toHaveLength(2);
+    expect(issueRun).not.toMatch(/\^[@%]\[0-9\]\+#/);
+    expect(issueRun).not.toMatch(/^\s+(?:and pane ID|validation\.)/m);
+  });
   it("documents both client states, closed framing, cwd retention, and confidentiality", () => {
     for (const document of [
       readme,

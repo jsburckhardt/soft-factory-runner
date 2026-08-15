@@ -208,6 +208,12 @@ Update `README.md`, `docs/phase-1-issue-run.md`, `docs/phase-3-recovery-operatio
 - Documented the exact local 0.1.0 to 0.1.1 build/pack/install or clean-reinstall path, installed metadata confirmation, recommended asset reconvergence, and generated-manifest confirmation without registry-publication or CLI-version claims.
 - V-9 documentation assertions passed 33 tests; the complete focused gate passed 23 suites/556 tests.
 
+### Verify-Return Correction Evidence
+- Preserved product commit `8a6f1472319d8013f832bf0612a1ec4b3b3633aa` and failed verification metadata commit `3dc353673597f577eb8cede961ed986fae31154b`; repaired only the returned application-documentation defect on top.
+- Reconstructed `docs/phase-1-issue-run.md` from the canonical 178-line pre-Issue guide and applied only the intended three portable-transport/diagnostic/fixture edits. The guide now has one title, one copy of every heading/body, complete `^@[0-9]+$` and `^%[0-9]+$` expressions, and no fragment.
+- Added a deterministic structural regression in `src/documentation.test.ts` covering unique headings, unique guide body, complete anchored ID grammar, embedded-title corruption, and orphan fragments; targeted documentation validation passed 34 tests.
+- Reinspected README, PRD, docs index, issue-run, recovery, Doctor, and official-asset guides: no duplicate headings, embedded guide bodies, truncated grammar, or fragment markers remained; neighboring documents required no correction.
+
 ## Task T-7: Run complete validation and evidence inventory
 
 - **Status:** Complete
@@ -241,3 +247,8 @@ Run the finite test matrix and root-authoritative gates after implementation. Re
 - Verbose V-1–V-5 matrix validation passed 202 tests, unchanged recovery authorization passed 54 tests, package/install validation passed 17 tests, and V-9 documentation passed 33 tests.
 - Built Doctor inventory contains exactly 24 unique IDs in canonical order; controlled overlap/repeat fixtures prove all owned resources absent and prohibited-access inventories empty.
 - Product inventory is package/lock roots/catalog/fixture/docs 0.1.1, with dependency `get-package-type` and `yocto-queue` entries still 0.1.0; dry-run reports `soft-factory-runner-0.1.1.tgz`, and clean packed/installed/manifest smoke distinguishes 0.1.1.
+
+### Verify-Return Validation Evidence
+- Targeted documentation validation passed 1 suite/34 tests. Direct `just verify-focused` and focused harness feedback passed 23 suites/557 tests with clean diff checks.
+- Direct `just verify` and full harness feedback passed lint, formatting, typecheck, 23 suites/557 tests with coverage, build, and clean diff checks.
+- Package dry-run still reports `soft-factory-runner@0.1.1` and `soft-factory-runner-0.1.1.tgz`; package/lock roots/catalog remain 0.1.1 and unrelated dependency 0.1.0 entries remain unchanged.
