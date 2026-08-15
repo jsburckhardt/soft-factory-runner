@@ -40,8 +40,8 @@ Documentation passed: README, docs index, Phase 3 recovery operations, and Phase
 
 ## RPIV retro harvest
 
-Verifier observations were persisted with schema 1.2 and exact plan ID in `.harness/records/retro/2026-08-15/015-issue-5-rpiv-verifier.md`, read back, then the buffer was cleared successfully. `harness retro insights --plan 5-phase-3-recover-safely-and-run-distinct-issues-concurrently --json` passed with schema `harness.retro-insights/v1`: 13 records, 43 entries, five agents, 39 open / 1 suggested / 3 encoded lifecycle statuses, no malformed records, and zero pending buffer entries.
+Verifier observations were persisted with schema 1.2 and exact plan ID in `.harness/records/retro/2026-08-15/015-issue-5-rpiv-verifier.md` and `.harness/records/retro/2026-08-15/016-issue-5-rpiv-verifier-publication-binding.md`, read back, then the buffer was cleared successfully. `harness retro insights --plan 5-phase-3-recover-safely-and-run-distinct-issues-concurrently --json` passed with schema `harness.retro-insights/v1`: 14 records, 44 entries, five agents, 40 open / 1 suggested / 3 encoded lifecycle statuses, no malformed records, and zero pending buffer entries.
 
 ## Final-result binding
 
-The snapshotted final-validation command is expected to be supplied only by the injected Runner binding. Direct repository validation evidence is `just verify` passed; immutable AgentResultV1 publication/read-back occurs only after this summary/retro metadata commit is pushed and PR #33 is independently confirmed at that final head.
+Direct repository validation evidence is `just verify` passed. No issue-5 injected no-clobber publication command or snapshotted final-validation binding was exposed in this verifier or parent process environment. Runner snapshots were not read or changed and no binding was fabricated. Immutable AgentResultV1 publication therefore remains blocked pending coordinator injection, as recorded in verifier retro 016.
