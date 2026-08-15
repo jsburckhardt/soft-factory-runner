@@ -85,7 +85,9 @@ Every report keeps persisted facts separate from exactly one bounded observation
 11. GitHub pull-request and immutable source-head facts; and
 12. for `starting_tmux` without a persisted identity, name-only same-window presence with no candidate identity, cwd, or process detail.
 
-Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, permission-denied process metadata, and unavailable commands are `unknown`, never inferred absence. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
+Each boundary is `match`, `absent`, `mismatch`, `unknown`, or `not_applicable`. Timeout, malformed output, permission-denied process metadata, and unavailable commands are `unknown`, never inferred absence. Unknown takes precedence over mismatch. Unknown or contradiction never authorizes launch, signal, attach, reuse, or cleanup.
+
+For `running_rpiv` only after RPIV is proved absent and the worker is absent or not recorded, one strict successful result whose issue, branch, ordered acceptance set, and snapshotted final-validation binding match is reported as the unaccepted `RESULT_RECOVERY_CANDIDATE`. Its head and PR number key exactly one candidate-head worktree, fresh remote, and open-PR observation; they are query inputs, not persisted completion or ownership proof. A matching active RPIV takes precedence and remains `active_preserved`. Mutable progress remains non-authorizing, including terminal `PROGRESS_REPEATED`.
 
 ## Process identity and resume decisions
 
@@ -95,12 +97,13 @@ A long-running process matches only when positive PID, process-group ID, OS star
 | --- | --- |
 | Exact active process | `ACTIVE_PRESERVED`; no launch and no attempt change. |
 | Exact partial preparation | Continue only when lock/lease, worktree path/registration/branch, fetched-base advertised HEAD, staged/unstaged/untracked cleanliness, no persisted tmux identity, and zero same-name candidates all match. The adapter rechecks name absence immediately before one creation attempt. |
+| `running_rpiv` with `FINALIZATION_RECOVERY_AVAILABLE` | Only explicit `resume` persists `running_rpiv -> finalizing`, leaves attempt unchanged, launches no worker/RPIV, and invokes strict finalization. Exact or proved-absent tmux is allowed for this transition only. |
 | `finalizing`, or interrupted with a valid result | Retry completion finalization without RPIV. |
 | Interrupted execution, no result, exact inactive resources | Increment attempt once and restart the worker in the same owned worktree/tmux pane. |
 | `completed` | `COMPLETED_NOOP`. |
 | `failed`, `blocked`, `cancelled`, legacy-unmigratable, unknown, mismatched, or ambiguous | `RESUME_REFUSED`; preserve resources. |
 
-Completion requires strict AgentResultV1, local Git, fresh remote, GitHub PR, acceptance, and the one snapshotted evidence-bound final validation. Focused validation evidence is completion-neutral. Recovery cannot infer completion from process or tmux presence.
+Completion requires strict AgentResultV1, local Git, fresh remote, GitHub PR, acceptance, and the one snapshotted evidence-bound final validation. Focused validation evidence is completion-neutral. Recovery cannot infer completion from progress, process, tmux presence, tmux absence, or malformed tmux. Malformed tmux remains unknown; candidate Git/remote/PR contradiction fails closed with no transition, launch, or cleanup.
 
 Tmux creation/observation identity bytes follow the exact transport in the [issue-run guide](phase-1-issue-run.md) for both UTF-8 and non-UTF8 client states: creation is `@<digits>|%<digits><LF>`, observation is `@<digits>|%<digits>|<cwd><LF>`, and exactly one terminal LF is required. The first two printable vertical bars isolate the strict IDs; all remaining valid UTF-8 cwd bytes, including additional vertical bars, are retained unchanged. HT, sanitized/inferred forms, alternate separators, invalid IDs/cwd, and malformed framing are rejected. Malformed identity evidence yields a bounded `TmuxIdentityDiagnosticV1` with original byte counts, at most 8 records/fields, and at most 32 closed value-free structural tokens. Raw output, paths/cwd, arguments, environment/field values, issue/owner/run IDs, hashes/byte values, and other-run bytes are never retained. A later failure replaces it; absence/rendering retains it; valid identity proof clears it. Malformed zero-exit observation is unknown; nonzero observation remains absence. Each reconciliation collects only one observation and never recollects after persisting the returned diagnostic.
 
@@ -123,7 +126,7 @@ Already absent or terminal is idempotent. PID reuse, pane mismatch, multiple can
 
 ## Explicit and automatic cleanup
 
-Cleanup authorization comes only from the shared report. Both modes require an inactive terminal run plus exact lock, snapshot, process, tmux, Git registration/branch/path/HEAD, result, and ownership observations. Dirtiness includes staged, unstaged, and untracked files. Active, dirty, absent-unproved, unknown, mismatched, incomplete, or ambiguous resources return a stable refusal with zero unauthorized remove/delete calls. There is no `--force` bypass.
+Cleanup authorization comes only from accepted persisted completion proof in the shared report. An unaccepted recovery candidate, mutable progress, proved-absent tmux, or malformed tmux never authorizes cleanup, including when candidate PR facts look merged. Both modes require an inactive terminal run plus exact lock, snapshot, process, tmux, Git registration/branch/path/HEAD, result, and ownership observations. Dirtiness includes staged, unstaged, and untracked files. Active, dirty, absent-unproved, unknown, mismatched, incomplete, or ambiguous resources return a stable refusal with zero unauthorized remove/delete calls. There is no `--force` bypass.
 
 Explicit `clean` records intent and progress, captures the transcript, removes the exact terminal tmux window, removes the clean worktree with non-forced `git worktree remove`, releases an exact inactive slot, and compare-deletes the exact issue lock last. It never removes the local branch, snapshot, events, or logs. Progress is persisted before and after each step. Progress records include the same owner and run. A retry accepts absence only after that same-owner/run record proves the step completed; an absent unrecorded resource or any unrelated replacement blocks. Output identifies completed steps, remaining steps, and remediation.
 
@@ -138,6 +141,7 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 - Existing version-1 events remain append-only history. A v2 event ahead of a legacy snapshot is not replayed because the prior revision cannot be proved.
 - New runs write schema v5 and event v2. Supported v4 snapshots normalize only through one explicit revisioned v5 transition with `tmuxIdentityDiagnostic: null`; v1-v3 continue through the existing explicit v4 transition first. ReconciliationReportV2 and status schema v4 expose the latest diagnostic separately from authorization. No destructive data migration or purge is performed.
 - `execution.max_concurrent_runs` defaults to 1, preserving prior single-run behavior. Configure a higher strict value only after inspecting current leases; unsafe reductions block rather than evict.
+- Candidate finalization recovery adds decision and rendering fields but no configuration option/default, network API, data migration, service, container, or deployment change. Existing v5 records need no migration.
 - Tmux identity recovery changes persisted schema and local CLI rendering but adds no configuration option/default and requires no configuration migration. It adds no network API contract, server, daemon, database, container, or deployment procedure; there is no deployment change. API migration is not applicable.
 
 ## Troubleshooting
@@ -146,6 +150,8 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 | --- | --- | --- |
 | `RUN_EXISTS` | `run` found existing state | Use status/reconcile/resume; do not relaunch. |
 | `STATE_HISTORY_INVALID` | Event replay is malformed, conflicting, or noncontiguous | Preserve files and restore one complete identity-matching chain. |
+| `FINALIZATION_RECOVERY_AVAILABLE` | An unaccepted result candidate has exact inactive ownership and completion-eligible observations | Invoke explicit `resume`; expect no attempt increment or process launch. |
+| `FINALIZATION_RECOVERY_INELIGIBLE` | Candidate proof is incomplete without a contradiction | Preserve all resources, restore the named exact proof, and explicitly retry. |
 | `RECONCILIATION_UNKNOWN`, `RECONCILIATION_MISMATCH` | A required observation is unavailable or contradictory | Repair the named boundary and explicitly retry. |
 | `PROCESS_IDENTITY_MISMATCH`, `PROCESS_IDENTITY_AMBIGUOUS` | PID/start token/command/cwd/pane proof disagrees | Preserve processes and panes; never signal or launch by PID alone. |
 | `CONCURRENCY_LIMIT_REACHED` | All configured slots are occupied | Wait for one exact inactive run; request issues explicitly. |

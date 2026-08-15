@@ -213,3 +213,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 160 | Require Doctor create and observe to use the shared identity grammar | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
 | 161 | Verify Doctor transport in both controlled tmux client modes | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
 | 162 | Prove overlapping Doctor probes clean distinct isolated resources | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
+| 163 | Permit result-candidate finalization recovery only after exact inactive proof | ADR-260811-prototype-three-recovery-concurrency | 2026-08-15 |
+| 164 | Expose strict running-result candidates without bypassing unknown or contradictory boundaries | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-15 |
+| 165 | Use candidate head and PR only for bounded completion observations | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-15 |
+| 166 | Prohibit cleanup from result candidates or absent and malformed tmux evidence | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-15 |

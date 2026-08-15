@@ -20,27 +20,27 @@ just verify
 
 The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
-### Current package release and 0.1.0 upgrade
+### Current package release and 0.1.1 upgrade
 
-The current local npm package release is **0.1.1**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.0 prefix or reinstall the same tarball:
+The current local npm package release is **0.1.2**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.1 prefix or reinstall the same tarball:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.1.1
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.1
+mkdir -p /tmp/soft-factory-runner-0.1.2
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.2
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.1/soft-factory-runner-0.1.1.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.2/soft-factory-runner-0.1.2.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The metadata command must print exactly `0.1.1`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
+The metadata command must print exactly `0.1.2`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
 
 ```text
 "$PREFIX/node_modules/.bin/soft-factory" install --recommended
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The manifest command must also print exactly `0.1.1`.
+The manifest command must also print exactly `0.1.2`.
 
 ## Quick start and control commands
 
@@ -74,7 +74,7 @@ just run install agent soft-factory
 just run install --recommended
 ```
 
-The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.1, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.2, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
 Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 
@@ -135,6 +135,8 @@ Every product run names one explicit positive issue number. Runner never queries
 New runs use revisioned `RunSnapshotV5` and replayable `TransitionEventV2` records. V5 adds a nullable latest `TmuxIdentityDiagnosticV1`; supported v4 records normalize only through an explicit revisioned transition, while v1-v5 remain readable under their versioned safety limits. Reconciliation reports use schema v2 and status uses schema v4. Reconciliation separately observes mutable RPIV progress and compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
 
 A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
+
+When `running_rpiv` has no RPIV and an absent or unrecorded worker, a strict successful identity-, acceptance-, and final-validation-bound result is only an unaccepted recovery candidate. Its head and PR number may key one bounded worktree, fresh-remote, and open-PR observation, but never authorize ownership or cleanup. Unknown facts take precedence over contradictions; malformed tmux stays unknown. Only `FINALIZATION_RECOVERY_AVAILABLE` permits explicit `resume` to persist `finalizing` and run strict finalization with no attempt increment or worker/RPIV launch. Progress, candidate facts, proved-absent tmux, and malformed tmux remain non-authorizing; contradictory candidate evidence preserves every resource and fails closed. Human and JSON reports distinguish `recovery_candidate` query authority from `persisted_completion`.
 
 Tmux identity transport is strict and byte-based in both UTF-8 and non-UTF8 client states. Creation accepts exactly `@<digits>|%<digits><LF>`; observation accepts exactly `@<digits>|%<digits>|<cwd><LF>`. Exactly one terminal LF is required. The parser uses only the first two printable vertical bars, so every remaining valid UTF-8 cwd byte—including additional vertical bars—is retained unchanged; cwd must be nonempty and contain no NUL, CR, or LF. HT, inferred sanitized underscores, alternate separators, missing/extra terminators, invalid IDs/cwd, and multiple records are malformed or ambiguous. Runner retains only phase, exit code, original stdout/stderr byte counts, up to 8 record/field summaries, and up to 32 closed value-free structural tokens including `vertical_bar` and legacy-readable `horizontal_tab`; it never retains raw output, cwd/path components, command/environment/field values, run identities, hashes, or other-run bytes.
 

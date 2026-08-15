@@ -484,6 +484,8 @@ export interface ReconciliationReportV2 {
   readonly activity: "active" | "inactive" | "interrupted" | "blocked";
   readonly decisionCode: string;
   readonly safeActions: readonly SafeAction[];
+  readonly resultAuthority:
+    "none" | "recovery_candidate" | "persisted_completion";
   readonly diagnostics: readonly string[];
   readonly remediation: string | null;
   readonly tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null;

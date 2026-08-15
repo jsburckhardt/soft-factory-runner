@@ -1,303 +1,132 @@
-# Test Plan: Phase 3 Recovery and Explicit Concurrency
+# Test Plan: Phase 3 Interrupted Finalization Recovery Correction
 
-## Test V-1: Versioned persistence, event replay, and interruption safety
+## Test V-13: Composite reported-incident precedence
 
-- **Type:** Unit and persistence fault injection
-- **Task:** T-1
-- **Acceptance Criteria:** AC-1, AC-3, AC-10
+- **Type:** Reconciliation composition and pure-policy regression
+- **Task:** T-10, T-11, T-14
+- **Acceptance Criteria:** AC-1, AC-3, AC-8, AC-9, AC-10
 - **Priority:** Critical
 
 ### Setup
-Use an in-memory `FilePort` with ordered traces and failure injection for append, atomic replace, event reads, enumeration, log writes, and compare-and-delete. Provide valid v1, v2, and v3 snapshots plus v1 and v2 event histories.
+Create one v5 `running_rpiv` snapshot with matching lock/lease/worktree, no worker or RPIV process, terminal succeeded progress repeated against `lastAccepted`, strict immutable successful result with PR number, divergent remote head, and parameterized malformed/absent tmux evidence.
 
 ### Steps
-1. Round-trip every v3 lifecycle/control/cleanup field and both older supported snapshot versions.
-2. Save transitions and assert event-v2 append precedes snapshot-v3 replacement.
-3. Leave one and several contiguous v2 events ahead of the snapshot and load/replay them.
-4. Present malformed, truncated, wrong-run, duplicate-revision, noncontiguous, conflicting, and legacy-v1-ahead histories.
-5. Enumerate mixed snapshot/lock/lease/log names and compare-and-delete matching and replacement owner records.
-6. Repeat every fault case with identical inputs and compare normalized results.
+1. Reconcile malformed tmux twice.
+2. Reconcile valid absent tmux twice.
+3. Record result, Git, remote, GitHub, progress, decision, actions, diagnostics, persistence, and adapter counts.
+4. Vary progress through all classifications without changing authorizing facts.
 
 ### Expected Result
-Only a complete contiguous identity-matching v2 chain advances the materialized snapshot. Invalid or legacy-ahead history produces a stable non-success and no mutation. Event append failure preserves the old snapshot; replacement failure leaves replayable history. Enumeration is strict and sorted downstream, and compare-and-delete never removes nonmatching content.
+The result is a recovery candidate and its PR is queried once; divergent candidate-head Git/remote/PR facts are visible. Malformed tmux selects `RECONCILIATION_UNKNOWN`; valid absence never authorizes cleanup. Progress changes no decision/action. No state, result, cleanup, or resource is mutated.
 
 ### Expected Evidence
-- Jest cases and ordered event/snapshot traces.
-- Serialized revision chain with complete resulting snapshot payloads.
-- Repeat-run equality and unchanged replacement-file assertions.
+Complete redacted report snapshots, one-call counters, equal repeat hashes, unchanged snapshot/event bytes, and zero destructive/launch traces.
 
-## Test V-2: Full persisted-versus-observed reconciliation matrix
+## Test V-14: Exact candidate finalization recovery
 
-- **Type:** Pure domain contract test
-- **Task:** T-2, T-3
-- **Acceptance Criteria:** AC-1, AC-2, AC-10
+- **Type:** Orchestration and persistence fault-injection
+- **Task:** T-10, T-11, T-12, T-14
+- **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-10
 - **Priority:** Critical
 
 ### Setup
-Build immutable inputs containing persisted snapshot/history plus separate lock, filesystem, Git branch/worktree, tmux, worker/RPIV process, result artifact, remote Git, and GitHub observations. Generate match, absent, mismatch, unknown, and not-applicable variants for each boundary.
+Use the composite fixture with strict candidate, matching candidate-head worktree/fresh remote/open PR, absent RPIV, absent-or-unrecorded worker, matching ownership, and exact or proved-absent tmux.
 
 ### Steps
-1. Reconcile the all-matching active input twice.
-2. Vary one observation class at a time and record decision, activity, safe actions, and diagnostics.
-3. Inject timeout/malformed adapter outcomes as unknown rather than absent.
-4. Verify all observation collectors are called at most once in one attempt.
-5. Compare normalized reports and confirm no input mutation.
+1. Reconcile and assert `FINALIZATION_RECOVERY_AVAILABLE` with only `retry_finalization`.
+2. Resume and inspect transition/event order, attempt, launch counts, final completion proof, and retained ownership.
+3. Inject event append and snapshot replacement failures around `running_rpiv -> finalizing`, reload, and retry.
+4. Repeat with an exact active RPIV as a precedence control.
 
 ### Expected Result
-Every report contains all applicable required boundaries separately and yields the same result for the same input. Exact active identity permits only preservation. Unknown or contradiction never authorizes launch, signal, reuse, attach, or cleanup.
+Explicit resume enters finalizing, runs the existing strict finalizer, never increments attempt or launches a process, and completes only after the full conjunction. Event-ahead recovery is deterministic. Exact active RPIV remains `active_preserved`.
 
 ### Expected Evidence
-- Table-driven Jest output for every boundary/class pair.
-- Complete redacted `ReconciliationReportV1` fixture.
-- Adapter call-count and safe-action assertions.
+Event-before-snapshot trace, zero launch/adoption counts, unchanged attempt, final strict result/Git/remote/PR facts, and replay/idempotency assertions.
 
-## Test V-3: Restart process preservation and resume decision table
+## Test V-15: Candidate eligibility and contradiction refusal matrix
 
-- **Type:** Orchestration and process identity test
-- **Task:** T-2, T-3, T-5
-- **Acceptance Criteria:** AC-2, AC-3, AC-10
+- **Type:** Table-driven negative domain and orchestration test
+- **Task:** T-10, T-11, T-12, T-14
+- **Acceptance Criteria:** AC-1, AC-3, AC-8, AC-9, AC-10
 - **Priority:** Critical
 
 ### Setup
-Use a fake process tree keyed by PID, process group, start token, executable, args, cwd, launch time, and tmux lineage. Add launch counters and interruption hooks before spawn, after spawn, before identity persistence, after persistence, during wait, and during finalization.
+Vary missing/malformed/unsupported/non-success result, issue/branch/AC/final-validation mismatch, local head mismatch, remote absence/divergence, PR absence/closed/wrong number/base/head/issue, unknown/active process, lock/lease/Git mismatch, malformed/mismatched tmux, and repeated terminal progress.
 
 ### Steps
-1. Reconcile and resume an exact active process repeatedly.
-2. Reuse the PID with a different start token and vary each other identity field separately.
-3. Recover launch intent with exactly one matching pane descendant, zero candidates, and multiple candidates.
-4. Exercise resume for partial preparation, interrupted execution without result, interrupted finalization with result, completed, failed, blocked, cancelled, and legacy-unmigratable states.
-5. Repeat all interruption boundaries and count spawn/adoption/attempt changes.
+1. Reconcile and resume every row twice.
+2. Assert whether candidate query authority is available.
+3. Capture decision precedence, remediation, transitions, calls, and resources.
 
 ### Expected Result
-Exact active process returns `active_preserved`, does not increment attempt, and launches zero processes. Exactly one interrupted-launch candidate is adopted once. Mismatch, unknown, or multiple candidates block. Resume follows the accepted action table and cannot bypass completion proof.
+Only a strict eligible successful candidate keys dependent queries. Every unknown or contradiction blocks with stable diagnostics; malformed tmux never becomes absence. Resume performs no transition/launch/cleanup. Progress remains irrelevant.
 
 ### Expected Evidence
-- Launch/adoption count trace and persisted compound identity.
-- Full resume state/code/exit matrix.
-- Repeated interruption summary with no duplicate matching process.
+Negative matrix, stable human/JSON codes, query call counts, zero mutation/destruction/launch assertions, and unchanged resource hashes.
 
-## Test V-4: Deterministic recovery and control CLI surface
+## Test V-16: Cleanup non-authorization and rendering/documentation
 
-- **Type:** CLI unit and composition test
-- **Task:** T-3, T-5, T-6, T-7, T-8
-- **Acceptance Criteria:** AC-3
+- **Type:** Cleanup safety, CLI rendering, and documentation contract
+- **Task:** T-11, T-13, T-14
+- **Acceptance Criteria:** AC-3, AC-6, AC-8, AC-9, AC-10
 - **Priority:** Critical
 
 ### Setup
-Compose `runCli` with deterministic ports and fixture reports for active, interrupted, terminal, cleaned, blocked, and missing states. Capture human and JSON outputs without invoking ambient GitHub, tmux, or Copilot.
+Provide candidate-only running states with exact, absent, malformed, and mismatched tmux plus OPEN, MERGED, CLOSED, unavailable, and mismatched PR observations. Capture status/list/reconcile/clean human and JSON output and documentation.
 
 ### Steps
-1. Parse and dispatch valid and invalid forms of reconcile, resume, stop, clean, list, status, attach, logs, run, and the private worker.
-2. Invoke every command twice over unchanged facts and compare normalized outcomes.
-3. Verify numeric list ordering across orphan snapshot, lock, lease, and log records.
-4. Compare state, outcome code, safe actions, observations, remediation, and cleanup progress in human and JSON rendering.
-5. Verify stable nonzero exits for syntax, blocked, interrupted, and failed operations.
+1. Invoke every reconciliation-capable command and explicit clean twice.
+2. Compare human/JSON semantics and destructive traces.
+3. Repeat after normal finalization persistence to prove existing merged cleanup remains unchanged.
+4. Assert operator docs state candidate/progress/tmux limits and remediation.
 
 ### Expected Result
-Every named command has strict grammar and a deterministic typed outcome. Human and JSON renderings preserve the same meaning. Repetition is idempotent, and list/status do not infer success from tmux or process presence.
+Candidate-only states never expose cleanup, even with MERGED-shaped PR evidence. Absent/malformed tmux never authorizes cleanup. Normal persisted completion continues to require exact merged-source and ownership proof. Output/docs are equivalent and actionable.
 
 ### Expected Evidence
-- Parser/dispatch matrix and representative output snapshots.
-- Human/JSON semantic comparison assertions.
-- Stable exit-code and numeric-order traces.
+Zero-remove candidate traces, preserved worktree/lock/lease/tmux bytes, existing positive/negative cleanup regression results, render snapshots, and documentation tests.
 
-## Test V-5: Distinct active issues receive distinct resources
+## Test V-17: Historical Phase 3 safety regressions
 
-- **Type:** Concurrency integration fixture
-- **Task:** T-4, T-9
-- **Acceptance Criteria:** AC-4, AC-10
+- **Type:** Regression integration suite
+- **Task:** T-14
+- **Acceptance Criteria:** AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
 - **Priority:** Critical
 
 ### Setup
-Use a temporary repository root, real exclusive file creation, two ready explicit issue fixtures, configured capacity 2, barrier-released readiness, and recording Git/tmux/process adapters.
+Reuse existing V-1 through V-12 fixtures for process preservation/adoption, explicit concurrency, bounded stop, retained evidence, event replay, completion, merged cleanup, refusal, tmux identity, and controls.
 
 ### Steps
-1. Start both distinct issues concurrently at the barrier.
-2. Allow both to reach active `running_rpiv` with leases.
-3. Collect lock, branch, worktree, tmux session/window/pane, snapshot, event, log, owner, and run identities.
-4. Repeat the fixture 20 times with fresh temporary roots.
+1. Run all existing suites unchanged except necessary candidate expectation updates.
+2. Repeat concurrency and interruption barriers.
+3. Compare normalized owner, launch, signal, cleanup, and resource traces.
 
 ### Expected Result
-Both explicit issues are admitted and each has one owner/resource set. Locks, branches, worktrees, windows, panes, run/event records, and log paths are pairwise distinct; only the documented repository tmux session is shared. No repetition collides.
+No prior ownership, concurrency, stop, completion, cleanup, progress, or tmux guarantee regresses. Distinct issues remain isolated and capacity remains explicit.
 
 ### Expected Evidence
-- Set-disjointness assertions and operation traces for each issue.
-- Twenty-run summary with two owners, two slots, and zero collisions per run.
-- Temporary-root proof that ambient worktrees and tmux are untouched.
+Passing historical test names, repeated barrier summary, zero collision/duplicate owner, bounded stop transcript, and cleanup retention/refusal matrix.
 
-## Test V-6: Concurrency limits and explicit selection
+## Test V-18: SemVer 0.1.2 and stage-boundary proof
 
-- **Type:** Configuration and admission race integration test
-- **Task:** T-4, T-8, T-9
-- **Acceptance Criteria:** AC-5, AC-10
-- **Priority:** Critical
-
-### Setup
-Provide configurations for absent limit, valid limits 1 and 2, invalid numeric forms, unknown/stale leases, and an occupied slot above a reduced limit. Use three explicitly numbered ready issues and real exclusive lease files with barriers.
-
-### Steps
-1. Verify absent configuration defaults to one and invalid forms fail before ownership.
-2. Start three explicit issues concurrently with capacity two.
-3. Assert retry of slot candidates after an exclusive-create loss.
-4. Test unknown/stale lease occupancy, exact inactive release, and reduced-limit blocking.
-5. Search traces and public grammar for any automatic issue query, queue, ranking, or next-selection action.
-6. Repeat race cases 20 times.
-
-### Expected Result
-No run set exceeds configured capacity. At limit two, exactly two explicit issues are admitted and one gets `CONCURRENCY_LIMIT_REACHED`; the loser has no downstream resources and no leftover just-created issue lock. Unknown leases and unsafe reductions block conservatively. No issue is auto-selected.
-
-### Expected Evidence
-- Lease/lock filesystem assertions and downstream side-effect counts.
-- Twenty-run slot maximum and winner-count summary.
-- CLI/config tests proving explicit issue input and absence of selection behavior.
-
-## Test V-7: Graceful stop, bounded escalation, and evidence retention
-
-- **Type:** Control orchestration and process adapter test
-- **Task:** T-2, T-6, T-9
-- **Acceptance Criteria:** AC-3, AC-7, AC-10
-- **Priority:** Critical
-
-### Setup
-Use a deterministic fake clock/process controller, exact active process identity, remain-on-exit tmux target, pane captures, and a worktree sentinel. Add graceful, unresponsive, already-exited, mismatched, unknown, and persistence-failure scenarios.
-
-### Steps
-1. Stop a process that exits after SIGTERM before 10 seconds.
-2. Stop one that remains active through 10 seconds and exits after SIGKILL within 5 seconds.
-3. Stop already absent/terminal state twice.
-4. Attempt stop with PID reuse, pane mismatch, multiple candidates, and unknown process observation.
-5. Inject failures around pre/post capture and stop-fact persistence, then retry.
-6. Inspect worktree, tmux, log, snapshot, event, and lease facts.
-
-### Expected Result
-SIGTERM always precedes optional SIGKILL and the waits respect accepted bounds. Exact successful stops persist cancelled facts and release only exact inactive capacity while preserving worktree and terminal evidence. Already-stopped is idempotent. Ambiguity sends no signal.
-
-### Expected Evidence
-- Timestamped signal/wait/capture traces for graceful and escalated paths.
-- Cancelled snapshot/event and retained redacted attempt transcript.
-- Worktree sentinel and tmux identity still present; mismatch scenarios show zero signals.
-
-## Test V-8: Cleanup refusal and partial-step retry matrix
-
-- **Type:** Destructive-safety integration test
-- **Task:** T-2, T-7, T-9
-- **Acceptance Criteria:** AC-3, AC-8, AC-10
-- **Priority:** Critical
-
-### Setup
-Create temporary owned worktrees and variants that are active, staged, unstaged, untracked, unknown, mismatched by branch/path/HEAD/lock/lease/tmux/process, ambiguously owned, or observation-incomplete. Instrument tmux removal, Git worktree removal, lease deletion, and lock deletion. Add failures after each persisted cleanup step.
-
-### Steps
-1. Invoke explicit clean for every refusal variant.
-2. Compare worktree bytes, registration, tmux, lease, and lock before and after.
-3. Run one eligible cleanup while failing after each step, then retry from recorded progress.
-4. Replace a previously removed resource with a different owner before retry.
-5. Repeat each normalized scenario.
-
-### Expected Result
-Every unsafe variant returns a stable actionable nonzero refusal and performs zero unauthorized destructive operations. Eligible partial cleanup resumes only after matching recorded progress and refuses an unrelated replacement. Output names completed and remaining steps deterministically.
-
-### Expected Evidence
-- Refusal table with code, remediation, and zero remove/delete counts.
-- Pre/post worktree hash and registration assertions.
-- Partial-progress event/snapshot and retry traces for each ordered step.
-
-## Test V-9: Positive merged-PR automatic cleanup
-
-- **Type:** Git and GitHub reconciliation integration test
-- **Task:** T-2, T-7, T-9
-- **Acceptance Criteria:** AC-6, AC-10
-- **Priority:** Critical
-
-### Setup
-Create a completed v3 run with verified result commit, clean exact owned worktree, exact lock, retained transcript, and terminal tmux. Fake the expected PR as MERGED with nonempty merge time, matching source branch/SHA, a different informational merge-commit SHA, and a deleted remote source branch.
-
-### Steps
-1. Invoke status, list, and explicit reconcile separately on fresh copies to trigger automatic reconciliation.
-2. Verify source head comparisons against recorded branch and commit.
-3. Record cleanup intent/progress and operation order.
-4. Inspect Git worktree registration/path, issue lock, slot, local branch, tmux, snapshot, events, and logs.
-5. Invoke reconciliation again.
-
-### Expected Result
-Each trigger automatically removes the clean owned worktree and releases exact slot/issue lock once. Deleted remote branch and differing merge commit do not block because immutable PR source head matches. Automatic mode retains local branch, tmux, snapshot, events, and logs; repetition is already-cleaned/idempotent.
-
-### Expected Evidence
-- Merged-source-head comparison report and GitHub parser facts.
-- Ordered cleanup trace with absent worktree registration/path and lock after success.
-- Retention and second-invocation idempotency assertions.
-
-## Test V-10: Closed-unmerged and ambiguous cleanup blockage
-
-- **Type:** Negative GitHub and ownership integration test
-- **Task:** T-3, T-7, T-9
-- **Acceptance Criteria:** AC-8, AC-9, AC-10
-- **Priority:** Critical
-
-### Setup
-Clone the completed clean fixture from V-9 and vary PR state OPEN, CLOSED-unmerged, missing merge time, missing/incomplete PR, source branch mismatch, source SHA mismatch, unavailable GitHub, dirty worktree, lock mismatch, and ownership ambiguity.
-
-### Steps
-1. Run each reconciliation-capable automatic-cleanup trigger.
-2. Capture cleanup outcome, run state, stable code, comparison facts, and remediation.
-3. Hash worktree contents and inspect registration/lock before and after.
-4. Repeat each case with identical facts.
-
-### Expected Result
-OPEN is pending with no cleanup. CLOSED-unmerged and every ambiguous/incomplete/mismatched merge or ownership case is actionable blocked and non-destructive. The worktree and lock remain, and an already proved completed run state is not rewritten as failed or uncompleted.
-
-### Expected Evidence
-- Negative matrix with stable blocked codes and remediation.
-- Unchanged worktree hash/registration/lock and zero destructive call assertions.
-- Repeated normalized output equality.
-
-## Test V-11: CLI, configuration, recovery, and operations documentation
-
-- **Type:** Documentation contract and safe command smoke test
-- **Task:** T-8
-- **Acceptance Criteria:** AC-3, AC-5, AC-6, AC-7, AC-8, AC-9
-- **Priority:** High
-
-### Setup
-Read README, docs index, issue-run guide, and Phase 3 operations guide through the documentation Jest suite. Build the CLI and use root `just run` with help and safe missing-state issue numbers.
-
-### Steps
-1. Assert docs list every public command and JSON form plus stable state/code/exit semantics.
-2. Assert configuration docs cover strict limit parsing, default, leases, reductions, and explicit selection.
-3. Assert recovery, resume, stop bounds, log retention, cleanup refusal, merged source-head, closed-unmerged, partial retry, and no-force behavior.
-4. Assert snapshot/event migration and retained evidence are documented.
-5. Assert installation/deployment notes explain the local short-lived CLI, external tools, no daemon, and next-invocation automatic trigger; mark network API docs not applicable.
-6. Execute help and safe missing-state status/resume/stop/clean/logs commands through `just run`.
-
-### Expected Result
-Documentation matches implemented grammar and architecture, contains executable root-recipe examples, removes delivered Phase 3 deferrals, and gives actionable operator guidance without claiming a service deployment or force bypass.
-
-### Expected Evidence
-- Passing documentation Jest tests naming each required subject.
-- Captured help and safe command smoke output through the root justfile.
-- Documentation impact list in implementation evidence.
-
-## Test V-12: Full project and harness quality gates
-
-- **Type:** Stage-boundary validation
-- **Task:** T-9
+- **Type:** Release metadata, packaging, documentation, and full validation
+- **Task:** T-13, T-14
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
 - **Priority:** Critical
 
 ### Setup
-Complete T-1 through T-9, ensure no live product resources or credentials are required, read `harness instructions checks`, and inspect the implementation evidence catalog.
+Complete T-10 through T-14; read harness checks instructions. Inventory all authoritative Runner version surfaces and preserve the pre-change dependency graph.
 
 ### Steps
-1. Run `harness checks --focused --json` and direct `just verify-focused` during final fixture iteration.
-2. Run direct `just verify` as the authoritative full RPIV boundary.
-3. Run `harness checks --json` and confirm it delegates to `just verify`.
-4. Inspect lint, formatting, strict type checking, Jest results, statement/branch/function/line coverage, build, and `git diff --check`.
-5. Cross-check every AC ID against its named tests and recorded evidence and verify README/guide changes.
+1. Assert exact `0.1.2` agreement across package, root lock entries, official assets/manifests/fixtures, and current docs.
+2. Run pack dry-run, temporary pack/install, installed-version confirmation, and asset-manifest convergence without registry publication.
+3. Prove dependency ranges/metadata and package inventory have no unintended churn.
+4. Run focused direct/harness checks, direct authoritative `just verify`, full harness checks, coverage inspection, and `git diff --check`.
+5. Cross-check every AC against tests and implementation evidence.
 
 ### Expected Result
-All direct and delegating gates pass, every coverage dimension remains at least 80 percent, existing completion/readiness behavior remains green, and each AC has reproducible repository evidence. No test depends on ambient GitHub, tmux, Copilot, or destructive current-worktree operations.
+The backward-compatible defect correction is consistently versioned `0.1.2`; packed and installed metadata agree; upgrade guidance is executable; all gates pass with at least 80% coverage and no dependency churn.
 
 ### Expected Evidence
-- Successful direct focused/full command logs.
-- Successful focused/full harness JSON envelopes with delegated recipe names.
-- Jest/coverage summary, build result, diff hygiene, AC evidence table, documentation evidence, clean-tree proof, and implementation commit SHA.
+Version inventory, pack/install JSON and confirmation output, dependency diff, documentation assertions, direct/harness envelopes, Jest/coverage/build/diff summaries, and complete AC evidence matrix.

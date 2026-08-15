@@ -244,6 +244,26 @@ describe("V-11 Phase 3 operator documentation", () => {
     );
   });
 
+  it("documents strict result-candidate finalization recovery without inferred authority", () => {
+    for (const phrase of [
+      "RESULT_RECOVERY_CANDIDATE",
+      "FINALIZATION_RECOVERY_AVAILABLE",
+      "unaccepted recovery candidate",
+      "ordered acceptance set",
+      "query inputs",
+      "active_preserved",
+      "Unknown takes precedence over mismatch",
+      "Malformed tmux remains unknown",
+      "launches no worker/RPIV",
+      "never authorizes cleanup",
+      "fails closed",
+    ])
+      expect(readme + operations).toContain(phrase);
+    expect(operations).toContain(
+      "no configuration option/default, network API, data migration, service, container, or deployment change",
+    );
+  });
+
   it("documents stop bounds, retained evidence, guarded cleanup, and merge-source proof", () => {
     for (const phrase of [
       "`SIGTERM`",
@@ -1035,7 +1055,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issue 31 portable tmux and 0.1.1 user guidance", () => {
+describe("Issue 31 portable tmux and 0.1.2 user guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1092,13 +1112,13 @@ describe("Issue 31 portable tmux and 0.1.1 user guidance", () => {
     }
   });
 
-  it("documents exact local 0.1.1 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents exact local 0.1.2 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.1.1",
+      "0.1.2",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.1.2");
       expect(document).toContain("0.1.1");
-      expect(document).toContain("0.1.0");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }
