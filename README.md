@@ -20,6 +20,28 @@ just verify
 
 The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
+### Current package release and 0.1.0 upgrade
+
+The current local npm package release is **0.1.1**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.0 prefix or reinstall the same tarball:
+
+```text
+just build
+mkdir -p /tmp/soft-factory-runner-0.1.1
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.1
+PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.1/soft-factory-runner-0.1.1.tgz
+node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
+```
+
+The metadata command must print exactly `0.1.1`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
+
+```text
+"$PREFIX/node_modules/.bin/soft-factory" install --recommended
+node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
+```
+
+The manifest command must also print exactly `0.1.1`.
+
 ## Quick start and control commands
 
 ```text
@@ -52,7 +74,7 @@ just run install agent soft-factory
 just run install --recommended
 ```
 
-The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.1, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
 Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 
@@ -66,7 +88,7 @@ See [`docs/phase-5-official-assets.md`](docs/phase-5-official-assets.md) for the
 
 Run `just run doctor` for complete human repository-readiness diagnostics or `just run doctor --json` for strict `DoctorResultV2` (`schemaVersion: 2`) automation output. Doctor reports exactly 24 ordered blocking prerequisites and exits `0` with `STATUS: READY` only when all pass; a complete blocked report exits `3` with `STATUS: NOT READY`, messages, and remediations. It is repository-only: it does not query, select, prioritize, or assess an issue. Product Doctor is distinct from ambient `harness doctor`, which diagnoses the engineering surface.
 
-The existing `command.tmux` row now proves function, not only executable presence. Doctor creates one private mode-0700 OS-temporary workspace with an empty mode-0600 configuration and helper, starts the discovered executable in the foreground as `tmux -D -S <private-socket> -f <empty-config>` with no command, and uses that private `-S` socket for every client operation. It proves session/dashboard creation, `has-session`, exact window listing, helper process ownership, strict original-byte window creation, `remain-on-exit`, one strict pane observation with equal IDs and physical cwd, and exact window removal. Each stream retains at most 4096 bytes while counting all bytes; evidence is value-free. Functional work stops at 6500 ms, leaving 2500 ms for awaited cleanup and final server/helper/socket/workspace absence proof by 9000 ms. Doctor never contacts or destroys an ambient/default tmux server.
+The existing `command.tmux` row now proves function, not only executable presence. Doctor creates one private mode-0700 OS-temporary workspace with an empty mode-0600 configuration and helper, starts the discovered executable in the foreground as `tmux -D -S <private-socket> -f <empty-config>` with no command, and uses that private `-S` socket for every client operation. It proves session/dashboard creation, `has-session`, exact window listing, helper process ownership, strict original-byte window creation, `remain-on-exit`, one strict pane observation with equal IDs and physical cwd, and exact window removal. The shared printable-pipe transport works for explicit UTF-8 and non-UTF8 tmux client states without locale inheritance or `tmux -u`. Each stream retains at most 4096 bytes while counting all bytes; evidence is value-free. Functional work stops at 6500 ms, leaving 2500 ms for awaited cleanup and final server/helper/socket/workspace absence proof by 9000 ms. Doctor never contacts or destroys an ambient/default tmux server.
 
 Schema-v1 Doctor automation consumers and tracked manifests must migrate to schema v2. The 24 IDs, readiness conjunction, and exits are unchanged; failed `command.tmux` may now include `DoctorTmuxProbeEvidenceV1` operation, reason, bounds, optional structural diagnostic, and cleanup states. This Doctor-only change adds no configuration option/default or configuration migration, run snapshot or issue-run tmux change, network API/specification, database/data migration, service, container, or deployment procedure.
 
@@ -114,7 +136,7 @@ New runs use revisioned `RunSnapshotV5` and replayable `TransitionEventV2` recor
 
 A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
 
-Tmux identity transport is strict and byte-based: creation accepts exactly `^@[0-9]+$<HT>^%[0-9]+$`; observation accepts those two IDs plus one nonempty valid UTF-8 cwd. horizontal tab is the only field separator, LF is the only record terminator, and one optional final LF is permitted. Empty output, CR/CRLF, invalid UTF-8 cwd, extra or partial fields, and multiple records are malformed or ambiguous. Runner retains only phase, exit code, original stdout/stderr byte counts, up to 8 record/field summaries, and up to 32 value-free structural tokens; it never retains raw output, cwd/path components, command/environment/field values, run identities, hashes, or other-run bytes.
+Tmux identity transport is strict and byte-based in both UTF-8 and non-UTF8 client states. Creation accepts exactly `@<digits>|%<digits><LF>`; observation accepts exactly `@<digits>|%<digits>|<cwd><LF>`. Exactly one terminal LF is required. The parser uses only the first two printable vertical bars, so every remaining valid UTF-8 cwd byte—including additional vertical bars—is retained unchanged; cwd must be nonempty and contain no NUL, CR, or LF. HT, inferred sanitized underscores, alternate separators, missing/extra terminators, invalid IDs/cwd, and multiple records are malformed or ambiguous. Runner retains only phase, exit code, original stdout/stderr byte counts, up to 8 record/field summaries, and up to 32 closed value-free structural tokens including `vertical_bar` and legacy-readable `horizontal_tab`; it never retains raw output, cwd/path components, command/environment/field values, run identities, hashes, or other-run bytes.
 
 A `starting_tmux` run may resume window creation only when lock and lease match; worktree path, registration, branch, fetched-base HEAD, and staged/unstaged/untracked cleanliness match; no tmux identity is persisted; and one name-only observation finds zero same-name windows. The create adapter repeats only that name-absence check immediately before one attempt. Any same-name window remains unknown ownership and is never inspected or adopted by name, cwd, identity, or process command. A retained identity diagnostic is non-authorizing and is not a transcript: without a persisted identity or retained transcript, `logs` still returns `LOG_NOT_FOUND`. This recovery change adds no configuration option/default or migration, network API/specification, database/data migration, service, container, or deployment procedure.
 

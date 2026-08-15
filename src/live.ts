@@ -16,7 +16,11 @@ import type {
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { RunnerError } from "./errors";
-import { parseTmuxIdentityResult } from "./tmux-identity";
+import {
+  parseTmuxIdentityResult,
+  TMUX_CREATE_IDENTITY_FORMAT,
+  TMUX_OBSERVE_IDENTITY_FORMAT,
+} from "./tmux-identity";
 import type {
   FilePort,
   GitHubPort,
@@ -958,7 +962,7 @@ class LiveTmuxPort implements TmuxPort {
         "-d",
         "-P",
         "-F",
-        "#{window_id}\t#{pane_id}",
+        TMUX_CREATE_IDENTITY_FORMAT,
         "-t",
         input.sessionName,
         "-n",
@@ -1010,7 +1014,7 @@ class LiveTmuxPort implements TmuxPort {
         "-t",
         `${target.sessionName}:${target.windowName}`,
         "-F",
-        "#{window_id}\t#{pane_id}\t#{pane_current_path}",
+        TMUX_OBSERVE_IDENTITY_FORMAT,
       ],
       target.cwd,
       15_000,

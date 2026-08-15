@@ -75,6 +75,7 @@ export type TmuxIdentityPhase = "create" | "observe";
 export type TmuxIdentityTokenV1 =
   | "window_id"
   | "pane_id"
+  | "vertical_bar"
   | "horizontal_tab"
   | "carriage_return"
   | "line_feed"

@@ -9,10 +9,16 @@ import { RunnerError } from "./errors";
 const RECORD_LIMIT = 8;
 const FIELD_LIMIT = 8;
 const SIGNATURE_LIMIT = 32;
+const NUL = 0x00;
 const HORIZONTAL_TAB = 0x09;
 const LINE_FEED = 0x0a;
 const CARRIAGE_RETURN = 0x0d;
 const BACKSLASH = 0x5c;
+const VERTICAL_BAR = 0x7c;
+
+export const TMUX_CREATE_IDENTITY_FORMAT = "#{window_id}|#{pane_id}" as const;
+export const TMUX_OBSERVE_IDENTITY_FORMAT =
+  "#{window_id}|#{pane_id}|#{pane_current_path}" as const;
 
 export interface TmuxIdentityCommandResult {
   readonly exitCode: number;
@@ -61,34 +67,43 @@ export function parseTmuxIdentityResult(
       diagnostic,
     );
   }
+
   const stdout = result.stdoutBuffer;
-  const body =
-    stdout.byteLength > 0 && stdout.at(-1) === LINE_FEED
-      ? stdout.subarray(0, stdout.byteLength - 1)
-      : stdout;
-  const expectedFields = phase === "create" ? 2 : 3;
-  const fields = splitFields(body);
-  const validTransport =
-    body.byteLength > 0 &&
-    !body.includes(LINE_FEED) &&
-    !body.includes(CARRIAGE_RETURN) &&
-    fields.length === expectedFields;
+  const hasExactRecordFraming =
+    stdout.byteLength > 1 &&
+    stdout.at(-1) === LINE_FEED &&
+    !stdout.subarray(0, stdout.byteLength - 1).includes(LINE_FEED) &&
+    !stdout.includes(CARRIAGE_RETURN);
+  const body = hasExactRecordFraming
+    ? stdout.subarray(0, stdout.byteLength - 1)
+    : Buffer.alloc(0);
+  const fields =
+    phase === "create" ? splitCreateFields(body) : splitObserveFields(body);
   const validIds =
-    validTransport && isWindowId(fields[0]) && isPaneId(fields[1]);
+    fields !== null && isWindowId(fields[0]) && isPaneId(fields[1]);
+  const cwdBytes =
+    phase === "observe" && fields !== null && fields.length === 3
+      ? fields[2]
+      : null;
   const validCwd =
     phase === "create" ||
-    (validTransport && fields[2].byteLength > 0 && isUtf8(fields[2]));
-  if (!validTransport || !validIds || !validCwd) {
+    (cwdBytes !== null &&
+      cwdBytes.byteLength > 0 &&
+      !cwdBytes.includes(NUL) &&
+      isUtf8(cwdBytes));
+
+  if (!hasExactRecordFraming || fields === null || !validIds || !validCwd) {
     throw new TmuxIdentityOutputError(
       "TMUX_IDENTITY_MALFORMED",
       `tmux returned malformed or ambiguous ${phase} identity evidence.`,
       diagnostic,
     );
   }
+
   return {
     windowId: fields[0].toString("ascii"),
     paneId: fields[1].toString("ascii"),
-    cwd: phase === "observe" ? fields[2].toString("utf8") : null,
+    cwd: cwdBytes?.toString("utf8") ?? null,
   };
 }
 
@@ -98,7 +113,7 @@ export function buildTmuxIdentityDiagnostic(
 ): TmuxIdentityDiagnosticV1 {
   const logicalRecords = splitLogicalRecords(result.stdoutBuffer);
   const records = logicalRecords.slice(0, RECORD_LIMIT).map((record) => {
-    const fields = countByte(record, HORIZONTAL_TAB) + 1;
+    const fields = countByte(record, VERTICAL_BAR) + 1;
     return {
       fieldCount: Math.min(fields, FIELD_LIMIT),
       truncated: fields > FIELD_LIMIT,
@@ -119,16 +134,25 @@ export function buildTmuxIdentityDiagnostic(
   };
 }
 
-function splitFields(value: Buffer): readonly Buffer[] {
-  const fields: Buffer[] = [];
-  let start = 0;
-  for (let index = 0; index < value.byteLength; index += 1) {
-    if (value[index] !== HORIZONTAL_TAB) continue;
-    fields.push(value.subarray(start, index));
-    start = index + 1;
-  }
-  fields.push(value.subarray(start));
-  return fields;
+function splitCreateFields(value: Buffer): readonly [Buffer, Buffer] | null {
+  const separator = value.indexOf(VERTICAL_BAR);
+  if (separator < 0 || value.indexOf(VERTICAL_BAR, separator + 1) >= 0)
+    return null;
+  return [value.subarray(0, separator), value.subarray(separator + 1)];
+}
+
+function splitObserveFields(
+  value: Buffer,
+): readonly [Buffer, Buffer, Buffer] | null {
+  const first = value.indexOf(VERTICAL_BAR);
+  if (first < 0) return null;
+  const second = value.indexOf(VERTICAL_BAR, first + 1);
+  if (second < 0) return null;
+  return [
+    value.subarray(0, first),
+    value.subarray(first + 1, second),
+    value.subarray(second + 1),
+  ];
 }
 
 function splitLogicalRecords(stdout: Buffer): readonly Buffer[] {
@@ -170,6 +194,7 @@ function tokenize(stdout: Buffer): readonly TmuxIdentityTokenV1[] {
 }
 
 function specialToken(value: number): TmuxIdentityTokenV1 | null {
+  if (value === VERTICAL_BAR) return "vertical_bar";
   if (value === HORIZONTAL_TAB) return "horizontal_tab";
   if (value === CARRIAGE_RETURN) return "carriage_return";
   if (value === LINE_FEED) return "line_feed";

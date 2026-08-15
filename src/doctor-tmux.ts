@@ -19,6 +19,8 @@ import type {
 } from "./doctor-adapters";
 import {
   parseTmuxIdentityResult,
+  TMUX_CREATE_IDENTITY_FORMAT,
+  TMUX_OBSERVE_IDENTITY_FORMAT,
   TmuxIdentityOutputError,
   type ParsedTmuxIdentityOutput,
   type TmuxIdentityCommandResult,
@@ -356,7 +358,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           "-d",
           "-P",
           "-F",
-          "#{window_id}\t#{pane_id}",
+          TMUX_CREATE_IDENTITY_FORMAT,
           "-t",
           workspace.sessionName,
           "-n",
@@ -446,7 +448,7 @@ export class DoctorTmuxProbe implements DoctorTmuxProbePort {
           "-t",
           `${workspace.sessionName}:${workspace.issueWindowName}`,
           "-F",
-          "#{window_id}\t#{pane_id}\t#{pane_current_path}",
+          TMUX_OBSERVE_IDENTITY_FORMAT,
         ]);
         failure = classifyCommand(activeOperation, result);
         if (failure === null) {

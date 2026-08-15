@@ -47,7 +47,7 @@ const success: AssetInstallationResultV1 = {
     {
       type: "agent",
       name: "soft-factory",
-      version: "0.1.0",
+      version: "0.1.1",
       runnerProtocol: 1,
       destination: ".github/agents/soft-factory.agent.md",
       sha256: "a".repeat(64),
@@ -188,6 +188,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
   jest.setTimeout(60_000);
   let temp: string;
   let packageRoot: string;
+  let tarball: string;
 
   beforeAll(async () => {
     expect(
@@ -200,7 +201,13 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
       { cwd: root, encoding: "utf8" },
     );
     expect(packed.status).toBe(0);
-    const filename = JSON.parse(packed.stdout)[0].filename as string;
+    const packEntry = JSON.parse(packed.stdout)[0] as {
+      filename: string;
+      version: string;
+    };
+    expect(packEntry.version).toBe("0.1.1");
+    expect(packEntry.filename).toBe("soft-factory-runner-0.1.1.tgz");
+    tarball = path.join(temp, packEntry.filename);
     const prefix = path.join(temp, "prefix");
     const installed = spawnSync(
       "npm",
@@ -209,14 +216,28 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
         "--ignore-scripts",
         "--no-audit",
         "--no-fund",
+        "--omit=dev",
         "--prefix",
         prefix,
-        path.join(temp, filename),
+        tarball,
       ],
       { cwd: temp, encoding: "utf8" },
     );
     expect(installed.status).toBe(0);
     packageRoot = path.join(prefix, "node_modules", "soft-factory-runner");
+    const installedMetadata = JSON.parse(
+      await fsp.readFile(path.join(packageRoot, "package.json"), "utf8"),
+    ) as { version: string };
+    expect(installedMetadata.version).toBe("0.1.1");
+    const tarMetadata = spawnSync(
+      "tar",
+      ["-xOf", tarball, "package/package.json"],
+      { cwd: temp, encoding: "utf8" },
+    );
+    expect(tarMetadata.status).toBe(0);
+    expect(
+      (JSON.parse(tarMetadata.stdout) as { version: string }).version,
+    ).toBe("0.1.1");
   });
 
   afterAll(async () => {
@@ -251,11 +272,66 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
       const repeat = invoke(packageRoot, roots[index], args[index]);
       expect(repeat.status).toBe(0);
       expect(repeat.stdout).toContain("ASSETS_UP_TO_DATE");
+      const generated = JSON.parse(
+        await fsp.readFile(
+          path.join(roots[index], ".agents", "manifest.json"),
+          "utf8",
+        ),
+      ) as { assets: Array<{ version: string }> };
+      expect(generated.assets).toHaveLength(1);
+      expect(generated.assets[0]?.version).toBe("0.1.1");
       inventories.push(await tree(roots[index]));
     }
     expect(inventories[1]).toEqual(inventories[0]);
     for (const repository of roots)
       await fsp.rm(repository, { recursive: true, force: true });
+  });
+
+  it("reconverges a proved 0.1.0 current manifest to 0.1.1 and repeats", async () => {
+    const repository = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "asset-packed-version-upgrade-"),
+    );
+    const desired = await fsp.readFile(path.join(packageRoot, current.source));
+    await fsp.mkdir(path.dirname(path.join(repository, current.destination)), {
+      recursive: true,
+    });
+    await fsp.mkdir(path.join(repository, ".agents"), { recursive: true });
+    await fsp.writeFile(path.join(repository, current.destination), desired);
+    await fsp.writeFile(
+      path.join(repository, ".agents", "manifest.json"),
+      serializeAssetManifest({
+        schemaVersion: 1,
+        assets: [
+          {
+            type: current.type,
+            name: current.name,
+            version: "0.1.0",
+            runnerProtocol: current.runnerProtocol,
+            destination: current.destination,
+            sha256: sha256(desired),
+          },
+        ],
+      }),
+    );
+    const upgraded = invoke(packageRoot, repository, [
+      "install",
+      "--recommended",
+    ]);
+    expect(upgraded.status).toBe(0);
+    const manifest = JSON.parse(
+      await fsp.readFile(
+        path.join(repository, ".agents", "manifest.json"),
+        "utf8",
+      ),
+    ) as { assets: Array<{ version: string }> };
+    expect(manifest.assets.map((entry) => entry.version)).toEqual(["0.1.1"]);
+    const repeat = invoke(packageRoot, repository, [
+      "install",
+      "--recommended",
+    ]);
+    expect(repeat.status).toBe(0);
+    expect(repeat.stdout).toContain("ASSETS_UP_TO_DATE");
+    await fsp.rm(repository, { recursive: true, force: true });
   });
 
   it("migrates matching legacy ownership and rejects removed selectors", async () => {

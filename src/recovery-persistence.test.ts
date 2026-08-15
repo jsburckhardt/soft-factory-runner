@@ -205,6 +205,17 @@ describe("V-1 revisioned persistence and replay", () => {
     expect(replayHistory(v5(2), [event(v5(3, null))])).toEqual(v5(3, null));
   });
 
+  it("reads the portable vertical-bar token without invalidating legacy HT records", async () => {
+    const files = new FaultFiles();
+    const store = new RunStore(root, files, clock);
+    const portable = {
+      ...diagnostic,
+      signature: ["window_id", "vertical_bar", "pane_id", "line_feed"],
+    } satisfies TmuxIdentityDiagnosticV1;
+    files.values.set(store.snapshotPath(5), JSON.stringify(v5(2, portable)));
+    await expect(store.load(5)).resolves.toEqual(v5(2, portable));
+  });
+
   it.each([
     ["record cap", { ...diagnostic, recordCount: 9 }],
     [

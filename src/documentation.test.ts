@@ -23,6 +23,7 @@ const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
 const packageJson = read("package.json");
+const agents = read("AGENTS.md");
 const prd = read("PRD.md");
 
 function sectionBetween(
@@ -323,10 +324,10 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
   it("documents exact transport, diagnostic bounds, lifecycle, and rendering", () => {
     for (const document of [readme, issueRun, operations, prd]) {
       for (const phrase of [
-        "horizontal tab",
-        "optional final LF",
-        "^@[0-9]+$",
-        "^%[0-9]+$",
+        "UTF-8 and non-UTF8",
+        "@<digits>|%<digits><LF>",
+        "terminal LF",
+        "first two",
         "malformed or ambiguous",
       ])
         expect(document).toContain(phrase);
@@ -355,7 +356,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     ])
       expect(readme + operations + prd).toContain(phrase);
     expect(tmuxIdentityContract).toContain(
-      "window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
+      "window_id`, `pane_id`, `vertical_bar`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
     );
   });
 
@@ -533,7 +534,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     ])
       expect(readme + docsIndex + operations).toContain(phrase);
     expect(operations).toContain("byte-aware tmux/process adapters");
-    expect(operations).toContain("exact tmux 3.7b bytes");
+    expect(operations).toContain("exact six-byte no-HT record");
   });
 });
 
@@ -645,8 +646,8 @@ describe("V-15 Phase 4 repository Doctor documentation", () => {
       "tmux -D -S <private-socket> -f <empty-config>",
       "with no command",
       "exact same private `-S <private-socket>` selector",
-      "#{window_id}<HT>#{pane_id}<LF>",
-      "#{window_id}<HT>#{pane_id}<HT>#{pane_current_path}<LF>",
+      "#{window_id}|#{pane_id}<LF>",
+      "#{window_id}|#{pane_id}|#{pane_current_path}<LF>",
       "remain-on-exit",
       "original bytes",
       "4096",
@@ -988,5 +989,132 @@ describe("V10 one-agent help, consumer documentation, and PRD contract", () => {
       expect(help.stdout).toContain(command);
     expect(help.stdout).not.toContain("soft-factory-assessor");
     expect(help.stdout).not.toContain("install skill");
+  });
+});
+
+describe("Issue 31 APS Semantic Versioning instructions", () => {
+  const rules = [
+    "You MUST assign every code or package change the correct Semantic Versioning major, minor, or patch release before delivery.",
+    "You MUST increment the major version for incompatible public-contract changes when the current major version is at least 1.",
+    "You MUST increment the minor version for backward-compatible functionality.",
+    "You MUST increment the minor version for incompatible public-contract changes before 1.0.0.",
+    "You MUST increment the patch version for backward-compatible defect corrections.",
+    "You MUST set version 1.0.0 only for a delivery that explicitly establishes the stable public contract.",
+  ] as const;
+
+  it("contains each exact one-line absolute directive once", () => {
+    const match = /<instructions>\n([\s\S]*?)\n<\/instructions>/.exec(agents);
+    expect(match?.[1]).toBeDefined();
+    const lines = (match?.[1] ?? "").split("\n");
+    for (const rule of rules) {
+      expect(lines.filter((line) => line === rule)).toHaveLength(1);
+      expect(rule.startsWith("You MUST ")).toBe(true);
+    }
+    expect(
+      lines.slice(lines.indexOf(rules[0]), lines.indexOf(rules[5]) + 1),
+    ).toEqual(rules);
+  });
+
+  it("preserves the surrounding governance order and classifies all increments", () => {
+    const bounded = agents.indexOf(
+      "You MUST keep issue acceptance criteria bounded, observable, and executable",
+    );
+    const semver = agents.indexOf(rules[0]);
+    const badge = agents.indexOf("You MUST update the APS version badge");
+    const review = agents.indexOf(
+      "You MUST mark a PR review comment as resolved",
+    );
+    expect(bounded).toBeLessThan(semver);
+    expect(semver).toBeLessThan(badge);
+    expect(badge).toBeLessThan(review);
+    expect(rules.join("\n")).toContain("major version");
+    expect(rules.join("\n")).toContain("minor version");
+    expect(rules.join("\n")).toContain("patch version");
+    expect(rules.join("\n")).toContain("before 1.0.0");
+    expect(rules.join("\n")).toContain("stable public contract");
+  });
+});
+
+describe("Issue 31 portable tmux and 0.1.1 user guidance", () => {
+  it("keeps the issue-run guide structurally unique and grammatically complete", () => {
+    const title = "# Issue run and Phase 2 completion proof";
+    const bodyAnchor =
+      "Runner validates and exclusively owns an explicit GitHub issue";
+    const headings = issueRun.match(/^#{1,3} .+$/gm) ?? [];
+    const levelTwoHeadings = issueRun.match(/^## .+$/gm) ?? [];
+
+    expect(issueRun.split(title)).toHaveLength(2);
+    expect(issueRun.split(bodyAnchor)).toHaveLength(2);
+    expect(new Set(headings).size).toBe(headings.length);
+    expect(levelTwoHeadings).toEqual([
+      "## Prerequisites and commands",
+      "## Configuration and readiness",
+      "## Strict tmux identity transport and diagnostics",
+      "## RPIV result artifact",
+      "## Finalization and false-completion protection",
+      "## Persistence and status",
+      "## Troubleshooting",
+      "## Deterministic evidence fixtures",
+      "## Phase 3 continuation",
+    ]);
+    expect(issueRun.split("^@[0-9]+$")).toHaveLength(2);
+    expect(issueRun.split("^%[0-9]+$")).toHaveLength(2);
+    expect(issueRun).not.toMatch(/\^[@%]\[0-9\]\+#/);
+    expect(issueRun).not.toMatch(/^\s+(?:and pane ID|validation\.)/m);
+  });
+  it("documents both client states, closed framing, cwd retention, and confidentiality", () => {
+    for (const document of [
+      readme,
+      issueRun,
+      operations,
+      doctorGuide,
+      docsIndex,
+      prd,
+    ]) {
+      expect(document).toContain("UTF-8 and non-UTF8");
+      expect(document).not.toContain("<HT>");
+      expect(document).not.toContain("optional final LF");
+    }
+    for (const document of [readme, issueRun, operations, doctorGuide, prd])
+      expect(document).toContain("vertical bar");
+    expect(issueRun + operations + prd).toContain(
+      "@<digits>|%<digits>|<cwd><LF>",
+    );
+    expect(readme + issueRun + operations + doctorGuide).toContain(
+      "exactly one terminal LF",
+    );
+    expect(readme + issueRun + operations + doctorGuide).toContain(
+      "additional vertical bars",
+    );
+    for (const document of [readme, issueRun, operations, doctorGuide]) {
+      expect(document).toContain("value-free");
+      expect(document).toMatch(/raw (?:output|stdout\/stderr|bytes)/i);
+    }
+  });
+
+  it("documents exact local 0.1.1 upgrade, reinstall, confirmation, and reconvergence", () => {
+    expect((JSON.parse(packageJson) as { version: string }).version).toBe(
+      "0.1.1",
+    );
+    for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.1.1");
+      expect(document).toContain("0.1.0");
+      expect(document).not.toContain("soft-factory --version");
+      expect(document).not.toContain("registry publication complete");
+    }
+    for (const phrase of [
+      "just build",
+      "npm pack --json --pack-destination",
+      "npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix",
+      "node -p",
+      "package.json",
+      "npm uninstall --prefix",
+      'soft-factory" install --recommended',
+      ".agents/manifest.json",
+      "ASSETS_UP_TO_DATE",
+      "does not claim registry publication",
+      "no `--version` command",
+    ])
+      expect(readme + assetGuide + docsIndex).toContain(phrase);
   });
 });

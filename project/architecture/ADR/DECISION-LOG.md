@@ -43,6 +43,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260812-copilot-child-environment-contract | Copilot Child Environment Contract | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260812-rpiv-integration-handoff | RPIV Integration Handoff | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260814-tmux-identity-diagnostics | Tmux Identity Diagnostics | Adopted | 2026-08-14 |
+| CORE-COMPONENT-260815-package-semver-governance | Package Semantic Versioning Governance | Adopted | 2026-08-15 |
 
 ## Decisions
 
@@ -176,7 +177,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 124 | Persist only bounded value-free tmux identity structure in RunSnapshotV5 | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
 | 125 | Retry starting_tmux creation only after exact clean fetched-HEAD ownership and zero same-name candidates | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
 | 126 | Treat nonzero tmux observation as absence and malformed zero-exit output as unknown | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
-| 127 | Require exact tab-separated LF-terminated tmux identity records and strict identifier grammars | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
+| 127 | Require exact vertical-bar-framed LF-terminated tmux identity records and strict identifier grammars | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
 | 128 | Cap tmux identity diagnostics at eight records, eight fields, and 32 tokens | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
 | 129 | Retain the latest tmux identity diagnostic until valid identity proof clears it | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
 | 130 | Prohibit raw tmux output and field values in durable identity diagnostics | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
@@ -193,3 +194,22 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 141 | Cap each Doctor command output stream at 4096 retained bytes | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
 | 142 | Clean every tmux probe path by exact ownership and verify all resources absent | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
 | 143 | Isolate tmux probe workspaces under exclusive operating-system temporary directories | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-14 |
+| 144 | Use printable vertical bars for tmux identity framing in every client mode | ADR-260814-tmux-identity-failure-recovery | 2026-08-15 |
+| 145 | Require exactly one terminal LF on every tmux identity record | ADR-260814-tmux-identity-failure-recovery | 2026-08-15 |
+| 146 | Parse observation cwd as every byte after the second vertical bar | ADR-260814-tmux-identity-failure-recovery | 2026-08-15 |
+| 147 | Prohibit HT and inferred sanitized tmux identity transport forms | ADR-260814-tmux-identity-failure-recovery | 2026-08-15 |
+| 148 | Share one strict tmux identity parser across normal and Doctor paths | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
+| 149 | Preserve bounded value-free tmux diagnostics without raw identity values | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
+| 150 | Keep tmux identity evidence non-authorizing for ownership and retry | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
+| 151 | Validate tmux transport in controlled UTF-8 and non-UTF8 client states | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
+| 152 | Assign package versions by the highest-impact Semantic Versioning change | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 153 | Increment pre-1.0 minor versions for incompatible public-contract changes | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 154 | Synchronize package, lock, asset, manifest, fixture, and documentation versions | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 155 | Prohibit dependency churn during release-only package version updates | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 156 | Require upgrade guidance to confirm the delivered package version | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 157 | Release the backward-compatible tmux correction as version 0.1.1 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-15 |
+| 158 | Use portable vertical-bar identity framing in the isolated Doctor probe | ADR-260812-repository-doctor-readiness | 2026-08-15 |
+| 159 | Preserve all 24 Doctor checks while changing tmux identity framing | ADR-260812-repository-doctor-readiness | 2026-08-15 |
+| 160 | Require Doctor create and observe to use the shared identity grammar | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
+| 161 | Verify Doctor transport in both controlled tmux client modes | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
+| 162 | Prove overlapping Doctor probes clean distinct isolated resources | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |

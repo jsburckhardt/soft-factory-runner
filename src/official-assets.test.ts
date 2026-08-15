@@ -58,9 +58,14 @@ describe("V1 sole catalog, source, and npm package contract", () => {
       encoding: "utf8",
     });
     expect(packed.status).toBe(0);
-    const files = (
-      JSON.parse(packed.stdout)[0].files as { path: string }[]
-    ).map((entry) => entry.path);
+    const packEntry = JSON.parse(packed.stdout)[0] as {
+      version: string;
+      filename: string;
+      files: { path: string }[];
+    };
+    expect(packEntry.version).toBe("0.1.1");
+    expect(packEntry.filename).toBe("soft-factory-runner-0.1.1.tgz");
+    const files = packEntry.files.map((entry) => entry.path);
     expect(files.filter((file) => file.startsWith("assets/official/"))).toEqual(
       ["assets/official/soft-factory.agent.md"],
     );
@@ -79,6 +84,35 @@ describe("V1 sole catalog, source, and npm package contract", () => {
       "fixtures/",
     ])
       expect(files.some((file) => file.startsWith(prefix))).toBe(false);
+  });
+});
+
+describe("Issue 31 exact package version inventory", () => {
+  it("agrees across root metadata and preserves dependency 0.1.0 entries", () => {
+    const packageMetadata = JSON.parse(
+      fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    ) as { version: string };
+    const lock = JSON.parse(
+      fs.readFileSync(path.join(root, "package-lock.json"), "utf8"),
+    ) as {
+      version: string;
+      packages: Record<string, { version?: string }>;
+    };
+    expect({
+      package: packageMetadata.version,
+      lockRoot: lock.version,
+      lockPackage: lock.packages[""]?.version,
+      officialAsset: OFFICIAL_ASSET_VERSION,
+    }).toEqual({
+      package: "0.1.1",
+      lockRoot: "0.1.1",
+      lockPackage: "0.1.1",
+      officialAsset: "0.1.1",
+    });
+    expect(lock.packages["node_modules/get-package-type"]?.version).toBe(
+      "0.1.0",
+    );
+    expect(lock.packages["node_modules/yocto-queue"]?.version).toBe("0.1.0");
   });
 });
 

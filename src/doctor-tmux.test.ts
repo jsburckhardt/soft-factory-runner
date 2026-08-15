@@ -70,19 +70,23 @@ function result(
   };
 }
 
-function identity(pid: number): DoctorProcessIdentity {
+function identity(
+  pid: number,
+  activeWorkspace: DoctorProbeWorkspace = workspace,
+): DoctorProcessIdentity {
   return {
     pid,
     processGroupId: pid,
     startToken: String(pid * 10),
     executable: process.execPath,
-    args: [workspace.helperPath],
-    cwd: workspace.root,
+    args: [activeWorkspace.helperPath],
+    cwd: activeWorkspace.root,
     launchedAtMs: 0,
   };
 }
 
 class FakeWorkspace implements DoctorProbeWorkspacePort {
+  public constructor(public readonly value = workspace) {}
   public created = false;
   public removed = false;
   public socket = false;
@@ -94,8 +98,8 @@ class FakeWorkspace implements DoctorProbeWorkspacePort {
     if (this.failCreate) throw new Error("controlled workspace failure");
     this.created = true;
     if (this.failAfterCreate)
-      throw new DoctorTmuxWorkspaceError(workspace, "filesystem-failed");
-    return workspace;
+      throw new DoctorTmuxWorkspaceError(this.value, "filesystem-failed");
+    return this.value;
   }
   public async remove(): Promise<void> {
     if (!this.retainWorkspace) this.removed = true;
@@ -162,15 +166,24 @@ class FakeProcesses implements DoctorProcessObservationPort {
 
 class FakeManagedHandle implements DoctorManagedProcessHandle {
   public readonly waitTimeouts: number[] = [];
-  public readonly identity = {
-    ...identity(500),
-    executable: "/tools/tmux",
-    args: ["-D", "-S", workspace.socketPath, "-f", workspace.configPath],
-  };
+  public readonly identity: DoctorProcessIdentity;
   public constructor(
     private readonly processes: FakeProcesses,
+    activeWorkspace: DoctorProbeWorkspace,
+    pid: number,
     private readonly streams: DoctorCommandResult = result(),
   ) {
+    this.identity = {
+      ...identity(pid, activeWorkspace),
+      executable: "/tools/tmux",
+      args: [
+        "-D",
+        "-S",
+        activeWorkspace.socketPath,
+        "-f",
+        activeWorkspace.configPath,
+      ],
+    };
     processes.alive.set(this.identity.pid, this.identity);
   }
   public wait(timeoutMs: number): Promise<boolean> {
@@ -195,6 +208,7 @@ class FakeManaged implements DoctorManagedProcessPort {
     private readonly workspaces: FakeWorkspace,
     private readonly streams: DoctorCommandResult = result(),
     private readonly clock?: MutableClock,
+    private readonly serverPid = 500,
   ) {}
   public async start(
     spec: DoctorManagedProcessSpec,
@@ -204,7 +218,12 @@ class FakeManaged implements DoctorManagedProcessPort {
       this.clock.value = this.advanceClockTo;
     if (this.failStart) throw new Error("controlled launch failure");
     this.workspaces.socket = true;
-    this.handle = new FakeManagedHandle(this.processes, this.streams);
+    this.handle = new FakeManagedHandle(
+      this.processes,
+      this.workspaces.value,
+      this.serverPid,
+      this.streams,
+    );
     return this.handle;
   }
 }
@@ -221,8 +240,43 @@ type Fault =
   | "window-remove"
   | "server-stop";
 
+function renderControlledTmuxFormat(
+  format: string,
+  ids: {
+    readonly windowId: string;
+    readonly paneId: string;
+    readonly cwd: string;
+  },
+  clientUtf8: boolean,
+): Buffer {
+  const rendered = format
+    .replaceAll("#{window_id}", ids.windowId)
+    .replaceAll("#{pane_id}", ids.paneId)
+    .replaceAll("#{pane_current_path}", ids.cwd);
+  const bytes = Buffer.from(rendered, "utf8");
+  const clientBytes = clientUtf8
+    ? bytes
+    : Buffer.from(bytes.map((byte) => (byte <= 0x1f ? 0x5f : byte)));
+  return Buffer.concat([clientBytes, Buffer.from([0x0a])]);
+}
+
+class ProbeBarrier {
+  public arrivals = 0;
+  private release!: () => void;
+  private readonly ready = new Promise<void>((resolve) => {
+    this.release = resolve;
+  });
+
+  public async arrive(): Promise<void> {
+    this.arrivals += 1;
+    if (this.arrivals === 2) this.release();
+    await this.ready;
+  }
+}
+
 class ProtocolRunner implements DoctorCommandRunner {
   public readonly calls: DoctorCommandSpec[] = [];
+  public readonly createdProcessIds: number[] = [];
   public fault: Fault | null = null;
   public faultMode: "nonzero" | "timeout" | "overflow" | "malformed" =
     "nonzero";
@@ -231,26 +285,44 @@ class ProtocolRunner implements DoctorCommandRunner {
   public leaveHelpersOnStop = false;
   public cutoffAt: Fault | null = null;
   public helperExecutable = process.execPath;
+  public clientUtf8 = true;
+  public malformedOutput: Buffer | null = null;
+  public readonly identityOutputs: DoctorCommandResult[] = [];
 
   public constructor(
     private readonly processes: FakeProcesses,
     private readonly workspaces: FakeWorkspace,
     private readonly clock?: MutableClock,
+    private readonly pidOffset = 0,
+    private readonly createBarrier?: ProbeBarrier,
   ) {}
+
+  private get dashboardPid(): number {
+    return 101 + this.pidOffset;
+  }
+  private get issuePid(): number {
+    return 102 + this.pidOffset;
+  }
+  private get serverPid(): number {
+    return 500 + this.pidOffset;
+  }
 
   public async run(spec: DoctorCommandSpec): Promise<DoctorCommandResult> {
     this.calls.push(spec);
     const operation = operationFor(spec.args);
+    const activeWorkspace = this.workspaces.value;
     if (operation === this.cutoffAt && this.clock !== undefined) {
       this.clock.value = 6500;
       return result({ exitCode: null, cancelled: true });
     }
     if (operation === this.fault) {
-      if (operation === "window-create" && this.faultMode === "malformed")
-        this.processes.alive.set(102, {
-          ...identity(102),
+      if (operation === "window-create" && this.faultMode === "malformed") {
+        this.processes.alive.set(this.issuePid, {
+          ...identity(this.issuePid, activeWorkspace),
           executable: this.helperExecutable,
         });
+        this.createdProcessIds.push(this.issuePid);
+      }
       if (this.faultMode === "timeout")
         return result({ exitCode: null, timedOut: true });
       if (this.faultMode === "overflow")
@@ -259,35 +331,66 @@ class ProtocolRunner implements DoctorCommandRunner {
           stdoutByteCount: 4097,
         });
       if (this.faultMode === "malformed")
-        return result({ stdout: Buffer.from("bad\n") });
+        return result({ stdout: this.malformedOutput ?? Buffer.from("bad\n") });
       return result({ exitCode: 1 });
     }
-    if (operation === "session-create")
-      this.processes.alive.set(101, {
-        ...identity(101),
+    if (operation === "session-create") {
+      this.processes.alive.set(this.dashboardPid, {
+        ...identity(this.dashboardPid, activeWorkspace),
         executable: this.helperExecutable,
       });
+      this.createdProcessIds.push(this.dashboardPid);
+    }
     if (operation === "dashboard-pane-identify")
-      return result({ stdout: Buffer.from("101\n") });
+      return result({ stdout: Buffer.from(String(this.dashboardPid) + "\n") });
     if (operation === "window-list")
-      return result({ stdout: Buffer.from(workspace.dashboardName + "\n") });
+      return result({
+        stdout: Buffer.from(activeWorkspace.dashboardName + "\n"),
+      });
     if (operation === "window-create") {
-      this.processes.alive.set(102, {
-        ...identity(102),
+      await this.createBarrier?.arrive();
+      this.processes.alive.set(this.issuePid, {
+        ...identity(this.issuePid, activeWorkspace),
         executable: this.helperExecutable,
       });
-      return result({ stdout: Buffer.from("@1\t%1\n") });
+      this.createdProcessIds.push(this.issuePid);
+      const format = spec.args[spec.args.indexOf("-F") + 1];
+      if (format === undefined)
+        throw new Error("controlled create format missing");
+      const output = result({
+        stdout: renderControlledTmuxFormat(
+          format,
+          { windowId: "@1", paneId: "%1", cwd: activeWorkspace.root },
+          this.clientUtf8,
+        ),
+      });
+      this.identityOutputs.push(output);
+      return output;
     }
     if (operation === "issue-pane-identify")
-      return result({ stdout: Buffer.from("102\n") });
+      return result({ stdout: Buffer.from(String(this.issuePid) + "\n") });
     if (operation === "pane-observe") {
-      const ids = this.observeMismatch ? "@2\t%2\t" : "@1\t%1\t";
-      const cwd = this.cwdMismatch ? "/other" : workspace.root;
-      return result({ stdout: Buffer.from(ids + cwd + "\n") });
+      const format = spec.args[spec.args.indexOf("-F") + 1];
+      if (format === undefined)
+        throw new Error("controlled observe format missing");
+      const output = result({
+        stdout: renderControlledTmuxFormat(
+          format,
+          {
+            windowId: this.observeMismatch ? "@2" : "@1",
+            paneId: this.observeMismatch ? "%2" : "%1",
+            cwd: this.cwdMismatch ? "/other" : activeWorkspace.root,
+          },
+          this.clientUtf8,
+        ),
+      });
+      this.identityOutputs.push(output);
+      return output;
     }
-    if (operation === "window-remove") this.processes.alive.delete(102);
+    if (operation === "window-remove")
+      this.processes.alive.delete(this.issuePid);
     if (operation === "server-stop") {
-      if (this.leaveHelpersOnStop) this.processes.alive.delete(500);
+      if (this.leaveHelpersOnStop) this.processes.alive.delete(this.serverPid);
       else this.processes.alive.clear();
       this.workspaces.socket = false;
     }
@@ -312,6 +415,9 @@ class MutableClock implements DoctorClock {
 function fixture(
   serverStreams: DoctorCommandResult = result(),
   helperExecutable: string = process.execPath,
+  activeWorkspace: DoctorProbeWorkspace = workspace,
+  pidOffset = 0,
+  createBarrier?: ProbeBarrier,
 ): {
   probe: DoctorTmuxProbe;
   runner: ProtocolRunner;
@@ -321,11 +427,23 @@ function fixture(
   sockets: FakeSocketWaiter;
   clock: MutableClock;
 } {
-  const workspaces = new FakeWorkspace();
+  const workspaces = new FakeWorkspace(activeWorkspace);
   const processes = new FakeProcesses();
   const clock = new MutableClock();
-  const runner = new ProtocolRunner(processes, workspaces, clock);
-  const managed = new FakeManaged(processes, workspaces, serverStreams, clock);
+  const runner = new ProtocolRunner(
+    processes,
+    workspaces,
+    clock,
+    pidOffset,
+    createBarrier,
+  );
+  const managed = new FakeManaged(
+    processes,
+    workspaces,
+    serverStreams,
+    clock,
+    500 + pidOffset,
+  );
   const sockets = new FakeSocketWaiter();
   return {
     probe: new DoctorTmuxProbe({
@@ -431,10 +549,10 @@ function controlledHelperSearch(
   };
 }
 
-async function run(probe: DoctorTmuxProbe) {
+async function run(probe: DoctorTmuxProbe, token = "private-token") {
   return probe.run({
     tmuxExecutable: "/tools/tmux",
-    token: "private-token",
+    token,
     doctorStartedAtMs: 0,
   });
 }
@@ -790,7 +908,7 @@ describe("V-11/V-12 isolated Doctor tmux probe", () => {
           "-t",
           `${workspace.sessionName}:${workspace.issueWindowName}`,
           "-F",
-          "#{window_id}\t#{pane_id}\t#{pane_current_path}",
+          "#{window_id}|#{pane_id}|#{pane_current_path}",
         ],
         cwd: workspace.root,
         timeoutMs: 2000,
@@ -821,7 +939,244 @@ describe("V-11/V-12 isolated Doctor tmux probe", () => {
   });
 });
 
+const doctorClientStates = [
+  { name: "UTF-8", clientUtf8: true },
+  { name: "non-UTF8", clientUtf8: false },
+] as const;
+
+describe("Issue 31 Doctor client-state matrix and repetition", () => {
+  it.each(doctorClientStates)(
+    "runs the complete isolated protocol in the $name row and repeat",
+    async (state) => {
+      const inventories: unknown[] = [];
+      for (let repetition = 0; repetition < 2; repetition += 1) {
+        const f = fixture();
+        f.runner.clientUtf8 = state.clientUtf8;
+        const observed = await run(f.probe);
+        expect(observed).toMatchObject({ ok: true, value: true });
+        expect(f.runner.identityOutputs).toHaveLength(2);
+        const create = f.runner.identityOutputs[0];
+        expect(create).toMatchObject({
+          exitCode: 0,
+          stdoutByteCount: 6,
+          stderrByteCount: 0,
+        });
+        expect(create?.stdoutBuffer).toEqual(Buffer.from("@1|%1\n"));
+        expect(create?.stdoutBuffer.includes(0x09)).toBe(false);
+        const formats = f.runner.calls.flatMap((call) => {
+          const index = call.args.indexOf("-F");
+          return index < 0 ? [] : [call.args[index + 1]];
+        });
+        expect(formats).toEqual([
+          "#{window_name}",
+          "#{window_id}|#{pane_id}",
+          "#{window_id}|#{pane_id}|#{pane_current_path}",
+        ]);
+        expect(
+          f.runner.calls.every(
+            (call) =>
+              call.args[0] === "-S" &&
+              Object.keys(call.environment).sort().join(",") ===
+                "HOME,TMPDIR,XDG_CONFIG_HOME",
+          ),
+        ).toBe(true);
+        expect(f.processes.alive.size).toBe(0);
+        expect(await f.workspaces.workspaceExists(workspace)).toBe(false);
+        inventories.push({
+          operations: f.runner.calls.map((call) => operationFor(call.args)),
+          outputs: f.runner.identityOutputs.map((output) =>
+            output.stdoutBuffer.toString("utf8"),
+          ),
+          processes: f.processes.alive.size,
+          workspace: await f.workspaces.workspaceExists(workspace),
+        });
+      }
+      expect(inventories[1]).toEqual(inventories[0]);
+      if (!state.clientUtf8) {
+        expect(
+          renderControlledTmuxFormat(
+            "#{window_id}\t#{pane_id}",
+            { windowId: "@1", paneId: "%1", cwd: workspace.root },
+            false,
+          ),
+        ).toEqual(Buffer.from("@1_%1\n"));
+      }
+    },
+  );
+});
+
+function overlappingWorkspace(label: string): DoctorProbeWorkspace {
+  const root = "/private/" + label + "-" + SECRET;
+  return {
+    root,
+    socketPath: root + "/tmux.sock",
+    configPath: root + "/tmux.conf",
+    helperPath: root + "/helper.js",
+    homePath: root + "/home",
+    xdgPath: root + "/xdg",
+    tempPath: root + "/tmp",
+    sessionName: "session-" + label,
+    dashboardName: "dashboard-" + label,
+    issueWindowName: "issue-" + label,
+  };
+}
+
+describe("Issue 31 overlapping Doctor isolation", () => {
+  it("holds two probes at creation and cleans distinct owned resources", async () => {
+    const barrier = new ProbeBarrier();
+    const firstWorkspace = overlappingWorkspace("first");
+    const secondWorkspace = overlappingWorkspace("second");
+    const first = fixture(
+      result(),
+      process.execPath,
+      firstWorkspace,
+      1000,
+      barrier,
+    );
+    const second = fixture(
+      result(),
+      process.execPath,
+      secondWorkspace,
+      2000,
+      barrier,
+    );
+    const [firstResult, secondResult] = await Promise.all([
+      run(first.probe, "first-token"),
+      run(second.probe, "second-token"),
+    ]);
+    expect(barrier.arrivals).toBe(2);
+    expect(firstResult).toMatchObject({ ok: true, value: true });
+    expect(secondResult).toMatchObject({ ok: true, value: true });
+    expect(first.managed.handle?.identity.pid).toBe(1500);
+    expect(second.managed.handle?.identity.pid).toBe(2500);
+    expect(first.managed.spec?.args).toEqual([
+      "-D",
+      "-S",
+      firstWorkspace.socketPath,
+      "-f",
+      firstWorkspace.configPath,
+    ]);
+    expect(second.managed.spec?.args).toEqual([
+      "-D",
+      "-S",
+      secondWorkspace.socketPath,
+      "-f",
+      secondWorkspace.configPath,
+    ]);
+    expect(first.runner.createdProcessIds).toEqual([1101, 1102]);
+    expect(second.runner.createdProcessIds).toEqual([2101, 2102]);
+    expect(
+      first.runner.calls.every(
+        (call) =>
+          call.args[1] === firstWorkspace.socketPath &&
+          call.cwd === firstWorkspace.root,
+      ),
+    ).toBe(true);
+    expect(
+      second.runner.calls.every(
+        (call) =>
+          call.args[1] === secondWorkspace.socketPath &&
+          call.cwd === secondWorkspace.root,
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(first.runner.calls)).not.toContain(
+      secondWorkspace.root,
+    );
+    expect(JSON.stringify(second.runner.calls)).not.toContain(
+      firstWorkspace.root,
+    );
+    expect(first.processes.alive.size).toBe(0);
+    expect(second.processes.alive.size).toBe(0);
+    expect(await first.workspaces.workspaceExists(firstWorkspace)).toBe(false);
+    expect(await second.workspaces.workspaceExists(secondWorkspace)).toBe(
+      false,
+    );
+    expect(first.workspaces.socket).toBe(false);
+    expect(second.workspaces.socket).toBe(false);
+  });
+});
+
+const doctorCreateRejections: ReadonlyArray<readonly [string, Buffer]> = [
+  ["empty", Buffer.alloc(0)],
+  ["missing field", Buffer.from("@1\n")],
+  ["extra field", Buffer.from("@1|%1|extra\n")],
+  ["multiple records", Buffer.from("@1|%1\n@2|%2\n")],
+  ["invalid window", Buffer.from("1|%1\n")],
+  ["invalid pane", Buffer.from("@1|1\n")],
+  ["missing LF", Buffer.from("@1|%1")],
+  ["CRLF", Buffer.from("@1|%1\r\n")],
+  ["extra LF", Buffer.from("@1|%1\n\n")],
+  ["legacy HT", Buffer.from("@1\t%1\n")],
+  ["sanitized underscore", Buffer.from("@1_%1\n")],
+  ["unsupported printable", Buffer.from("@1:%1\n")],
+  ["unsupported control", Buffer.from([0x40, 0x31, 0x1f, 0x25, 0x31, 0x0a])],
+];
+const doctorObserveRejections: ReadonlyArray<readonly [string, Buffer]> = [
+  ["empty", Buffer.alloc(0)],
+  ["missing field", Buffer.from("@1|%1\n")],
+  ["multiple records", Buffer.from("@1|%1|/tmp\n@2|%2|/var\n")],
+  ["invalid window", Buffer.from("1|%1|/tmp\n")],
+  ["invalid pane", Buffer.from("@1|1|/tmp\n")],
+  ["empty cwd", Buffer.from("@1|%1|\n")],
+  [
+    "invalid UTF-8 cwd",
+    Buffer.from([0x40, 0x31, 0x7c, 0x25, 0x31, 0x7c, 0xc3, 0x28, 0x0a]),
+  ],
+  ["NUL cwd", Buffer.from([0x40, 0x31, 0x7c, 0x25, 0x31, 0x7c, 0x00, 0x0a])],
+  ["missing LF", Buffer.from("@1|%1|/tmp")],
+  ["CRLF", Buffer.from("@1|%1|/tmp\r\n")],
+  ["extra LF", Buffer.from("@1|%1|/tmp\n\n")],
+  ["legacy HT", Buffer.from("@1\t%1\t/tmp\n")],
+  ["sanitized underscore", Buffer.from("@1_%1_/tmp\n")],
+  ["unsupported printable", Buffer.from("@1:%1:/tmp\n")],
+  [
+    "unsupported control",
+    Buffer.from([0x40, 0x31, 0x1f, 0x25, 0x31, 0x1f, 0x2f, 0x0a]),
+  ],
+];
+const doctorMalformedCases: ReadonlyArray<
+  readonly ["window-create" | "pane-observe", string, Buffer]
+> = [
+  ...doctorCreateRejections.map(
+    ([label, output]) => ["window-create", label, output] as const,
+  ),
+  ...doctorObserveRejections.map(
+    ([label, output]) => ["pane-observe", label, output] as const,
+  ),
+];
+
 describe("V-13 Doctor tmux failure and confidentiality matrix", () => {
+  it.each(doctorMalformedCases)(
+    "rejects %s %s as malformed-output and proves cleanup",
+    async (operation, _label, output) => {
+      const f = fixture();
+      f.runner.fault = operation;
+      f.runner.faultMode = "malformed";
+      f.runner.malformedOutput = output;
+      const observed = await run(f.probe);
+      expect(observed).toMatchObject({
+        ok: false,
+        evidence: {
+          operation,
+          reason: "malformed-output",
+          identityDiagnostic: {
+            schemaVersion: 1,
+            phase: operation === "window-create" ? "create" : "observe",
+          },
+          cleanup: {
+            server: "absent",
+            paneProcesses: "absent",
+            socket: "absent",
+            workspace: "absent",
+          },
+        },
+      });
+      expect(f.processes.alive.size).toBe(0);
+      expect(await f.workspaces.workspaceExists(workspace)).toBe(false);
+      expect(JSON.stringify(observed)).not.toContain(SECRET);
+    },
+  );
+
   it("cancels after managed server startup reaches the cutoff and then cleans up", async () => {
     const f = fixture();
     f.managed.advanceClockTo = 6500;
