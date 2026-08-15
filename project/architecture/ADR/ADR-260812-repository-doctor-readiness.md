@@ -10,6 +10,8 @@ Issue #6 requires one repository-scoped Doctor command to report every PRD Secti
 
 Issue #29 shows that executable presence alone is not truthful tmux readiness. Runner requires a working server plus session, window, pane, exact creation identity, exact observation identity, and cleanup behavior. A Doctor probe must establish those facts without contacting the normal Runner server, inheriting ambient tmux configuration, retaining returned paths or identities, or allowing the aggregate deadline to return while probe resources remain active.
 
+Issue #31 shows that the prior HT field separator is sanitized by a non-UTF8 tmux command client. Doctor must use the same printable vertical-bar, exactly LF-terminated identity grammar as normal issue execution and must prove it under controlled UTF-8 and non-UTF8 client states without changing the 24-check vocabulary or cleanup contract.
+
 ## Decision
 
 Keep the exact ordered 24-check vocabulary defined in `CORE-COMPONENT-260812-repository-doctor-contract`. Strengthen the existing `command.tmux` check instead of adding a check ID: executable resolution is necessary but it passes only after one isolated functional probe succeeds and cleanup is proved. This preserves the official-asset Doctor vocabulary while making the existing dependency check mean that tmux can perform the preparation operations Runner actually needs.
@@ -20,10 +22,10 @@ After one event-driven bounded wait for the private socket, perform this one-pas
 
 1. Create a detached tokenized session and dashboard window rooted at the physical probe directory, running the private long-lived Node helper.
 2. Prove the session with `has-session`, prove the exact dashboard name with `list-windows -F #{window_name}`, and read one positive dashboard pane PID for cleanup ownership.
-3. Create one detached issue window with `new-window -P -F #{window_id}\t#{pane_id}`, rooted at the same directory and running the helper.
+3. Create one detached issue window with `new-window -P -F #{window_id}|#{pane_id}`, rooted at the same directory and running the helper.
 4. Parse creation stdout from original bytes under `CORE-COMPONENT-260814-tmux-identity-diagnostics`.
 5. Enable `remain-on-exit` on the issue window and read one positive issue pane PID with `display-message -p -t <pane-id> #{pane_pid}` for cleanup ownership.
-6. Observe the issue pane once with `list-panes -F #{window_id}\t#{pane_id}\t#{pane_current_path}` and the same session/window targeting used by Runner.
+6. Observe the issue pane once with `list-panes -F #{window_id}|#{pane_id}|#{pane_current_path}` and the same session/window targeting used by Runner.
 7. Parse observation stdout from original bytes, require its window and pane IDs to equal creation, and require its cwd to equal the physical probe directory.
 8. Remove the exact issue window with `kill-window`; the unconditional cleanup still destroys the complete private server.
 
@@ -73,7 +75,7 @@ Inspect recognized snapshots, events, owner locks, slot leases, logs, and result
 - The functional sequence adds local process work and may expose broken tmux installations as NOT READY.
 
 ### Neutral
-- Issue-run tmux targeting, 15-second runtime adapter bounds, identity grammar, and recovery authorization do not change.
+- Issue-run tmux targeting, 15-second runtime adapter bounds, recovery authorization, and Doctor cleanup do not change; identity framing follows the revised shared grammar.
 - No Runner configuration field, run snapshot, network API, database, service, container, or deployment mechanism changes.
 - The ambient `harness doctor` remains a separate development-surface diagnostic.
 
@@ -81,6 +83,7 @@ Inspect recognized snapshots, events, owner locks, slot leases, logs, and result
 
 - [#6](https://github.com/jsburckhardt/soft-factory-runner/issues/6)
 - [#29](https://github.com/jsburckhardt/soft-factory-runner/issues/29)
+- [#31](https://github.com/jsburckhardt/soft-factory-runner/issues/31)
 
 ## References
 

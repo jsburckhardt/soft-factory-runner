@@ -24,7 +24,7 @@ This component applies only to `soft-factory doctor [--json]`, Doctor configurat
 - Start the discovered tmux executable as a directly managed foreground server using `-D -S <private-socket> -f <empty-config>`. Every client MUST use that exact executable and `-S <private-socket>`; no command may omit the private socket selector or contact a default or named ambient server.
 - Give the probe private HOME, XDG configuration, and TMPDIR locations within its workspace. Omit inherited `TMUX`, `TMUX_PANE`, `TMUX_TMPDIR`, GitHub/Copilot credentials, and unrelated variables.
 - Wait once for private-socket readiness through an event-driven bounded adapter. Do not poll, retry, or infer server readiness from executable presence.
-- Execute one sequence: detached session/dashboard creation with the helper; `has-session`; exact dashboard `list-windows`; positive dashboard `display-message` pane PID; detached `new-window -P -F #{window_id}\t#{pane_id}` with the helper; `set-window-option remain-on-exit on`; positive issue `display-message -p -t <pane-id> #{pane_pid}`; one `list-panes -F #{window_id}\t#{pane_id}\t#{pane_current_path}`; and exact issue `kill-window`.
+- Execute one sequence: detached session/dashboard creation with the helper; `has-session`; exact dashboard `list-windows`; positive dashboard `display-message` pane PID; detached `new-window -P -F #{window_id}|#{pane_id}` with the helper; `set-window-option remain-on-exit on`; positive issue `display-message -p -t <pane-id> #{pane_pid}`; one `list-panes -F #{window_id}|#{pane_id}|#{pane_current_path}`; and exact issue `kill-window`.
 - Parse new-window and list-panes stdout from original bytes under `CORE-COMPONENT-260814-tmux-identity-diagnostics`. Require untruncated streams, exact accepted records, observation IDs equal to creation IDs, and observation cwd equal to the physical workspace.
 - Treat each returned pane PID only as an ephemeral locator. Observe compound PID, process-group, start-token, executable, argument, and cwd identity before fallback signaling; PID alone MUST NOT authorize a signal. During cleanup, enumerate the union of recorded helpers and exact candidates matching the private helper script argument, physical workspace cwd, launch interval, and foreground-server lineage; never discover or signal by process name alone.
 - Treat server startup, socket readiness, session creation/query, window listing/creation/configuration/removal, pane PID parsing, identity parsing, identity equality, cwd equality, timeout, output overflow, and cleanup as independently classifiable functional failures. No partial sequence can pass.
@@ -71,6 +71,8 @@ This component applies only to `soft-factory doctor [--json]`, Doctor configurat
 - Every tmux fixture proves server, session, windows, panes, helpers, socket, configuration, and workspace absent after the result; resource inventories and managed-process traces are expected evidence.
 - Human and JSON rendering preserve identical IDs, statuses, blocking values, readiness, repository facts, messages, remediations, and safe evidence.
 - A controlled ready built fixture uses a protocol-aware fake tmux executable and exits in at most 10000ms without credentials, network, ambient tmux, Sparkta, or consumer state.
+- A two-row controlled client-state matrix derives output from the requested `-F` format under explicit UTF-8 and non-UTF8 sanitizer facts, repeats each row once, and proves identical exact identity and cleanup results.
+- Two overlapping probes use distinct foreground servers, sockets, helper lineages, and workspaces and prove every owned resource absent independently.
 
 ## Rationale
 
@@ -82,7 +84,7 @@ Doctor spans command, Git, filesystem, authentication, compatibility, state, pro
 soft-factory doctor
 soft-factory doctor --json
 
-{"schemaVersion":2,"ready":false,"repository":{"github":null,"defaultBranch":null},"checks":[{"id":"command.tmux","status":"failed","blocking":true,"message":"The isolated tmux probe returned malformed creation identity evidence.","remediation":"Repair the local tmux installation and rerun Doctor.","evidence":{"schemaVersion":1,"kind":"tmux-functional-probe","operation":"window-create","reason":"malformed-output","exitCode":0,"timedOut":false,"stdoutByteCount":7,"stderrByteCount":0,"stdoutTruncated":false,"stderrTruncated":false,"identityDiagnostic":{"schemaVersion":1,"phase":"create","exitCode":0,"stdoutByteCount":7,"stderrByteCount":0,"recordCount":1,"recordsTruncated":false,"records":[{"fieldCount":3,"truncated":false}],"signature":["window_id","horizontal_tab","pane_id","horizontal_tab","other"],"signatureTruncated":false},"cleanup":{"server":"absent","paneProcesses":"absent","socket":"absent","workspace":"absent"}}}]}
+{"schemaVersion":2,"ready":false,"repository":{"github":null,"defaultBranch":null},"checks":[{"id":"command.tmux","status":"failed","blocking":true,"message":"The isolated tmux probe returned malformed creation identity evidence.","remediation":"Repair the local tmux installation and rerun Doctor.","evidence":{"schemaVersion":1,"kind":"tmux-functional-probe","operation":"window-create","reason":"malformed-output","exitCode":0,"timedOut":false,"stdoutByteCount":8,"stderrByteCount":0,"stdoutTruncated":false,"stderrTruncated":false,"identityDiagnostic":{"schemaVersion":1,"phase":"create","exitCode":0,"stdoutByteCount":8,"stderrByteCount":0,"recordCount":1,"recordsTruncated":false,"records":[{"fieldCount":3,"truncated":false}],"signature":["window_id","vertical_bar","pane_id","vertical_bar","other"],"signatureTruncated":false},"cleanup":{"server":"absent","paneProcesses":"absent","socket":"absent","workspace":"absent"}}}]}
 ```
 
 ## Integration Guidelines
@@ -94,6 +96,7 @@ soft-factory doctor --json
 - Reuse strict configuration and state parsers while adding non-mutating inventory entry points.
 - Centralize ordered checks, schema versions, evidence enums, and caps so renderers and fixtures cannot drift.
 - Use injected protocol-aware fake executables and managed process/workspace ports; never add a production test switch or run an ambient/default tmux server.
+- Derive fake output from the actual format argument and explicit client-state facts so fixtures cannot mask separator sanitization.
 - Update ready/blocked/isolated manifests, README, PRD, docs index, Doctor operations/troubleshooting, schema migration text, help assertions, and documentation tests together.
 - Validate with direct root `just verify-focused` and `just verify`; harness checks may add structured feedback but do not replace those boundaries.
 
