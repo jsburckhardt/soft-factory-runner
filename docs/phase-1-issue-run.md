@@ -70,9 +70,153 @@ After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, 
 
 ## Strict tmux identity transport and diagnostics
 
-Runner parses original command bytes before UTF-8 decoding. Creation accepts exactly one nonempty record with exactly two horizontal tab (`HT`, byte `09`) fields: a window ID matching `^@[0-9]+$` and a pane ID matching `^%[0-9]+$`. Observation accepts exactly one nonempty record with those IDs and a third nonempty valid UTF-8 cwd field. LF (byte `0a`) is the only record terminator and one optional final LF is permitted. CR/CRLF, invalid UTF-8 cwd, empty required fields, extra fields, multiple records, and partial identifiers are malformed or ambiguous.
+Runner parses original command bytes before UTF-8 decoding and uses the same closed transport for explicit UTF-8 and non-UTF8 tmux client states. Creation accepts only `@<digits>|%<digits><LF>`; observation accepts only `@<digits>|%<digits>|<cwd><LF>`, with whole-field window ID `^@[0-9]+# Issue run and Phase 2 completion proof
 
-For completed create failures and malformed zero-exit observations, `TmuxIdentityDiagnosticV1` retains only `phase`, exit code, original stdout/stderr byte counts, record count and up to 8 record field summaries with field counts capped at 8, truncation flags, and up to 32 value-free tokens from `window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, and `other`. It never stores raw stdout/stderr, cwd/path components, command arguments, environment or field values, issue/owner/run identifiers, hashes/byte values, or another run data. Nonzero observation remains target absence and creates no diagnostic; spawn/timeout failures retain no invented byte facts.
+Runner validates and exclusively owns an explicit GitHub issue, creates its branch and worktree from a proven fetched base, launches RPIV visibly through tmux, and independently reconciles completion evidence. Phase 3 recovery, explicit concurrency, stop, logs, and cleanup extend this contract without weakening it; see [the recovery operations guide](phase-3-recovery-operations.md). Runner controls operational facts; RPIV controls software-engineering decisions.
+
+## Prerequisites and commands
+
+Install Node.js 22+, Git, GitHub CLI (`gh`), tmux, Copilot CLI, `just`, and the ambient engineering harness. Authenticate external tools without placing credentials in configuration, snapshots, events, result artifacts, or output.
+
+Use the root command surface:
+
+```text
+just setup
+just build
+just run --help
+just run run --issue <positive-integer> [--json]
+just run status <positive-integer> [--json]
+just run attach <positive-integer>
+```
+
+`internal run-agent` is private. Root `just verify-focused` and `just verify` are the project validation authority. Harness checks delegate to those recipes but are not product completion evidence.
+
+## Configuration and readiness
+
+Runner reads optional `.soft-factory/config.yml` for issue execution, while repository Doctor requires the file and protocol declaration. Configuration parsing is strict and rejects unknown scalar keys and unknown empty mapping keys at every supported mapping level; known empty mappings retain documented defaults. Existing files migrate by adding `protocol_version` and safe repository roots:
+
+```yaml
+protocol_version: 1
+repository:
+  remote: origin
+  base_branch: main
+  worktree_root: .trees
+  state_root: .soft-factory
+branch_types:
+  feature: feat
+rpiv:
+  prompt: "Deliver issue #{issue}"
+  final_validation: just verify
+```
+
+### Copilot-only launch environment
+
+The only configurable child mapping is `copilot.environment`:
+
+```yaml
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    COPILOT_OTEL_EXPORTER_TYPE: "otlp"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.example.invalid"
+    OTEL_SERVICE_NAME: "soft-factory-rpiv"
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+    OPTIONAL_EMPTY: ""
+```
+
+Environment names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, with `""` preserving an explicit empty string. Quote text that YAML would otherwise interpret as a boolean, number, or null. Runner passes each string literally through the Copilot argument-array spawn with `shell: false`, without shell evaluation, command substitution, or implicit variable expansion. The executable and argument order remain shell-free; Runner appends the redacted `IntegrationLaunchV1` binding to the RPIV prompt.
+
+Every new or resumed launch parses the then-current file into a fresh immutable map before launch intent or spawn. Existing allowlisted inherited entries are applied first, configured entries second, and Runner-owned `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project-name>,issue.id=issue-<number>` last. Therefore configuration overrides inherited collisions while current-issue resource attributes always win. Absent `copilot`, absent `environment`, and an empty environment mapping all add no entries.
+
+Strict parsing rejects duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, and malformed syntax before Copilot starts. Errors expose the field and reason with no value included. A corrected later invocation is read fresh; rejected data is not cached. Configured names and values cross only `ProcessPort.spawnCopilot`: they do not alter Git, `gh`, tmux, the Runner worker, Doctor, generic commands, or ambient `process.env`, and they are absent from snapshots, events, launch intents, retained logs, and human/JSON rendering.
+
+Existing configuration remains valid when the mapping is absent. This additive option changes no persisted schema, result contract, API, deployment model, or data; no migration is required.
+
+Doctor requires normalized repository-relative, non-overlapping roots contained physically by the primary worktree; absolute paths, traversal, file or Git-common-directory collisions, and symlink escape fail safely. See [the Phase 4 repository Doctor guide](phase-4-repository-doctor.md).
+
+Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. `repository.base_branch` must equal the advertised default branch. The default `feature: feat` mapping is available, and exactly one issue label must map to an allowed Conventional Commit type.
+
+Before ownership, the issue must be open, unblocked, conflict-free, and contain exactly one `ACCEPTANCE_CRITERIA_START`/`ACCEPTANCE_CRITERIA_END` block with nonempty checkboxes. Runner assigns ordered IDs `AC-1` through `AC-n` and persists each exact criterion text. GitHub and tmux observations are bounded to 15 seconds; fetch and advertised-HEAD operations are bounded to 30 seconds.
+
+After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, fetches the selected remote, and persists `FetchedBaseProofV1` before creating `<type>/<issue>-<slug>` and `.trees/<issue>`. Existing unowned resources, including `/workspaces/soft-factory-runner/.trees/3`, are preserved and blocked with `RESOURCE_OWNERSHIP_UNKNOWN`. For Issue 3, telemetry remains `project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3`.
+
+## Strict tmux identity transport and diagnostics
+
+ and pane ID `^%[0-9]+# Issue run and Phase 2 completion proof
+
+Runner validates and exclusively owns an explicit GitHub issue, creates its branch and worktree from a proven fetched base, launches RPIV visibly through tmux, and independently reconciles completion evidence. Phase 3 recovery, explicit concurrency, stop, logs, and cleanup extend this contract without weakening it; see [the recovery operations guide](phase-3-recovery-operations.md). Runner controls operational facts; RPIV controls software-engineering decisions.
+
+## Prerequisites and commands
+
+Install Node.js 22+, Git, GitHub CLI (`gh`), tmux, Copilot CLI, `just`, and the ambient engineering harness. Authenticate external tools without placing credentials in configuration, snapshots, events, result artifacts, or output.
+
+Use the root command surface:
+
+```text
+just setup
+just build
+just run --help
+just run run --issue <positive-integer> [--json]
+just run status <positive-integer> [--json]
+just run attach <positive-integer>
+```
+
+`internal run-agent` is private. Root `just verify-focused` and `just verify` are the project validation authority. Harness checks delegate to those recipes but are not product completion evidence.
+
+## Configuration and readiness
+
+Runner reads optional `.soft-factory/config.yml` for issue execution, while repository Doctor requires the file and protocol declaration. Configuration parsing is strict and rejects unknown scalar keys and unknown empty mapping keys at every supported mapping level; known empty mappings retain documented defaults. Existing files migrate by adding `protocol_version` and safe repository roots:
+
+```yaml
+protocol_version: 1
+repository:
+  remote: origin
+  base_branch: main
+  worktree_root: .trees
+  state_root: .soft-factory
+branch_types:
+  feature: feat
+rpiv:
+  prompt: "Deliver issue #{issue}"
+  final_validation: just verify
+```
+
+### Copilot-only launch environment
+
+The only configurable child mapping is `copilot.environment`:
+
+```yaml
+copilot:
+  environment:
+    COPILOT_OTEL_ENABLED: "true"
+    COPILOT_OTEL_EXPORTER_TYPE: "otlp"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.example.invalid"
+    OTEL_SERVICE_NAME: "soft-factory-rpiv"
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"
+    OPTIONAL_EMPTY: ""
+```
+
+Environment names must match `[A-Za-z_][A-Za-z0-9_]*`; values must be string scalars, with `""` preserving an explicit empty string. Quote text that YAML would otherwise interpret as a boolean, number, or null. Runner passes each string literally through the Copilot argument-array spawn with `shell: false`, without shell evaluation, command substitution, or implicit variable expansion. The executable and argument order remain shell-free; Runner appends the redacted `IntegrationLaunchV1` binding to the RPIV prompt.
+
+Every new or resumed launch parses the then-current file into a fresh immutable map before launch intent or spawn. Existing allowlisted inherited entries are applied first, configured entries second, and Runner-owned `OTEL_RESOURCE_ATTRIBUTES=project.name=<normalized-project-name>,issue.id=issue-<number>` last. Therefore configuration overrides inherited collisions while current-issue resource attributes always win. Absent `copilot`, absent `environment`, and an empty environment mapping all add no entries.
+
+Strict parsing rejects duplicate/invalid names, non-string/nested values, aliases, anchors, merge keys, unsupported keys, and malformed syntax before Copilot starts. Errors expose the field and reason with no value included. A corrected later invocation is read fresh; rejected data is not cached. Configured names and values cross only `ProcessPort.spawnCopilot`: they do not alter Git, `gh`, tmux, the Runner worker, Doctor, generic commands, or ambient `process.env`, and they are absent from snapshots, events, launch intents, retained logs, and human/JSON rendering.
+
+Existing configuration remains valid when the mapping is absent. This additive option changes no persisted schema, result contract, API, deployment model, or data; no migration is required.
+
+Doctor requires normalized repository-relative, non-overlapping roots contained physically by the primary worktree; absolute paths, traversal, file or Git-common-directory collisions, and symlink escape fail safely. See [the Phase 4 repository Doctor guide](phase-4-repository-doctor.md).
+
+Remote precedence is `repository.remote`, Git `remote.pushDefault`, the current branch remote, then an unambiguous sole remote. `repository.base_branch` must equal the advertised default branch. The default `feature: feat` mapping is available, and exactly one issue label must map to an allowed Conventional Commit type.
+
+Before ownership, the issue must be open, unblocked, conflict-free, and contain exactly one `ACCEPTANCE_CRITERIA_START`/`ACCEPTANCE_CRITERIA_END` block with nonempty checkboxes. Runner assigns ordered IDs `AC-1` through `AC-n` and persists each exact criterion text. GitHub and tmux observations are bounded to 15 seconds; fetch and advertised-HEAD operations are bounded to 30 seconds.
+
+After readiness, Runner exclusively creates `.soft-factory/locks/<issue>.lock`, fetches the selected remote, and persists `FetchedBaseProofV1` before creating `<type>/<issue>-<slug>` and `.trees/<issue>`. Existing unowned resources, including `/workspaces/soft-factory-runner/.trees/3`, are preserved and blocked with `RESOURCE_OWNERSHIP_UNKNOWN`. For Issue 3, telemetry remains `project.name=jsburckhardt-soft-factory-runner,issue.id=issue-3`.
+
+## Strict tmux identity transport and diagnostics
+
+ validation. Exactly one terminal LF is required. Observation isolates only the first two printable vertical bars and retains every remaining cwd byte unchanged, including additional vertical bars, provided cwd is nonempty valid UTF-8 without NUL, CR, or LF. HT, sanitized underscore inference, alternate printable/control separators, missing or extra terminators, invalid fields, and multiple records are malformed or ambiguous.
+
+For completed create failures and malformed zero-exit observations, `TmuxIdentityDiagnosticV1` retains only `phase`, exit code, original stdout/stderr byte counts, record count and up to 8 record field summaries with field counts capped at 8, truncation flags, and up to 32 value-free tokens from `window_id`, `pane_id`, `vertical_bar`, legacy-readable `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, and `other`. It never stores raw stdout/stderr, cwd/path components, command arguments, environment or field values, issue/owner/run identifiers, hashes/byte values, or another run data. Nonzero observation remains target absence and creates no diagnostic; spawn/timeout failures retain no invented byte facts.
 
 The latest diagnostic is replaced by a later identity failure, survives rendering and absence, and clears only after valid create/observe identity proof. Human output calls it malformed or ambiguous and gives no tmux-version recommendation.
 
@@ -158,7 +302,7 @@ Human and `--json` status derive from the same snapshot and reconciliation facts
 
 ## Deterministic evidence fixtures
 
-`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/tmux-identity.test.ts` proves exact tmux 3.7b bytes, malformed matrices, byte/count caps, and sentinel confidentiality through a controlled command adapter. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
+`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/tmux-identity.test.ts` proves the exact six-byte zero-exit no-HT creation record, explicit UTF-8/non-UTF8 rows and repeats, first-two-separator cwd retention, the closed malformed matrix, normal overlap, byte/count caps, and sentinel confidentiality through a protocol-aware controlled adapter without live tmux or ambient locale. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
 
 Run:
 

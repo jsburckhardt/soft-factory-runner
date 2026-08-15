@@ -2,7 +2,7 @@
 
 ## Task T-1: Implement the shared closed tmux identity grammar
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** High
 - **Dependencies:** Plan-stage architecture revisions committed
 - **Acceptance Criteria:** AC-2, AC-3, AC-5, AC-9, AC-13
@@ -30,9 +30,13 @@ Centralize the printable vertical-bar format and original-byte parser used by no
 - Assertions for `stdoutByteCount: 6`, `stderrByteCount: 0`, one terminal LF, no byte `0x09`, exact `@1`/`%1`, and exact delimiter-containing cwd.
 - Diagnostic snapshots showing only bounded counts/flags/closed tokens and successful sentinel absence scans.
 
+### Implementation Evidence
+- Shared parser accepts only printable-pipe, exactly one terminal LF records, retains observe cwd bytes after the second separator, and emits bounded schema-v1 diagnostics with legacy HT readability.
+- V-1 coverage: `src/tmux-identity.test.ts`, `src/recovery-persistence.test.ts`, and `src/doctor.test.ts`; targeted 75 tests passed and complete focused gate passed 23 suites/475 tests.
+
 ## Task T-2: Apply and prove transport in normal issue-window flows
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** High
 - **Dependencies:** T-1
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-9, AC-10, AC-11, AC-13
@@ -60,9 +64,13 @@ Change `LiveTmuxPort.createIssueWindow` and `observe` to emit the shared printab
 - Repeat inventories equal row-by-row and overlap traces show two disjoint owner/resource sets.
 - Recovery traces show zero launches/mutations for unproved resources and exactly one authorized create attempt.
 
+### Implementation Evidence
+- `LiveTmuxPort` uses shared create/observe formats; explicit UTF-8/non-UTF8 rows, repeat equality, full adapter rejection mapping, same-name refusal, and barrier overlap are covered without ambient inputs.
+- V-2/V-3 coverage: `src/tmux-identity.test.ts` plus unchanged authorization coverage in `src/recovery-control.test.ts`; targeted 141 tests passed and complete focused gate passed 23 suites/517 tests.
+
 ## Task T-3: Apply and prove transport in the isolated Doctor protocol
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** High
 - **Dependencies:** T-1
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-5, AC-6, AC-9, AC-10, AC-11, AC-13
@@ -90,9 +98,14 @@ Change Doctor `new-window` and `list-panes` formats to the shared vertical-bar g
 - Rejection evidence for every matrix row with bounded value-free diagnostic and `malformed-output`.
 - Repeat/overlap resource ledgers proving distinct owned names/PIDs/paths during execution and all server/pane/socket/workspace states absent after return.
 
+### Implementation Evidence
+- Doctor imports the shared printable formats; protocol-aware UTF-8/non-UTF8 unit and built-path rows repeat identically, accept six-byte creation, preserve 24 IDs, and retain private environments.
+- V-4/V-5 coverage: full create/observe malformed matrices, every prior cleanup/deadline path, and a barrier-held two-probe overlap with disjoint servers, helpers, sockets, and workspaces.
+- Targeted 90 tests passed; complete focused gate passed 23 suites/550 tests.
+
 ## Task T-4: Add APS SemVer delivery instructions
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** Plan-stage `CORE-COMPONENT-260815-package-semver-governance`
 - **Acceptance Criteria:** AC-7, AC-13
@@ -126,9 +139,13 @@ You MUST set version 1.0.0 only for a delivery that explicitly establishes the s
 - A minimal AGENTS diff with no APS badge change, reorder, or unrelated edit.
 - Root focused/full validation passes with the instruction checks.
 
+### Implementation Evidence
+- Inserted exactly the six planned one-line absolute `You MUST` SemVer directives inside the existing `<instructions>` block; the focused AGENTS diff contains no unrelated change.
+- V-6 coverage: `src/documentation.test.ts` asserts exact presence/order and major/minor/patch classifications; targeted 31 tests and complete focused 23 suites/552 tests passed.
+
 ## Task T-5: Release the finite authoritative inventory as 0.1.1
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T-4
 - **Acceptance Criteria:** AC-8, AC-13
@@ -154,9 +171,14 @@ Apply the selected PATCH increment from 0.1.0 to exactly 0.1.1. Update only `pac
 - Pack JSON filename/version, tarball `package/package.json`, installed package metadata, and generated manifest all show 0.1.1.
 - Lock/package diff contains only the intended root release fields and no dependency churn.
 
+### Implementation Evidence
+- Applied the planned PATCH release to package, the two root lock fields, official catalog, and current fixture only; dependency 0.1.0 entries remain unchanged.
+- V-7/V-8 tests assert exact dry-run filename/version, tarball and installed package metadata, generated clean manifest, proved 0.1.0 manifest reconvergence, and repeat no-op.
+- Manual isolated package smoke reported package/tar/install/manifest 0.1.1 with temporary cleanup; targeted 17 tests and complete focused 23 suites/554 tests passed.
+
 ## Task T-6: Update current user documentation
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T-2, T-3, T-5
 - **Acceptance Criteria:** AC-1, AC-5, AC-8, AC-12, AC-13
@@ -181,9 +203,14 @@ Update `README.md`, `docs/phase-1-issue-run.md`, `docs/phase-3-recovery-operatio
 - Copyable command examples for exact 0.1.1 install/reinstall and local metadata confirmation.
 - Search output showing no stale current-version or HT-only transport statement and no raw value disclosure recommendation.
 
+### Implementation Evidence
+- Updated README, PRD, docs index, issue-run, recovery, Doctor, and official-assets guidance for both tmux client states, printable-pipe/exact-LF framing, cwd retention, rejection classes, and value-free confidentiality.
+- Documented the exact local 0.1.0 to 0.1.1 build/pack/install or clean-reinstall path, installed metadata confirmation, recommended asset reconvergence, and generated-manifest confirmation without registry-publication or CLI-version claims.
+- V-9 documentation assertions passed 33 tests; the complete focused gate passed 23 suites/556 tests.
+
 ## Task T-7: Run complete validation and evidence inventory
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T-1, T-2, T-3, T-4, T-5, T-6
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13
@@ -207,3 +234,10 @@ Run the finite test matrix and root-authoritative gates after implementation. Re
 - Successful direct `just verify-focused` and `just verify` command logs and successful focused/full harness JSON envelopes.
 - One final AC coverage table linking all 13 IDs to passing tests and concrete evidence paths.
 - Final version, Doctor, package, overlap, cleanup/isolation, confidentiality, and prohibited-access inventories.
+
+### Implementation Evidence
+- Direct `just verify-focused` passed 23 suites/556 tests; focused harness JSON returned `status: ok`, `scope: focused`, delegated `just verify-focused`, and exit 0.
+- Direct `just verify` passed lint, Prettier, typecheck, 23 suites/556 tests with coverage, build, and diff check; full harness JSON returned `status: ok`, `scope: full`, delegated `just verify`, and exit 0.
+- Verbose V-1–V-5 matrix validation passed 202 tests, unchanged recovery authorization passed 54 tests, package/install validation passed 17 tests, and V-9 documentation passed 33 tests.
+- Built Doctor inventory contains exactly 24 unique IDs in canonical order; controlled overlap/repeat fixtures prove all owned resources absent and prohibited-access inventories empty.
+- Product inventory is package/lock roots/catalog/fixture/docs 0.1.1, with dependency `get-package-type` and `yocto-queue` entries still 0.1.0; dry-run reports `soft-factory-runner-0.1.1.tgz`, and clean packed/installed/manifest smoke distinguishes 0.1.1.

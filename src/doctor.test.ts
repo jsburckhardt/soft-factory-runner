@@ -125,7 +125,23 @@ describe("Doctor contracts", () => {
       stderrByteCount: 0,
       stdoutTruncated: false,
       stderrTruncated: false,
-      identityDiagnostic: null,
+      identityDiagnostic: {
+        schemaVersion: 1 as const,
+        phase: "create" as const,
+        exitCode: 0,
+        stdoutByteCount: 6,
+        stderrByteCount: 0,
+        recordCount: 1,
+        recordsTruncated: false,
+        records: [{ fieldCount: 2, truncated: false }],
+        signature: [
+          "window_id" as const,
+          "vertical_bar" as const,
+          "pane_id" as const,
+          "line_feed" as const,
+        ],
+        signatureTruncated: false,
+      },
       cleanup: {
         server: "absent" as const,
         paneProcesses: "absent" as const,
@@ -169,6 +185,15 @@ describe("Doctor contracts", () => {
             ...evidence,
             reason: "unknown",
           });
+      },
+      (value: Record<string, unknown>) => {
+        const checks = value.checks;
+        if (!Array.isArray(checks)) return;
+        const check = checks[7];
+        if (typeof check !== "object" || check === null) return;
+        const invalidEvidence = JSON.parse(JSON.stringify(evidence));
+        invalidEvidence.identityDiagnostic.signature = ["raw-value"];
+        Reflect.set(check, "evidence", invalidEvidence);
       },
     ]) {
       const copy: Record<string, unknown> = JSON.parse(JSON.stringify(result));

@@ -129,6 +129,7 @@ const CONTROLLED_IDENTITY_DELAY_ATTEMPTS = 3;
 function protocolTmuxBody(
   mode: TmuxProtocolMode,
   readinessMode: ControlledIdentityReadinessMode = "normal",
+  clientUtf8 = true,
 ): string {
   return String.raw`
 const fs=require("node:fs");
@@ -137,6 +138,7 @@ const cp=require("node:child_process");
 const args=process.argv.slice(2);
 const mode=${JSON.stringify(mode)};
 const readinessMode=${JSON.stringify(readinessMode)};
+const clientUtf8=${JSON.stringify(clientUtf8)};
 const readinessTimeoutMs=${CONTROLLED_IDENTITY_READINESS_TIMEOUT_MS};
 const readinessPollMs=${CONTROLLED_IDENTITY_READINESS_POLL_MS};
 const readinessStableReads=${CONTROLLED_IDENTITY_STABLE_READS};
@@ -145,6 +147,8 @@ const log=process.argv[1]+".log";
 const append=(entry)=>fs.appendFileSync(log,JSON.stringify(entry)+"\n");
 const sleep=(durationMs)=>new Promise((resolve)=>setTimeout(resolve,durationMs));
 const valueAfter=(items,key)=>{const index=items.indexOf(key);return index<0?null:items[index+1];};
+const formatIdentity=(format,ids)=>{const rendered=format.replaceAll("#{window_id}",ids.windowId).replaceAll("#{pane_id}",ids.paneId).replaceAll("#{pane_current_path}",ids.cwd);const source=Buffer.from(rendered,"utf8");const bytes=clientUtf8?source:Buffer.from(source.map((byte)=>byte<=0x1f?0x5f:byte));return Buffer.concat([bytes,Buffer.from([0x0a])]);};
+const identityFacts=(operation,format,output)=>append({server:false,privateSocket:true,command:operation,clientUtf8,portableFormat:format===(operation==="window-create"?"#{window_id}|#{pane_id}":"#{window_id}|#{pane_id}|#{pane_current_path}"),stdoutByteCount:output.byteLength,stderrByteCount:0,recordCount:output.filter((byte)=>byte===0x0a).length,terminalLf:output.at(-1)===0x0a,horizontalTab:output.includes(0x09)});
 if(args[0]==="-D"){
   const socketPath=args[2];
   const configPath=args[4];
@@ -240,11 +244,13 @@ if(args[0]==="-D"){
         const cwd=valueAfter(a,"-c");const helper=a.at(-1);
         const executable=a.at(-2);children.issue=await spawnHelper(executable,helper,cwd);
         if(children.issue===null)response.exitCode=1;
-        response.stdout=mode==="malformed-create"?"@1\t%1\textra\n":"@1\t%1\n";
+        const format=valueAfter(a,"-F");const output=mode==="malformed-create"?Buffer.from("@1|%1|extra\n"):formatIdentity(format,{windowId:"@1",paneId:"%1",cwd});
+        identityFacts("window-create",format,output);response.stdout=output.toString("utf8");
       }else if(command==="set-window-option"){
         if(children.issue===null)response.exitCode=1;
       }else if(command==="list-panes"){
-        response.stdout=mode==="malformed-observe"?"@1\t%1\n":"@1\t%1\t"+process.cwd()+"\n";
+        const format=valueAfter(a,"-F");const output=mode==="malformed-observe"?Buffer.from("@1|%1\n"):formatIdentity(format,{windowId:"@1",paneId:"%1",cwd:process.cwd()});
+        identityFacts("pane-observe",format,output);response.stdout=output.toString("utf8");
       }else if(command==="kill-window"){
         await stopChild(children.issue);children.issue=null;
       }else if(command==="kill-server"){
@@ -282,6 +288,7 @@ async function probeWorkspaces(): Promise<readonly string[]> {
 async function readyRepository(
   tmuxMode: TmuxProtocolMode | "nonfunctional" = "valid",
   readinessMode: ControlledIdentityReadinessMode = "normal",
+  clientUtf8 = true,
 ): Promise<{ root: string; bin: string }> {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), "doctor-ready-process-"),
@@ -314,7 +321,7 @@ async function readyRepository(
     path.join(bin, "tmux"),
     tmuxMode === "nonfunctional"
       ? "process.exitCode=0;"
-      : protocolTmuxBody(tmuxMode, readinessMode),
+      : protocolTmuxBody(tmuxMode, readinessMode, clientUtf8),
   );
   await writeExecutable(path.join(bin, "node"), "process.exitCode=0;");
   return { root, bin };
@@ -764,6 +771,73 @@ describe("Doctor manifest-driven acceptance fixtures", () => {
     }
     expect(matrix.map((row) => row.id)).toEqual(DOCTOR_CHECK_IDS);
   });
+
+  it.each([
+    { name: "UTF-8", clientUtf8: true },
+    { name: "non-UTF8", clientUtf8: false },
+  ] as const)(
+    "accepts six-byte portable creation through the built $name package path twice",
+    async (state) => {
+      const fixture = await readyRepository(
+        "valid",
+        "normal",
+        state.clientUtf8,
+      );
+      const beforeProbeWorkspaces = await probeWorkspaces();
+      try {
+        const manifest = await readManifest<DoctorResultV2>("ready.json");
+        const results = [
+          builtDoctor(fixture.root, fixture.bin, true),
+          builtDoctor(fixture.root, fixture.bin, true),
+        ];
+        for (const response of results) {
+          expect(response).toMatchObject({ status: 0, stderr: "" });
+          const parsed = JSON.parse(response.stdout) as DoctorResultV2;
+          expect(parsed).toEqual(manifest);
+          expect(parsed.checks.map((check) => check.id)).toEqual(
+            DOCTOR_CHECK_IDS,
+          );
+          expect(parsed.checks).toHaveLength(24);
+          expect(
+            parsed.checks.find((check) => check.id === "command.tmux"),
+          ).toMatchObject({ status: "passed", blocking: true });
+        }
+        expect(results[1]?.stdout).toBe(results[0]?.stdout);
+        const trace = (
+          await fs.readFile(path.join(fixture.bin, "tmux.log"), "utf8")
+        )
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line) as Record<string, unknown>);
+        const identityFacts = trace.filter(
+          (entry) =>
+            entry.command === "window-create" ||
+            entry.command === "pane-observe",
+        );
+        expect(identityFacts).toHaveLength(4);
+        expect(
+          identityFacts.every(
+            (entry) =>
+              entry.clientUtf8 === state.clientUtf8 &&
+              entry.portableFormat === true &&
+              entry.stderrByteCount === 0 &&
+              entry.recordCount === 1 &&
+              entry.terminalLf === true &&
+              entry.horizontalTab === false,
+          ),
+        ).toBe(true);
+        expect(
+          identityFacts
+            .filter((entry) => entry.command === "window-create")
+            .every((entry) => entry.stdoutByteCount === 6),
+        ).toBe(true);
+        expect(trace.every((entry) => entry.privateSocket === true)).toBe(true);
+        expect(await probeWorkspaces()).toEqual(beforeProbeWorkspaces);
+      } finally {
+        await fs.rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("runs controlled ready human/JSON built processes with parity, determinism, and <=10 second timing", async () => {
     const fixture = await readyRepository();

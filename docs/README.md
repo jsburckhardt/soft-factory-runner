@@ -2,6 +2,8 @@
 
 Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolated, recoverable RPIV issue delivery.
 
+Current local package release: **0.1.1**. The issue-run, recovery, and Doctor paths share a printable vertical-bar identity transport with exactly one terminal LF that supports controlled UTF-8 and non-UTF8 tmux client states while keeping raw values confidential. The Phase 5 guide gives the exact 0.1.0 upgrade/reinstall, installed-package confirmation, and official-manifest reconvergence path without claiming registry publication.
+
 ## Guides
 
 - [RPIV integration, progress, and completion handoff](rpiv-integration-contract.md) — deterministic instructions, `rpiv.final_validation`, RunSnapshotV5 compatibility, progress/result schemas, atomic publication, coordinator gate, status/list, redaction, migration, API applicability, and local deployment.

@@ -371,6 +371,7 @@ function isValueFreeIdentityDiagnostic(value: unknown): boolean {
   const tokens = [
     "window_id",
     "pane_id",
+    "vertical_bar",
     "horizontal_tab",
     "carriage_return",
     "line_feed",

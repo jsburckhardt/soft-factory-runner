@@ -36,6 +36,12 @@ You MUST require the root justfile to expose verify-focused and verify before RP
 You MUST enforce this RPIV boundary: RPIV orchestrates, Research investigates, Plan proves coverage, Implement builds and provides evidence, Verify decides acceptance and creates the PR.
 You MUST require Implement to maintain affected application documentation and Verify to inspect it independently.
 You MUST keep issue acceptance criteria bounded, observable, and executable by configured agents with repository capabilities.
+You MUST assign every code or package change the correct Semantic Versioning major, minor, or patch release before delivery.
+You MUST increment the major version for incompatible public-contract changes when the current major version is at least 1.
+You MUST increment the minor version for backward-compatible functionality.
+You MUST increment the minor version for incompatible public-contract changes before 1.0.0.
+You MUST increment the patch version for backward-compatible defect corrections.
+You MUST set version 1.0.0 only for a delivery that explicitly establishes the stable public contract.
 You MUST update the APS version badge in README.md and the APS_BADGE constant when the APS skill is upgraded.
 You MUST mark a PR review comment as resolved via the GitHub API after fixing the issue it raised.
 </instructions>
