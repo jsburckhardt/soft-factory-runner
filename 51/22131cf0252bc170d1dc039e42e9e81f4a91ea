@@ -1,0 +1,110 @@
+src/reconciliation.ts
+  s_f857a6996c3b95::t_76065da2124769 744-749
+  s_f857a6996c3b95::t_815546e50e6280 219,255
+  s_f857a6996c3b95::t_4b67f607f22d99 378-380
+  s_f857a6996c3b95::t_33d458ee9b6ae0 138,163,183,224,251-253,266-267,361-377,381-391,415,417-430,434-438,440-442,882-910
+  s_f857a6996c3b95::t_5aa470f933fec0 57,62-64,139-157,162,164-182,184-195,218,220,222,225-233,245,248-250,254,256-265,268-272,274
+  s_f857a6996c3b95::t_a7501b8fe83e5c 235-244,246-247
+project/architecture/ADR/DECISION-LOG.md
+  s_53b1df2a79a1a8::t_077c2b51d3b055 216-219
+src/asset-cli.test.ts
+  s_f857a6996c3b95::t_e49a47e36c4659 50,208-209,231,240,282,290,327
+src/reconciliation.test.ts
+  s_f857a6996c3b95::t_4b67f607f22d99 215-229
+src/official-assets.test.ts
+  s_f857a6996c3b95::t_e49a47e36c4659 66-67,107-110
+package.json
+  s_f857a6996c3b95::t_e49a47e36c4659 3
+docs/phase-3-recovery-operations.md
+  s_f857a6996c3b95::t_94ff592e5ee6af 88-90,100,106,129,144,153-154
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/03-test-plan.md
+  s_53b1df2a79a1a8::t_e55847c610a806 1,3,5-7,11,14-17,20,23,25,27-29,33,36-39,42,45,47,49-51,55,58-60,63,66,68,70-72,76,79-82,85,88,90,92-94,98,101-103,106,109,111,113-114,119,122-126,129,132
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_53b1df2a79a1a8::t_077c2b51d3b055 26
+  s_53b1df2a79a1a8::t_ac196a84c1d598 24
+  s_53b1df2a79a1a8::t_e55847c610a806 25
+docs/README.md
+  s_f857a6996c3b95::t_94ff592e5ee6af 5
+src/official-assets.ts
+  s_f857a6996c3b95::t_e49a47e36c4659 3
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/research/00-research.md
+  s_cf38235805389e::t_53f7c7779ffcfe 15-16,22-27,30-32,35,41-53,57-63,67-76,80-86
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/02-task-breakdown.md
+  s_53b1df2a79a1a8::t_e55847c610a806 1,3-4,6,11-13,16,19-23,26,29,31,35-38,41,44-48,51,54,56,60-63,66,69-72,75,78,80,83-85,87,90,93-95,98,101,103,107,109-110,113,116-117,120,123
+src/domain.ts
+  s_f857a6996c3b95::t_76065da2124769 487-488
+.harness/records/retro/2026-08-15/012-issue-5-rpiv.md
+  s_f857a6996c3b95::t_44d3f81529f232 1-6,9,14,23,28-29,31
+  s_f857a6996c3b95::t_bb86b709ac03a2 7-8,10-13,15-22,24-27,30,32
+src/documentation.test.ts
+  s_f857a6996c3b95::t_49ff73c8b3deb5 247-266
+  s_f857a6996c3b95::t_e49a47e36c4659 1058,1115,1117,1120
+src/orchestrator.ts
+  s_f857a6996c3b95::t_470995a752f1cd 865-866,884-889,897-899,911
+docs/phase-5-official-assets.md
+  s_f857a6996c3b95::t_e49a47e36c4659 34,36,40-41,43,47,56,69
+.harness/records/retro/2026-08-15/011-issue-5-rpiv-planner-recovery-plan.md
+  s_53b1df2a79a1a8::t_32814239d6598f 1-6,9,14-16,24,43-44,46
+  s_53b1df2a79a1a8::t_02aa25420b438b 7-8,10-13,17-23,25-42,45,47
+project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md
+  s_53b1df2a79a1a8::t_077c2b51d3b055 25-26
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/implementation/00-implementation.md
+  s_f857a6996c3b95::t_37d4bed06e8f4b 1,3,6-10,14-18,20,22,24-33,35,37,39-41,43,45-50,52,54-60,62,64,66-69,71
+project/architecture/ADR/ADR-260811-prototype-three-recovery-concurrency.md
+  s_53b1df2a79a1a8::t_077c2b51d3b055 14,34,69
+  s_53b1df2a79a1a8::t_e55847c610a806 13,33,35
+  s_53b1df2a79a1a8::t_62d0939899ad4d 36
+.harness/records/retro/2026-08-15/013-issue-5-rpiv-research.md
+  s_f857a6996c3b95::t_bb86b709ac03a2 7-8,10-13,17-23,25-70,73,75
+  s_f857a6996c3b95::t_44d3f81529f232 1-6,9,14-16,24,71-72,74
+src/recovery-control.test.ts
+  s_f857a6996c3b95::t_dce3bac01cb3b9 212-213,240,262,285-286,301,317,865-922,924-967,985-1042
+  s_f857a6996c3b95::t_49ff73c8b3deb5 923,968-984
+  s_f857a6996c3b95::t_37bff335ea5a07 1043-1044
+src/render.ts
+  s_f857a6996c3b95::t_76065da2124769 65-67
+.harness/records/retro/2026-08-15/014-issue-5-rpiv-implementer.md
+  s_f857a6996c3b95::t_bb86b709ac03a2 7-8,10-13,17-23,25-70,73,75
+  s_f857a6996c3b95::t_44d3f81529f232 1-6,9,14-16,24,71-72,74
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/01-action-plan.md
+  s_53b1df2a79a1a8::t_e55847c610a806 1,8,11-37,55-64,66,68-73
+project/architecture/core-components/CORE-COMPONENT-260811-owned-resource-cleanup.md
+  s_53b1df2a79a1a8::t_077c2b51d3b055 19
+README.md
+  s_f857a6996c3b95::t_e49a47e36c4659 23,25,29-30,32,36,43,77
+  s_f857a6996c3b95::t_94ff592e5ee6af 139-140
+package-lock.json
+  s_f857a6996c3b95::t_3f812c3e665dad 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5122131cf0252bc170d1dc039e42e9e81f4a91ea",
+  "prompts": {},
+  "sessions": {
+    "s_53b1df2a79a1a8": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_X0EpAdEsjDZhwP4Dno1d1EG0",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_cf38235805389e": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_j0RXszYgmYDB1W9ywqw3eygn",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_f857a6996c3b95": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_zlVPXbeVaEWhsJFqEBhsZ2y9",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
