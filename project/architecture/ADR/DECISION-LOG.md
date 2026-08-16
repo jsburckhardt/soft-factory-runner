@@ -213,3 +213,8 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 160 | Require Doctor create and observe to use the shared identity grammar | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
 | 161 | Verify Doctor transport in both controlled tmux client modes | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
 | 162 | Prove overlapping Doctor probes clean distinct isolated resources | CORE-COMPONENT-260812-repository-doctor-contract | 2026-08-15 |
+| 163 | Reload durable current state before every post-Copilot-wait transition | ADR-260811-prototype-three-recovery-concurrency | 2026-08-16 |
+| 164 | Require exact run, owner, worker, and awaited-process identity after Copilot waits | ADR-260811-prototype-three-recovery-concurrency | 2026-08-16 |
+| 165 | Refuse missing, invalid, mismatched, or concurrently advanced post-wait state | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-16 |
+| 166 | Return exact already-terminal post-wait outcomes without appending transitions | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-16 |
+| 167 | Enter finalization or failure only from the exact reloaded current revision | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-16 |
