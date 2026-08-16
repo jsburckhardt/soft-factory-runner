@@ -40,8 +40,12 @@ Application documentation passed. README, docs index, Phase 1 issue-run guide, P
 
 ## RPIV retro harvest
 
-Verifier observations were persisted in .harness/records/retro/2026-08-16/008-issue-5-rpiv-verifier.md and cleared only after read-back. The final plan-scoped harvest passed with schema harness.retro-insights/v1: 20 records, 63 entries, five agents, 59 open / 1 suggested / 3 encoded lifecycle statuses, no malformed or unsupported records, and zero pending observations.
+Verifier observations were persisted in .harness/records/retro/2026-08-16/008-issue-5-rpiv-verifier.md and cleared only after read-back. The final plan-scoped harvest passed with schema harness.retro-insights/v1: 21 records, 64 entries, five agents, 60 open / 1 suggested / 3 encoded lifecycle statuses, no malformed or unsupported records, and zero pending observations.
 
 ## GitHub
 
 Issue #5 already contained exactly one acceptance marker block with all ten criteria checked. PR #33 title and body were updated with SemVer 0.1.3, every AC result/evidence item, documentation verdict, validation/package evidence, decision/history proof, and retro harvest.
+
+## Immutable result publication
+
+Blocked at coordinator boundary: no injected no-clobber publication helper or requiredFinalValidation binding was available. The verifier preserved the existing artifact and did not read or alter Runner snapshots. Repository acceptance, final validation, push, and PR delivery passed; coordinator publication must be retried with the required injected interface. This is recorded in .harness/records/retro/2026-08-16/009-issue-5-rpiv-verifier-publication-binding-final.md.
