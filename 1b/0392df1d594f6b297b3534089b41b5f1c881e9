@@ -1,0 +1,37 @@
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/research/00-research.md
+  s_e2bf425addc92f::t_b3043bf4e636a3 13,39-46,48-52,56-63,67-77,81-86
+  s_e2bf425addc92f::t_0925f57bb97f24 47
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/03-test-plan.md
+  s_a936f68fe7d60d::t_c3560ca8d46d41 1,3,5-7,11,14-17,20,23,25,27-28,33,36-39,42,45,47,49-51,55,58-61,64,67,69,71-73,77,80-83,86,89,91,93-95,99,102-107,110,113,115,117-118,123,126-130,133,136
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/02-task-breakdown.md
+  s_a936f68fe7d60d::t_86bd2391c89641 1,4,6,8-9,11-13,16,19-20,23,26,28,30,32,34-35,38-45,48-52,55,58,60,62-65,67,70,73-76,79,82,84,86-88,90-91,94,97-99,102,105,107,109-111,113-114,117,120,123,126-135
+.harness/records/retro/2026-08-16/001-issue-5-rpiv-planner-integration-plan.md
+  s_a936f68fe7d60d::t_13751f1c7e1239 1-6,9,14-16,24,70-71,73
+  s_a936f68fe7d60d::t_73456626ac12fc 7-8,10-13,17-23,25-69,72,74
+project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/plan/01-action-plan.md
+  s_a936f68fe7d60d::t_3970972aea3e2a 1,8,11-12,29-40,43-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1b0392df1d594f6b297b3534089b41b5f1c881e9",
+  "prompts": {},
+  "sessions": {
+    "s_a936f68fe7d60d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_9arL7Z8CouS0ujVXmheHtJ4X",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_e2bf425addc92f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_vMuXz47bFMHwskxjmH9Rj0pN",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
