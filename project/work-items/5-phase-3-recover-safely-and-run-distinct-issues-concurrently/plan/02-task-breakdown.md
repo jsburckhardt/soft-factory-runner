@@ -5,7 +5,7 @@ Preserve `project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-co
 
 ## Task T-15: Create the state-preserving merge baseline
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** None
 - **Acceptance Criteria:** AC-1, AC-10
@@ -27,7 +27,7 @@ The verified main SHA, pre-merge clean status, exact five-path conflict list, me
 
 ## Task T-16: Resolve all five conflicts and reconcile architecture
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Extra Large
 - **Dependencies:** T-15
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-6, AC-8, AC-9, AC-10
@@ -59,7 +59,7 @@ Zero conflict markers; exactly one record for each ID 1-171; unchanged records 1
 
 ## Task T-17: Validate combined recovery, controls, cleanup, and concurrency
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Extra Large
 - **Dependencies:** T-16
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
@@ -83,7 +83,7 @@ Named Jest results; bounded adapter and launch counters; contiguous revision/eve
 
 ## Task T-18: Synchronize PATCH 0.1.3 and documentation/package state
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Large
 - **Dependencies:** T-16, T-17
 - **Acceptance Criteria:** AC-3, AC-8, AC-9
@@ -106,7 +106,7 @@ Exact 0.1.3 surface inventory; only two root lock values changed; unchanged depe
 
 ## Task T-19: Run final validation and produce Implement handoff
 
-- **Status:** Pending
+- **Status:** Complete
 - **Complexity:** Medium
 - **Dependencies:** T-15, T-16, T-17, T-18
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10

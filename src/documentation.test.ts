@@ -1055,7 +1055,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issues 5 and 34 combined recovery safety and 0.1.2 guidance", () => {
+describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1112,13 +1112,13 @@ describe("Issues 5 and 34 combined recovery safety and 0.1.2 guidance", () => {
     }
   });
 
-  it("documents exact local 0.1.2 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents exact local 0.1.3 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.1.2",
+      "0.1.3",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.1.3");
       expect(document).toContain("0.1.2");
-      expect(document).toContain("0.1.1");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }

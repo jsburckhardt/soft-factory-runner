@@ -13,6 +13,7 @@ import type {
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
+  RunSnapshotV5,
   TmuxIdentity,
   TmuxIdentityDiagnosticV1,
 } from "./domain";
@@ -24,6 +25,7 @@ import { RunnerError } from "./errors";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { integrationLaunch } from "./integration";
+import { classifyPostWaitState } from "./post-wait";
 import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
 import type {
@@ -982,6 +984,70 @@ describe("V-13 through V-16 recovery candidate incident", () => {
     expect(human.stdout).toContain(
       "Cleanup authority: persisted completion proof only",
     );
+  });
+
+  it("keeps latest post-wait state distinct from strict candidate recovery", async () => {
+    const f = await candidateFixture();
+    const before = await f.store.load(5);
+    const worker = {
+      ...processIdentity,
+      pid: 500,
+      processGroupId: 500,
+      startToken: "worker-current",
+      executable: "/usr/bin/soft-factory",
+      args: ["internal", "run-agent", "--issue", "5"],
+    };
+    const latest = {
+      ...before,
+      schemaVersion: 5,
+      revision: before.revision + 4,
+      state: "running_rpiv",
+      workerProcess: worker,
+      rpivProcess: processIdentity,
+      progress: {
+        schemaVersion: 1,
+        runId: before.runId,
+        attempt: before.attempt,
+        issueNumber: before.issueNumber,
+        branch: before.branch,
+        sequence: 6,
+        phase: "verify",
+        status: "running",
+        updatedAt: "2026-08-11T13:01:00.000Z",
+      },
+      tmuxIdentityDiagnostic: tmuxDiagnostic,
+    } as unknown as RunSnapshotV5;
+
+    expect(
+      classifyPostWaitState(latest, {
+        runId: latest.runId,
+        ownerId: latest.ownerId,
+        workerProcess: worker,
+        rpivProcess: processIdentity,
+      }),
+    ).toEqual({ kind: "active", snapshot: latest });
+
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report).toMatchObject({
+      decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+      resultAuthority: "recovery_candidate",
+      persisted: {
+        state: "running_rpiv",
+        workerProcess: null,
+        rpivProcess: null,
+      },
+    });
+    expect(report.persisted.revision).not.toBe(latest.revision);
+    const resumed = await new IssueRunService(f.ports).resume(5, root);
+    expect(resumed).toMatchObject({
+      code: "FINALIZATION_RECOVERED",
+      state: "completed",
+      facts: { launched: false },
+    });
+    expect(f.processes.launches).toBe(0);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      attempt: before.attempt,
+    });
   });
 
   it("explicitly resumes strict finalization without relaunch or attempt increment", async () => {

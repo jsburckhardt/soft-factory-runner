@@ -20,27 +20,27 @@ just verify
 
 The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
-### Current package release and 0.1.1 upgrade
+### Current package release and 0.1.2 upgrade
 
-The current local npm package release is **0.1.2**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.1 prefix or reinstall the same tarball:
+The current local npm package release is **0.1.3**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.2 prefix or reinstall the same tarball:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.1.2
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.2
+mkdir -p /tmp/soft-factory-runner-0.1.3
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.3
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.2/soft-factory-runner-0.1.2.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.3/soft-factory-runner-0.1.3.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The metadata command must print exactly `0.1.2`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
+The metadata command must print exactly `0.1.3`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
 
 ```text
 "$PREFIX/node_modules/.bin/soft-factory" install --recommended
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The manifest command must also print exactly `0.1.2`.
+The manifest command must also print exactly `0.1.3`.
 
 ## Quick start and control commands
 
@@ -65,7 +65,7 @@ just run logs 5 --json
 
 `just run instructions [--json]` deterministically reports the Runner-owned progress/result handoff. New runs require the root `justfile` to prove and snapshot one declared `rpiv.final_validation`, defaulting to `just verify`; a missing root file fails before ownership, and focused validation is implementation feedback only. RPIV publishes mutable `.soft-factory/rpiv-status.json`, while Verify publishes immutable no-clobber `.soft-factory/agent-result.json` only after PR creation, the tracked verification summary/retro commit is pushed, and the PR is independently confirmed at the final head. Runner binds the helper to those observed PR facts, and the coordinator validates that bound result before zero exit; every failure path first attempts terminal failed progress. Status/list report phase separately from operational state, and every progress classification remains diagnostic-only. See [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) for configuration grammar, schemas, classifications, atomicity, v5/v4/legacy migration, redaction, troubleshooting, API applicability, and local deployment boundaries.
 
-After Copilot exits, Runner reloads the strict current snapshot and requires the exact run, owner, worker, and awaited RPIV identity before using the latest revision for zero-exit finalization or nonzero failure. Concurrent progress, immutable result, and retained diagnostic facts survive unchanged. Missing, invalid, mismatched, or reload/save-raced state returns `POST_WAIT_STATE_REFUSED` with a closed reason and no stale fallback save, duplicate launch, result overwrite, or ownership release; exact terminal repeats are idempotent. This 0.1.2 correction changes no network API, configuration key/default, snapshot schema, database/data migration, service, container, or deployment procedure.
+After Copilot exits, Runner reloads the strict current snapshot and requires the exact run, owner, worker, and awaited RPIV identity before using the latest revision for zero-exit finalization or nonzero failure. Concurrent progress, immutable result, and retained diagnostic facts survive unchanged. Missing, invalid, mismatched, or reload/save-raced state returns `POST_WAIT_STATE_REFUSED` with a closed reason and no stale fallback save, duplicate launch, result overwrite, or ownership release; exact terminal repeats are idempotent. This 0.1.3 correction changes no network API, configuration key/default, snapshot schema, database/data migration, service, container, or deployment procedure.
 
 ## Official delivery agent
 
@@ -76,7 +76,7 @@ just run install agent soft-factory
 just run install --recommended
 ```
 
-The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.2, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.3, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
 Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 
