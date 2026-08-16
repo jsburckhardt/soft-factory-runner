@@ -36,6 +36,11 @@ import {
 import { isRunnerError, RunnerError } from "./errors";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { RunStore } from "./persistence";
+import {
+  classifyPostWaitState,
+  postWaitRefusal,
+  type PostWaitIdentityV1,
+} from "./post-wait";
 import type { RunnerPorts } from "./ports";
 import { collectReconciliation } from "./reconciliation";
 import {
@@ -503,8 +508,9 @@ export class IssueRunService {
     });
     await store.save(intended, snapshot.state, "launch-intent-recorded");
     snapshot = intended;
+    let process: Awaited<ReturnType<RunnerPorts["processes"]["spawnCopilot"]>>;
     try {
-      const process = await this.ports.processes.spawnCopilot({
+      process = await this.ports.processes.spawnCopilot({
         executable: "copilot",
         args,
         cwd: snapshot.worktreePath,
@@ -520,39 +526,116 @@ export class IssueRunService {
         "rpiv-process-identity-recorded",
       );
       snapshot = identified;
-      const processResult = await process.wait();
-      if (processResult.exitCode !== 0) {
-        const failed = this.next(snapshot, {
-          state: "failed",
-          rpivProcess: null,
-          copilot: { ...launch, exitCode: processResult.exitCode },
-          error: {
-            code: "EXTERNAL_COMMAND_FAILED",
-            message: `Copilot exited with code ${processResult.exitCode}.`,
-          },
-        });
-        await store.save(failed, snapshot.state, "copilot-failed");
-        return this.releaseTerminalLease(store, failed);
-      }
-      const finalizing = this.next(snapshot, {
-        state: "finalizing",
-        rpivProcess: null,
-        copilot: { ...launch, exitCode: 0 },
-        error: null,
-      });
-      await store.save(finalizing, snapshot.state, "copilot-exited-zero");
-      return this.finalize(finalizing, repository, store);
+    } catch (cause: unknown) {
+      return this.failCopilotLaunch(store, snapshot, cause);
+    }
+
+    let processResult: { readonly exitCode: number };
+    try {
+      processResult = await process.wait();
+    } catch (cause: unknown) {
+      return this.failCopilotLaunch(store, snapshot, cause);
+    }
+
+    if (snapshot.workerProcess === null)
+      throw postWaitRefusal("worker_mismatch");
+    const expected: PostWaitIdentityV1 = {
+      runId: snapshot.runId,
+      ownerId: snapshot.ownerId,
+      workerProcess: snapshot.workerProcess,
+      rpivProcess: process.identity,
+    };
+    return this.handlePostWait(
+      issueNumber,
+      processResult.exitCode,
+      launch,
+      expected,
+      repository,
+      store,
+    );
+  }
+
+  private async handlePostWait(
+    issueNumber: number,
+    exitCode: number,
+    launch: CopilotLaunchFacts,
+    expected: PostWaitIdentityV1,
+    repository: RepositoryFacts,
+    store: RunStore,
+  ): Promise<RunSnapshotV5> {
+    let loaded: RunSnapshot;
+    try {
+      loaded = await store.load(issueNumber);
     } catch (cause: unknown) {
       if (!isRunnerError(cause)) throw cause;
-      const failed = this.next(snapshot, {
+      throw postWaitRefusal(
+        cause.code === "STATE_NOT_FOUND" ? "missing" : "invalid",
+        cause,
+      );
+    }
+    const decision = classifyPostWaitState(loaded, expected);
+    if (decision.kind === "refused") throw postWaitRefusal(decision.reason);
+    if (decision.kind === "terminal") return decision.snapshot;
+
+    const current = decision.snapshot;
+    const copilot = current.copilot ?? launch;
+    if (exitCode !== 0) {
+      const failed = this.next(current, {
         state: "failed",
         rpivProcess: null,
-        error: { code: cause.code, message: cause.message },
+        copilot: { ...copilot, exitCode },
+        error: {
+          code: "EXTERNAL_COMMAND_FAILED",
+          message: `Copilot exited with code ${exitCode}.`,
+        },
       });
-      await store.save(failed, snapshot.state, "copilot-launch-failed");
-      await this.releaseTerminalLease(store, failed);
+      await this.savePostWait(store, failed, current.state, "copilot-failed");
+      return this.releaseTerminalLease(store, failed);
+    }
+    const finalizing = this.next(current, {
+      state: "finalizing",
+      rpivProcess: null,
+      copilot: { ...copilot, exitCode: 0 },
+      error: null,
+    });
+    await this.savePostWait(
+      store,
+      finalizing,
+      current.state,
+      "copilot-exited-zero",
+    );
+    return this.finalize(finalizing, repository, store);
+  }
+
+  private async savePostWait(
+    store: RunStore,
+    snapshot: RunSnapshotV5,
+    from: RunState,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await store.save(snapshot, from, reason);
+    } catch (cause: unknown) {
+      if (isRunnerError(cause) && cause.code === "STATE_HISTORY_INVALID")
+        throw postWaitRefusal("state_advanced", cause);
       throw cause;
     }
+  }
+
+  private async failCopilotLaunch(
+    store: RunStore,
+    snapshot: RunSnapshotV5,
+    cause: unknown,
+  ): Promise<never> {
+    if (!isRunnerError(cause)) throw cause;
+    const failed = this.next(snapshot, {
+      state: "failed",
+      rpivProcess: null,
+      error: { code: cause.code, message: cause.message },
+    });
+    await store.save(failed, snapshot.state, "copilot-launch-failed");
+    await this.releaseTerminalLease(store, failed);
+    throw cause;
   }
 
   private async finalize(

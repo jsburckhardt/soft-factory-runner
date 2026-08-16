@@ -1,6 +1,7 @@
 import type {
   IssueFacts,
   ProcessIdentityV1,
+  RunSnapshotV5,
   RepositoryFacts,
   TmuxIdentity,
   TmuxIdentityDiagnosticV1,
@@ -11,6 +12,7 @@ import { RunnerError } from "./errors";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
+import { RunStore } from "./persistence";
 import { copilotChildEnvironment } from "./live";
 import { renderError } from "./render";
 import type {
@@ -38,11 +40,13 @@ class MemoryFiles implements FilePort {
   public readonly trace: string[];
   public failAtomicWrite = false;
   public failImmutableWrite = false;
+  public onReadText: ((filePath: string) => Promise<void>) | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
   public async readText(filePath: string): Promise<string | null> {
     this.trace.push(`file:read:${filePath}`);
+    if (this.onReadText !== null) await this.onReadText(filePath);
     return this.values.get(filePath) ?? null;
   }
   public async readAgentResult(worktreePath: string): Promise<string | null> {
@@ -272,6 +276,7 @@ class RecordingTmux implements TmuxPort {
   public observedOverride: TmuxIdentity | null | undefined;
   public created: TmuxIdentity | null = null;
   public createFailure: TmuxIdentityOutputError | null = null;
+  public observeFailure: TmuxIdentityOutputError | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
@@ -300,6 +305,7 @@ class RecordingTmux implements TmuxPort {
   }
   public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
     this.trace.push(`tmux:observe:${target.paneId}`);
+    if (this.observeFailure !== null) throw this.observeFailure;
     return this.observedOverride === undefined ? target : this.observedOverride;
   }
   public async panePid(target: TmuxIdentity): Promise<number> {
@@ -335,10 +341,26 @@ class RecordingProcess implements ProcessPort {
     readonly cwd: string;
     readonly environment: Readonly<Record<string, string>>;
   }> = [];
+  public waitStarted: Promise<void> = Promise.resolve();
+  private markWaitStarted: (() => void) | null = null;
+  private waitGate: Promise<void> | null = null;
+  private releaseWait: (() => void) | null = null;
   private readonly observedProcesses = new Map<number, ProcessIdentityV1>();
   private readonly observedWorkers = new Map<number, ProcessIdentityV1>();
   public constructor(trace: string[]) {
     this.trace = trace;
+  }
+  public holdWait(): (exitCode?: number) => void {
+    this.waitStarted = new Promise((resolve) => {
+      this.markWaitStarted = resolve;
+    });
+    this.waitGate = new Promise((resolve) => {
+      this.releaseWait = resolve;
+    });
+    return (exitCode = this.exitCode) => {
+      this.exitCode = exitCode;
+      this.releaseWait?.();
+    };
   }
   public async spawnCopilot(input: {
     readonly executable: "copilot";
@@ -389,6 +411,8 @@ class RecordingProcess implements ProcessPort {
     return {
       identity,
       wait: async () => {
+        this.markWaitStarted?.();
+        if (this.waitGate !== null) await this.waitGate;
         this.observedProcesses.delete(pid);
         return { exitCode: this.exitCode };
       },
@@ -1675,6 +1699,317 @@ describe("zero-exit false-completion rejection", () => {
       error: { code: "COMPLETION_PROOF_INCOMPLETE" },
     });
     expect(final.state).not.toBe("completed");
+  });
+});
+
+type Fixture = ReturnType<typeof fixture>;
+const observeDiagnostic: TmuxIdentityDiagnosticV1 = {
+  ...creationDiagnostic,
+  phase: "observe",
+  stdoutByteCount: 17,
+  recordCount: 1,
+  records: [{ fieldCount: 2, truncated: false }],
+  signature: ["window_id", "vertical_bar", "line_feed"],
+};
+
+async function within<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("bounded fixture timed out")),
+          5000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+function snapshotV5(files: MemoryFiles): RunSnapshotV5 {
+  return readSnapshot(files) as unknown as RunSnapshotV5;
+}
+
+function eventLedger(files: MemoryFiles): Array<{
+  priorRevision: number;
+  resultingRevision: number;
+  resultingSnapshot: RunSnapshotV5;
+  runId: string;
+}> {
+  const text =
+    files.values.get(
+      "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl",
+    ) ?? "";
+  return text
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function expectContiguousHistory(files: MemoryFiles): void {
+  const events = eventLedger(files);
+  expect(events.map((event) => event.priorRevision)).toEqual(
+    events.map((_, index) => index),
+  );
+  expect(events.map((event) => event.resultingRevision)).toEqual(
+    events.map((_, index) => index + 1),
+  );
+  expect(new Set(events.map((event) => event.resultingRevision)).size).toBe(
+    events.length,
+  );
+  expect(events.at(-1)?.resultingSnapshot).toEqual(snapshotV5(files));
+}
+
+async function advanceHeldEvidence(
+  f: Fixture,
+  service: IssueRunService,
+): Promise<RunSnapshotV5> {
+  for (const [phase, status] of [
+    ["research", "running"],
+    ["plan", "running"],
+    ["implement", "running"],
+    ["verify", "running"],
+    ["terminal", "succeeded"],
+  ] as const)
+    await service.publishRpivProgress(3, "/tmp/start", phase, status);
+  f.tmux.observeFailure = new TmuxIdentityOutputError(
+    "TMUX_IDENTITY_MALFORMED",
+    "tmux returned malformed observation identity evidence.",
+    observeDiagnostic,
+  );
+  await service.reconcile(3, "/tmp/start");
+  f.tmux.observeFailure = null;
+  return snapshotV5(f.files);
+}
+
+async function startHeldWorker(f: Fixture): Promise<{
+  service: IssueRunService;
+  worker: Promise<RunSnapshotV5>;
+  release: (exitCode?: number) => void;
+}> {
+  const service = new IssueRunService(f.ports);
+  await service.run(3, "/tmp/start");
+  const release = f.processes.holdWait();
+  const worker = service.runWorker(3, "/tmp/start");
+  await within(f.processes.waitStarted);
+  return { service, worker, release };
+}
+
+describe("Issue 34 current post-wait state handling", () => {
+  it.each([
+    ["zero", 0, "completed"],
+    ["nonzero", 9, "failed"],
+  ] as const)(
+    "holds %s exit while progress and diagnostics advance without evidence loss",
+    async (_name, exitCode, expectedState) => {
+      const f = fixture();
+      const { service, worker, release } = await startHeldWorker(f);
+      try {
+        const advanced = await advanceHeldEvidence(f, service);
+        const resultPath =
+          "/tmp/soft-factory-fixture/.trees/3/.soft-factory/agent-result.json";
+        const resultBytes = f.files.values.get(resultPath);
+        const evidence = {
+          progress: advanced.progress,
+          diagnostic: advanced.tmuxIdentityDiagnostic,
+        };
+
+        release(exitCode);
+        const result = await within(worker);
+
+        expect(result.state).toBe(expectedState);
+        expect(result.progress).toEqual(evidence.progress);
+        expect(result.tmuxIdentityDiagnostic).toEqual(evidence.diagnostic);
+        expect(f.files.values.get(resultPath)).toBe(resultBytes);
+        expect(f.processes.launches).toBe(1);
+        expect(result.copilot?.exitCode).toBe(exitCode);
+        if (exitCode !== 0)
+          expect(result.error).toMatchObject({
+            code: "EXTERNAL_COMMAND_FAILED",
+            message: "Copilot exited with code 9.",
+          });
+        expectContiguousHistory(f.files);
+      } finally {
+        release(exitCode);
+      }
+    },
+  );
+
+  it.each([
+    ["run_mismatch", "run"],
+    ["owner_mismatch", "owner"],
+    ["worker_mismatch", "worker"],
+    ["rpiv_mismatch", "rpiv"],
+  ] as const)(
+    "refuses exact identity matrix row %s without changing newer bytes",
+    async (reason, target) => {
+      const f = fixture();
+      const { worker, release } = await startHeldWorker(f);
+      try {
+        const snapshotPath =
+          "/tmp/soft-factory-fixture/.soft-factory/runs/3.json";
+        const eventsPath =
+          "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl";
+        const current = snapshotV5(f.files) as RunSnapshotV5 & {
+          integrationLaunch: { runId: string };
+        };
+        if (target === "run") {
+          const nextRunId = "other-run";
+          current.runId = nextRunId;
+          current.integrationLaunch.runId = nextRunId;
+          const events = eventLedger(f.files);
+          for (const event of events) {
+            event.runId = nextRunId;
+            event.resultingSnapshot.runId = nextRunId;
+            event.resultingSnapshot.integrationLaunch.runId = nextRunId;
+          }
+          f.files.values.set(
+            eventsPath,
+            events.map((event) => JSON.stringify(event)).join("\n") + "\n",
+          );
+        } else if (target === "owner") current.ownerId = "other-owner";
+        else if (target === "worker")
+          current.workerProcess = {
+            ...(current.workerProcess as ProcessIdentityV1),
+            startToken: "other-worker",
+          };
+        else
+          current.rpivProcess = {
+            ...(current.rpivProcess as ProcessIdentityV1),
+            startToken: "other-rpiv",
+          };
+        f.files.values.set(snapshotPath, JSON.stringify(current) + "\n");
+        const newerSnapshot = f.files.values.get(snapshotPath);
+        const newerEvents = f.files.values.get(eventsPath);
+
+        release(0);
+        await expect(within(worker)).rejects.toMatchObject({
+          code: "POST_WAIT_STATE_REFUSED",
+          details: { reason },
+        });
+        expect(f.files.values.get(snapshotPath)).toBe(newerSnapshot);
+        expect(f.files.values.get(eventsPath)).toBe(newerEvents);
+        expect(f.processes.launches).toBe(1);
+      } finally {
+        release(0);
+      }
+    },
+  );
+
+  it.each([
+    ["missing", "missing"],
+    ["invalid", "invalid"],
+  ] as const)("returns typed %s reload refusal", async (mode, reason) => {
+    const f = fixture();
+    const { worker, release } = await startHeldWorker(f);
+    try {
+      const snapshotPath =
+        "/tmp/soft-factory-fixture/.soft-factory/runs/3.json";
+      if (mode === "missing") f.files.values.delete(snapshotPath);
+      else f.files.values.set(snapshotPath, "{invalid");
+      const eventsBefore = eventLedger(f.files);
+      release(0);
+      await expect(within(worker)).rejects.toMatchObject({
+        code: "POST_WAIT_STATE_REFUSED",
+        details: {
+          reason,
+          causeCode: mode === "missing" ? "STATE_NOT_FOUND" : "STATE_INVALID",
+        },
+      });
+      expect(eventLedger(f.files)).toEqual(eventsBefore);
+      expect(f.processes.launches).toBe(1);
+    } finally {
+      release(0);
+    }
+  });
+
+  it("returns an already-terminal current outcome idempotently", async () => {
+    const f = fixture();
+    const { worker, release } = await startHeldWorker(f);
+    try {
+      const current = snapshotV5(f.files);
+      const terminal: RunSnapshotV5 = {
+        ...current,
+        revision: current.revision + 1,
+        state: "failed",
+        rpivProcess: null,
+        copilot: {
+          ...(current.copilot as NonNullable<typeof current.copilot>),
+          exitCode: 7,
+        },
+        error: {
+          code: "EXTERNAL_COMMAND_FAILED",
+          message: "Existing failure.",
+        },
+        updatedAt: f.ports.clock.now(),
+      };
+      const store = new RunStore(
+        "/tmp/soft-factory-fixture",
+        f.files,
+        f.ports.clock,
+      );
+      await store.save(terminal, current.state, "concurrent-terminal");
+      const snapshotBefore = f.files.values.get(store.snapshotPath(3));
+      const eventsBefore = f.files.values.get(store.eventsPath(3));
+
+      release(0);
+      await expect(within(worker)).resolves.toEqual(terminal);
+      expect(f.files.values.get(store.snapshotPath(3))).toBe(snapshotBefore);
+      expect(f.files.values.get(store.eventsPath(3))).toBe(eventsBefore);
+      expect(f.processes.launches).toBe(1);
+    } finally {
+      release(0);
+    }
+  });
+
+  it("preserves a second advance between reload and save", async () => {
+    const f = fixture();
+    const { worker, release } = await startHeldWorker(f);
+    try {
+      const store = new RunStore(
+        "/tmp/soft-factory-fixture",
+        f.files,
+        f.ports.clock,
+      );
+      let snapshotReads = 0;
+      let advancedSnapshot = "";
+      let advancedEvents = "";
+      f.files.onReadText = async (filePath) => {
+        if (filePath !== store.snapshotPath(3)) return;
+        snapshotReads += 1;
+        if (snapshotReads !== 2) return;
+        f.files.onReadText = null;
+        const current = snapshotV5(f.files);
+        const advanced: RunSnapshotV5 = {
+          ...current,
+          revision: current.revision + 1,
+          tmuxIdentityDiagnostic: observeDiagnostic,
+          updatedAt: f.ports.clock.now(),
+        };
+        await store.save(advanced, current.state, "concurrent-second-advance");
+        advancedSnapshot = f.files.values.get(store.snapshotPath(3)) as string;
+        advancedEvents = f.files.values.get(store.eventsPath(3)) as string;
+      };
+
+      release(0);
+      await expect(within(worker)).rejects.toMatchObject({
+        code: "POST_WAIT_STATE_REFUSED",
+        details: {
+          reason: "state_advanced",
+          causeCode: "STATE_HISTORY_INVALID",
+        },
+      });
+      expect(f.files.values.get(store.snapshotPath(3))).toBe(advancedSnapshot);
+      expect(f.files.values.get(store.eventsPath(3))).toBe(advancedEvents);
+      expect(f.processes.launches).toBe(1);
+    } finally {
+      f.files.onReadText = null;
+      release(0);
+    }
   });
 });
 
