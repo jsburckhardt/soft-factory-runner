@@ -1,0 +1,71 @@
+.harness/records/retro/2026-08-16/002-issue-34-rpiv-implementer.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-103
+src/documentation.test.ts
+  s_4652a27bd963c3::t_7f5667704374ed 1141-1179
+  s_4652a27bd963c3::t_93192288aab6bd 1058
+  s_4652a27bd963c3::t_b6760d4735511b 1180
+.harness/records/retro/2026-08-16/003-issue-34-rpiv-research.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-75
+README.md
+  s_4652a27bd963c3::t_7f5667704374ed 68-69
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/02-task-breakdown.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-118
+.harness/records/retro/2026-08-16/004-issue-34-rpiv-verifier.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-61
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_4652a27bd963c3::t_7f5667704374ed 26-29,42,49
+docs/README.md
+  s_4652a27bd963c3::t_93192288aab6bd 5
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/01-action-plan.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-47
+docs/phase-1-issue-run.md
+  s_4652a27bd963c3::t_7f5667704374ed 116-122,156-157,168
+.harness/records/retro/2026-08-16/001-issue-34-rpiv-planner-post-wait-plan.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-61
+project/architecture/ADR/ADR-260811-prototype-three-recovery-concurrency.md
+  s_4652a27bd963c3::t_7f5667704374ed 21-22,66,75,85
+src/post-wait.test.ts
+  s_4652a27bd963c3::t_7f5667704374ed 1-132
+project/work-items/34-reload-current-run-state-after-copilot-exits/research/00-research.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-82
+src/post-wait.ts
+  s_4652a27bd963c3::t_7f5667704374ed 1-72
+project/work-items/34-reload-current-run-state-after-copilot-exits/implementation/00-implementation.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-70
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/03-test-plan.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-176
+src/orchestration.test.ts
+  s_4652a27bd963c3::t_7f5667704374ed 4,15,43,49,279,308,344-347,353-364,414-415,1705-2013
+  s_4652a27bd963c3::t_4cc3fee7249d92 2014-2015
+project/work-items/34-reload-current-run-state-after-copilot-exits/verify/summary.md
+  s_4652a27bd963c3::t_7f5667704374ed 1-40
+project/architecture/ADR/DECISION-LOG.md
+  s_4652a27bd963c3::t_7f5667704374ed 216-220
+  s_4652a27bd963c3::t_f7875d64d0702c 221-224
+docs/phase-3-recovery-operations.md
+  s_4652a27bd963c3::t_7f5667704374ed 108-113,169
+project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md
+  s_4652a27bd963c3::t_f7875d64d0702c 24
+  s_4652a27bd963c3::t_7f5667704374ed 49-50
+src/errors.ts
+  s_4652a27bd963c3::t_7f5667704374ed 50
+src/orchestrator.ts
+  s_4652a27bd963c3::t_7f5667704374ed 39-43,511,513,529-568,571-583,586-590,592-620,625-639
+  s_4652a27bd963c3::t_64679d2ad8068f 640
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "dbc17347d5916dcdc9d57edad202bc1e8114815c",
+  "prompts": {},
+  "sessions": {
+    "s_4652a27bd963c3": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_V2JiPF9bUGitPF0gDiJxRHJz",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
