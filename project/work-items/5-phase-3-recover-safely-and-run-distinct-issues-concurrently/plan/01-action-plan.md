@@ -1,40 +1,15 @@
-# Action Plan: Phase 3 Interrupted Finalization Recovery Correction
+# Action Plan: Integrate PR #33 with Post-Wait Safety and Release 0.1.3
 
 ## Feature
 - **ID:** 5
 - **Research Brief:** `project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently/research/00-research.md`
 
 ## ADRs Created
-- No new ADR. Updated `ADR-260811-prototype-three-recovery-concurrency` in place, preserving its 2026-08-11 creation date, to define strict result-candidate recovery.
+- No new ADR. Merge PR #33 changes into `ADR-260811-prototype-three-recovery-concurrency` without renaming it or changing its 2026-08-11 creation date. Preserve the current post-wait reload decisions and add strict candidate-recovery behavior.
 
 ## Core-Components Created
-- No new core-component. Updated the existing global contracts `CORE-COMPONENT-260811-run-reconciliation-control`, `CORE-COMPONENT-260811-completion-evidence-reconciliation`, and `CORE-COMPONENT-260811-owned-resource-cleanup` in place, preserving their creation dates.
-
-## Relevant Architecture
-- `ADR-260811-prototype-three-recovery-concurrency`
-- `ADR-260812-rpiv-integration-completion-contract`
-- `ADR-260814-tmux-identity-failure-recovery`
-- `CORE-COMPONENT-260810-persistence-recovery`
-- `CORE-COMPONENT-260810-issue-worktree-locking`
-- `CORE-COMPONENT-260811-run-reconciliation-control`
-- `CORE-COMPONENT-260811-completion-evidence-reconciliation`
-- `CORE-COMPONENT-260811-owned-resource-cleanup`
-- `CORE-COMPONENT-260812-rpiv-integration-handoff`
-- `CORE-COMPONENT-260814-tmux-identity-diagnostics`
-- `CORE-COMPONENT-260815-package-semver-governance`
-
-## Decisions
-- Treat a strict successful result found during `running_rpiv` with absent worker and RPIV as an unaccepted recovery candidate.
-- Use candidate head and PR number only to key one bounded worktree, fresh-remote, and GitHub observation.
-- Preserve unknown-before-mismatch precedence; malformed tmux remains unknown and authorizes no mutation.
-- Permit only explicit finalization recovery when all candidate proof matches and tmux is exact or proved absent.
-- Keep terminal progress diagnostic-only and prohibit candidate, absent tmux, or malformed tmux evidence from cleanup authority.
-- Record these commitments as decision-log records 163-166.
-
-## SemVer Assignment
-- **Change class:** backward-compatible defect correction.
-- **Delivery version:** `0.1.2` from current `0.1.1` (PATCH).
-- Synchronize all package, lock, official-asset, manifest/fixture, packed/installed metadata, and current documentation surfaces without dependency churn.
+- No new core-component. Merge PR #33 rules into `CORE-COMPONENT-260811-run-reconciliation-control`, `CORE-COMPONENT-260811-completion-evidence-reconciliation`, and `CORE-COMPONENT-260811-owned-resource-cleanup` without renaming them or changing their 2026-08-11 creation dates.
+- Update `project/architecture/ADR/DECISION-LOG.md`: retain records 163-167 exactly and renumber the four PR #33 records to 168-171, retaining their 2026-08-15 dates.
 
 ## Acceptance Criteria
 - **AC-1:** Reconciliation compares persisted state with locks, filesystem, Git, tmux, processes, result artifacts, remote state, and GitHub.
@@ -49,25 +24,24 @@
 - **AC-10:** Repeatable interruption and concurrency fixtures reach deterministic outcomes with no duplicate owner or resource collision.
 
 ## Acceptance Coverage
-
 | AC ID | Implementation tasks | Tests or validation | Expected evidence |
 |---|---|---|---|
-| AC-1 | T-10, T-11, T-14 | V-13, V-14, V-15, V-18 | Composite reports show every boundary, candidate-keyed remote/PR observations, one call per boundary, and full-gate output. |
-| AC-2 | T-11, T-12, T-14 | V-14, V-17, V-18 | Exact-active regression has zero launch; candidate recovery also has zero launch and unchanged attempt. |
-| AC-3 | T-10, T-11, T-12, T-13, T-14 | V-13 through V-18 | Stable human/JSON decisions and exits for candidate-ready, unknown, mismatch, resumed finalization, and unchanged controls. |
-| AC-4 | T-14 | V-17, V-18 | Existing distinct-issue barrier fixture remains green with disjoint resources. |
-| AC-5 | T-14 | V-17, V-18 | Existing capacity race remains green with no automatic selection or over-admission. |
-| AC-6 | T-11, T-14 | V-16, V-17, V-18 | Merged cleanup still requires persisted completed result/head proof; candidate paths perform zero cleanup. |
-| AC-7 | T-14 | V-17, V-18 | Existing bounded signal ordering and retained-evidence fixtures remain green. |
-| AC-8 | T-10, T-11, T-12, T-14 | V-13, V-15, V-16, V-18 | Malformed/absent tmux and candidate-only states show zero destructive calls and preserved resources. |
-| AC-9 | T-11, T-14 | V-15, V-16, V-17, V-18 | Closed/unproved PR and contradictory candidate facts remain actionable, blocked, and non-destructive. |
-| AC-10 | T-11, T-12, T-14 | V-13 through V-18 | Repeated composite scenarios have identical reports/traces, no duplicate process, no collision, and passing gates. |
+| AC-1 | T-15, T-16, T-17 | V-19, V-20, V-21, V-24 | Combined reports and call counters cover every persisted and observed boundary once. |
+| AC-2 | T-16, T-17 | V-19, V-20, V-21, V-24 | Active and post-wait fixtures show one launch; candidate resume shows zero new launches and no attempt increment. |
+| AC-3 | T-16, T-17, T-18 | V-19, V-20, V-22, V-24 | Shared human/JSON outcomes and command regressions remain deterministic. |
+| AC-4 | T-17 | V-22, V-24 | Distinct-issue barrier traces show disjoint locks, branches, worktrees, windows, and records. |
+| AC-5 | T-17 | V-22, V-24 | Capacity race admits only configured explicit issues and selects none automatically. |
+| AC-6 | T-16, T-17 | V-21, V-22, V-24 | Cleanup occurs only after persisted completion and exact merged source-head and ownership proof. |
+| AC-7 | T-17 | V-22, V-24 | Signal trace proves SIGTERM, bounded wait, conditional SIGKILL, and retained evidence. |
+| AC-8 | T-16, T-17 | V-19, V-21, V-22, V-24 | Candidate, malformed tmux, active, dirty, unknown, and mismatched rows perform zero destructive calls. |
+| AC-9 | T-16, T-17 | V-19, V-21, V-22, V-24 | Closed-unmerged and ambiguous rows preserve resources and return actionable blockage. |
+| AC-10 | T-15, T-16, T-17, T-19 | V-19 through V-24 | Repeated combined fixtures, merge proof, and full gate show no duplicate owner, launch, or collision. |
 
-Coverage proof: all ten criteria preserve their issue order and exact text and each maps to implementation, deterministic validation, and concrete evidence before artifact creation.
+Coverage proof: all ten criteria preserve issue order and exact GitHub text. Every AC maps to implementation, combined regression validation, and concrete evidence before these artifacts are written.
 
 ## Implementation Tasks
-1. **T-10 — Encode recovery-candidate domain policy** (`AC-1`, `AC-2`, `AC-3`, `AC-8`, `AC-9`, `AC-10`).
-2. **T-11 — Stage candidate-aware reconciliation observations and precedence** (`AC-1`, `AC-2`, `AC-3`, `AC-6`, `AC-8`, `AC-9`, `AC-10`).
-3. **T-12 — Resume candidate finalization without relaunch or inferred ownership** (`AC-2`, `AC-3`, `AC-8`, `AC-10`).
-4. **T-13 — Update rendering, operator guidance, and release metadata to 0.1.2** (`AC-3`, `AC-8`, `AC-9`).
-5. **T-14 — Add the composite incident fixture and run full regression/release proof** (`AC-1` through `AC-10`).
+1. **T-15 — Create the state-preserving merge baseline** (`AC-1`, `AC-10`). Commit current research/Plan artifacts, fetch and verify `origin/main` at `61ac7dd`, then integrate it with `git merge --no-ff origin/main`; never rebase, reset away history, force-push, or alter PR #35 commits.
+2. **T-16 — Resolve the five conflicts and preserve both contracts** (`AC-1`, `AC-2`, `AC-3`, `AC-6`, `AC-8`, `AC-9`, `AC-10`). Resolve only `docs/README.md`, `DECISION-LOG.md`, both conflicting core-components, and `src/documentation.test.ts`; retain post-wait reload/refusal/idempotence and candidate classification/resume/cleanup non-authorization.
+3. **T-17 — Add combined recovery and historical regressions** (`AC-1` through `AC-10`). Exercise candidate recovery beside post-wait current-state handling, revision races, command controls, cleanup, stop, and concurrency.
+4. **T-18 — Synchronize release, docs, package, and tarball state** (`AC-3`, `AC-8`, `AC-9`). Classify the integration as PATCH `0.1.3`; update only authoritative Runner version surfaces and current guidance, preserve dependencies, and remove any stale repository or pack-workspace `0.1.2` tarball.
+5. **T-19 — Run authoritative validation and prepare Implement handoff** (`AC-1` through `AC-10`). Run focused checks while iterating, root `just verify` as final authority, package dry-run and temporary pack/install proof, diff/history checks, and record exact commits/evidence without claiming stale PR #33 counts.
