@@ -10,86 +10,77 @@
 
 ## Problem Statement
 
-After evidence-based completion works, make runs recoverable after interruption while preserving ownership, uncommitted work, and isolation across concurrent issues.
+Issue #5 requires deterministic, ownership-preserving recovery and isolated concurrent runs. PR #33 adds recovery for a strict successful terminal result left in `running_rpiv`, but it remains open and conflicting after PR #35 merged Issue #34 post-Copilot-wait state reload into `main`. The repository now needs both capabilities preserved on the current baseline, consistent architecture and documentation records, and a non-colliding patch release after `0.1.2`.
 
 ## Acceptance Criteria
 
 <!-- ACCEPTANCE_CRITERIA_START -->
 
 **Core**
-- [ ] Reconciliation compares persisted state with locks, filesystem, Git, tmux, processes, result artifacts, remote state, and GitHub.
-- [ ] Restart reconciliation preserves a matching active RPIV process rather than launching a duplicate.
-- [ ] Resume, stop, clean, list, status, attach, and logs expose deterministic outcomes.
-- [ ] Distinct active issues receive distinct locks, branches, worktrees, tmux windows, and run records.
-- [ ] Configured concurrency limits are enforced without introducing automatic issue selection.
-- [ ] After the expected pull request is merged, Runner verifies the merged head against the recorded issue branch and commit before automatically removing the clean owned worktree and releasing its issue lock.
+- [x] Reconciliation compares persisted state with locks, filesystem, Git, tmux, processes, result artifacts, remote state, and GitHub.
+- [x] Restart reconciliation preserves a matching active RPIV process rather than launching a duplicate.
+- [x] Resume, stop, clean, list, status, attach, and logs expose deterministic outcomes.
+- [x] Distinct active issues receive distinct locks, branches, worktrees, tmux windows, and run records.
+- [x] Configured concurrency limits are enforced without introducing automatic issue selection.
+- [x] After the expected pull request is merged, Runner verifies the merged head against the recorded issue branch and commit before automatically removing the clean owned worktree and releasing its issue lock.
 
 **Edge Cases**
-- [ ] Stop requests graceful termination before bounded escalation and preserves worktree and terminal evidence.
-- [ ] Cleanup refuses active, dirty, unknown, mismatched, or ambiguously owned resources.
-- [ ] A closed-unmerged pull request or ambiguous merge or ownership evidence preserves the worktree and returns an actionable blocked result.
+- [x] Stop requests graceful termination before bounded escalation and preserves worktree and terminal evidence.
+- [x] Cleanup refuses active, dirty, unknown, mismatched, or ambiguously owned resources.
+- [x] A closed-unmerged pull request or ambiguous merge or ownership evidence preserves the worktree and returns an actionable blocked result.
 
 **Verification**
-- [ ] Repeatable interruption and concurrency fixtures reach deterministic outcomes with no duplicate owner or resource collision.
+- [x] Repeatable interruption and concurrency fixtures reach deterministic outcomes with no duplicate owner or resource collision.
 
 <!-- ACCEPTANCE_CRITERIA_END -->
 
 ## Repository Findings
 
-- GitHub Issue #5 is labeled `feature` and `in progress`. Its body contains exactly one `ACCEPTANCE_CRITERIA_START`/`ACCEPTANCE_CRITERIA_END` block with ten ordered, nonempty Markdown checkboxes.
-- No `project/work-items/5-*` directory existed at either pre-creation resolution. `project/README.md`, `project/work-items/README.md`, and `CORE-COMPONENT-260806-rpiv-stage-contract` therefore resolve the title to the canonical stable work-item path shown above.
-- `PRD.md` sections 37 through 41 and FR-021 through FR-026 define the recovery, duplicate prevention, stop, cleanup, merged-PR, explicit concurrency, and concurrency-limit problem surface. Prototype 3 identifies restart recovery, resume, stop, clean, multiple simultaneous issues, and limits as the next product increment.
-- `src/command.ts` `parseCommand` and `HELP_TEXT` expose only `run`, `status`, `attach`, and the private worker. `src/index.ts` `runCli` dispatches only those commands. There is no current `resume`, `stop`, `clean`, `list`, or `logs` behavior.
-- `src/domain.ts` defines snapshot schema version 2, five terminal states, owned branch/worktree/tmux/Copilot facts, and completion facts. `RunSnapshotBase` does not record a process identifier or signature, attempt number, stop status, cleanup status, or resource-reconciliation observations.
-- `src/persistence.ts` `RunStore` can exclusively create a lock, check snapshot existence, append an event before atomically replacing a snapshot, and load snapshot versions 1 or 2. It does not read or validate lock records, read or reconcile event history, enumerate runs, or release runtime resources.
-- `src/orchestrator.ts` `IssueRunService.run` performs read-only readiness, acquires an issue lock, and creates a new resource set. When a snapshot exists after a new lock is acquired, it throws `RESOURCE_OWNERSHIP_UNKNOWN` before the main blocking-error persistence block, leaving the new lock for manual reconciliation.
-- `IssueRunService.runWorker` launches Copilot whenever a version-2 snapshot is `running_rpiv` and has a tmux identity. Neither the service nor `LiveProcessPort` can observe or match an already-running Copilot process, so reinvoking the worker can launch a duplicate.
-- `IssueRunService.status` observes only the recorded tmux target. `attach` requires exact recorded and observed session, window, pane, and cwd equality. Status facts do not include lock, filesystem, Git, process, result-artifact, remote, or GitHub observations.
-- `src/ports.ts` currently has creation and limited observation boundaries for files, Git, GitHub, tmux, and Copilot. It has no file enumeration/removal, Git dirtiness or worktree-removal observation, tmux log/stop/removal operation, or process identity observation/termination operation.
-- `src/live.ts` `LiveTmuxPort.observe` checks pane identity and cwd but not the pane process. `LiveProcessPort.runCopilot` inherits terminal IO and waits for exit without persisting a child PID or exposing signal control. `CommandExecutor` separately applies timeout, `SIGTERM`, and one-second `SIGKILL` escalation to bounded short-lived commands.
-- `src/live.ts` `LiveGitHubPort.loadPullRequest` queries PR number, state, base, head branch, PR head SHA, and closing issues. `CompletionPullRequestFacts` has no merge-commit or separate merge-proof field. `src/completion.ts` currently requires the PR state to be `OPEN`; it does not classify post-merge cleanup.
-- `src/config.ts` `RunConfiguration` supports repository remote/base branch, branch type mappings, and the RPIV prompt. The PRD-documented `execution.max_concurrent_runs` setting is not parsed.
-- `src/render.ts` renders one run or one status result from structured facts. It has no retained-run listing or terminal-log output surface.
-- Existing source tests cover same-issue contention, exclusive lock creation, one-issue orchestration, completion reconciliation, and event-before-snapshot persistence failures. They do not currently exercise distinct-issue concurrency, restart reconciliation, stop, cleanup, list/logs, concurrency limits, or merged-PR cleanup.
-- Git history shows Phase 1 introduced the command/domain/adapter orchestration in commit `0fb5bbc`, and Phase 2 extended it with completion proof and event-first snapshot version 2 in `b7d036b`, the current `origin/main` baseline. `README.md` and `docs/phase-1-issue-run.md` explicitly defer all Issue #5 behavior to Prototype 3.
+- GitHub Issue #5 has one marker-delimited structured Markdown acceptance-criteria block containing the ten ordered checked criteria above. Exactly one `project/work-items/5-*` directory exists, so its established name is reused.
+- The checked-out branch is `fix/5-reconcile-successful-terminal-result` at `98eea5c`, matching PR #33 head. GitHub reports PR #33 OPEN, `CONFLICTING`, and `DIRTY`. Its merge base is `84e4cac`; current `main` is `61ac7dd`, the merge commit for PR #35.
+- PR #33 changes `src/reconciliation.ts` to stage process and strict-result observations before candidate-keyed Git, fresh-remote, and GitHub observations. `RESULT_RECOVERY_CANDIDATE` remains unaccepted; only exact inactive ownership and candidate proof expose `FINALIZATION_RECOVERY_AVAILABLE` with `retry_finalization`.
+- PR #33 changes the `src/orchestrator.ts` resume path to persist `running_rpiv -> finalizing` and invoke existing strict finalization without a worker/RPIV launch or attempt increment. `src/domain.ts` adds result-authority and safe-action vocabulary, while `src/render.ts` distinguishes recovery-candidate query authority from persisted completion authority.
+- PR #35 merged Issue #34 at `61ac7dd`. Current `src/orchestrator.ts` reloads durable state after `process.wait()` and delegates to `handlePostWait`; `src/post-wait.ts` requires exact run, owner, worker, and awaited RPIV identities, handles exact terminal state idempotently, and defines closed refusal reasons `missing`, `invalid`, `run_mismatch`, `owner_mismatch`, `worker_mismatch`, `rpiv_mismatch`, and `state_advanced`. `RunStore.save` remains the final revision compare-and-append boundary.
+- The two application changes enter through distinct conditions but converge on durable state and `finalize`: post-wait handling requires the exact active awaited worker/RPIV identities, while candidate recovery requires RPIV absence and worker absence or no recorded worker. A synthetic `git merge-tree --write-tree main HEAD` auto-merges `src/orchestrator.ts` with both `handlePostWait` and candidate-resume logic present. `src/reconciliation.ts`, `src/post-wait.ts`, `src/domain.ts`, and `src/render.ts` have no textual merge conflict.
+- PR #33 and PR #35 overlap on 15 paths: `README.md`, `docs/README.md`, `docs/phase-3-recovery-operations.md`, `docs/phase-5-official-assets.md`, `package.json`, `package-lock.json`, `project/architecture/ADR/ADR-260811-prototype-three-recovery-concurrency.md`, `project/architecture/ADR/DECISION-LOG.md`, `project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md`, `project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md`, `src/asset-cli.test.ts`, `src/documentation.test.ts`, `src/official-assets.test.ts`, `src/official-assets.ts`, and `src/orchestrator.ts`.
+- The synthetic merge has exactly five content conflicts: `docs/README.md`; `project/architecture/ADR/DECISION-LOG.md`; `project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md`; `project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md`; and `src/documentation.test.ts`. The other ten overlapping paths auto-merge.
+- The `docs/README.md` conflict is one current-release sentence: current `main` foregrounds the current release and tmux transport, while PR #33 adds candidate-recovery, unknown-before-mismatch, and cleanup-non-authorization wording. The two core-component conflicts place current post-wait reload/refusal/idempotence clauses against PR #33 candidate classification/resume clauses. The test conflict is the describe label for Issue #34 versus the stale Issue #31 label on PR #33.
+- `project/architecture/ADR/DECISION-LOG.md` has a true identifier collision. Current `main` uses decisions 163-167 for post-wait reload, exact identity, typed refusal, terminal idempotence, and exact-revision finalization/failure. PR #33 independently uses 163-166 for candidate finalization recovery, bounded candidate observations, and cleanup non-authorization.
+- `README.md`, `docs/phase-3-recovery-operations.md`, `docs/phase-5-official-assets.md`, and `ADR-260811-prototype-three-recovery-concurrency.md` auto-merge with both subject areas represented. This proves textual combination only, not combined behavior or documentation consistency.
+- Current `main` and PR #33 both carry `0.1.2` in `package.json`, both root package-lock entries, `OFFICIAL_ASSET_VERSION`, package/install fixtures, and current documentation. Those identical edits auto-merge but are semantically stale: `main` already released `0.1.2`. Current guides describe the `0.1.1` to `0.1.2` local pack/install/reconvergence path.
+- Current-main Issue #34 artifacts record 24 suites and 592 tests for PR #35. PR #33 records 23 suites and 566 tests for its older baseline and adds candidate cases in `src/recovery-control.test.ts` and `src/reconciliation.test.ts`. No combined checkout was validated during this Research stage.
+- PR #33 metadata and verification text remain tied to the old base, release `0.1.2`, implementation commit `5122131`, and pre-merge suite counts even though its current head is `98eea5c`. Git history shows PR #33 and PR #35 diverged from `84e4cac`; no force-push or integration commit is present.
 
 ## Constraints
 
-- `CORE-COMPONENT-260810-persistence-recovery` requires versioned atomic snapshots, append-only versioned events, persisted and observed state as separate reconciliation inputs, idempotent recovery where practical, preservation of a matching active process, and safe `blocked` or `interrupted` outcomes for unknown or contradictory state.
-- `CORE-COMPONENT-260810-issue-worktree-locking` requires atomic per-issue ownership, one resource set per active issue, distinct resources across distinct issues, agreement among lock, snapshot, and observed ownership before reuse or cleanup, and refusal to clean active, dirty, unknown, mismatched, or ambiguous resources.
-- `CORE-COMPONENT-260810-subprocess-execution` requires validated executable/argument arrays, typed redacted results, observable long-running process identity, graceful cancellation before bounded escalation, and no secrets in snapshots, events, or logs.
-- `CORE-COMPONENT-260810-structured-events` and `CORE-COMPONENT-260810-error-handling` require versioned redacted lifecycle facts, append-only history, common human/JSON meaning, stable actionable typed failures, nonzero nonsuccess outcomes, and fail-safe ambiguity handling.
-- `ADR-260811-prototype-one-run-orchestration` and `CORE-COMPONENT-260811-issue-run-orchestration` keep orchestration deterministic behind typed external-system adapters, preserve fetched-base and ownership proof, bound external observations, and prohibit interpretation of RPIV prose.
-- `ADR-260811-prototype-two-completion-proof` and `CORE-COMPONENT-260811-completion-evidence-reconciliation` require strict result, Git, GitHub, acceptance, and validation comparisons before `completed`; event-before-snapshot ordering; safe legacy snapshot handling; missing proof as `interrupted`; and contradictory proof as `failed`. Recovery and merged-PR cleanup cannot weaken these invariants.
-- `PRD.md` state invariants prohibit duplicate local owners and shared issue resources, require preservation of uncommitted work and terminal output, require explicit issue selection, and permit merged-PR cleanup only after merge, branch, commit, worktree, and ownership facts reconcile.
-- `ADR-260810-typescript-node-cli`, `CORE-COMPONENT-260810-development-standards`, and `package.json` constrain the application to strict TypeScript on Node.js 22+, typed external boundaries, deterministic isolation from live systems, and the configured quality gates.
-- `CORE-COMPONENT-260806-project-command-interface`, `CORE-COMPONENT-260811-engineering-harness-interface`, and `.harness/engineering-harness.md` preserve root `justfile` command authority and keep the ambient harness a development surface rather than a product dependency.
+- `ADR-260811-prototype-three-recovery-concurrency`, `CORE-COMPONENT-260811-run-reconciliation-control`, and `CORE-COMPONENT-260810-persistence-recovery` require persisted/observed separation, compound process identity, contiguous revisions, one bounded observation per boundary, no hidden retry, active-process preservation, and fail-safe unknown or contradictory outcomes.
+- Current `main` adds the applicable post-wait contract: terminal transition state must be strictly reloaded and exact-matched to run, owner, worker, and awaited RPIV identities; missing, invalid, mismatched, already-terminal, or concurrently advanced state retains its closed behavior.
+- `ADR-260812-rpiv-integration-completion-contract` and `CORE-COMPONENT-260811-completion-evidence-reconciliation` keep Runner authoritative over strict result, local head, fresh remote, PR identity, ordered acceptance set, and snapshotted final validation. Progress, an unaccepted candidate, or external PR visibility alone cannot establish completion.
+- `CORE-COMPONENT-260811-owned-resource-cleanup` and `CORE-COMPONENT-260810-issue-worktree-locking` prohibit cleanup from candidate, active, dirty, unknown, mismatched, or ambiguous facts. Automatic cleanup still requires accepted persisted completion and exact merged source-head and ownership proof.
+- `CORE-COMPONENT-260811-concurrent-run-admission` preserves atomic slot leases, explicit issue selection, and distinct per-issue resources; recovery cannot weaken those boundaries.
+- `CORE-COMPONENT-260815-package-semver-governance` and `AGENTS.md` classify backward-compatible defect corrections as PATCH and require all authoritative release surfaces to agree without third-party dependency churn. With current `main` at `0.1.2`, the user-mandated next patch is `0.1.3` across package, root lock entries, official-asset catalog, fixtures, packed/installed and generated-manifest metadata, and current user guidance.
+- `project/architecture/ADR/DECISION-LOG.md` requires every ADR or core-component change to be recorded; current decision numbers 163-167 cannot be lost or duplicated by the colliding PR #33 records.
+- The state-gold constraint requires preserving PR #33 recovery capability and PR #35 history/artifacts on current `main`, without force-push. The established Issue #5 work-item directory name must remain unchanged.
 
 ## Relevant ADRs and Core-Components
 
-- `project/architecture/ADR/ADR-260810-typescript-node-cli.md` — accepted runtime, distribution, and typed adapter boundary.
-- `project/architecture/ADR/ADR-260811-prototype-one-run-orchestration.md` — current deterministic run orchestration and explicit Prototype 3 deferral.
-- `project/architecture/ADR/ADR-260811-prototype-two-completion-proof.md` — current completion, persistence ordering, compatibility, and Prototype 3 boundary.
-- `project/architecture/core-components/CORE-COMPONENT-260810-persistence-recovery.md` — restart reconciliation and duplicate-process prevention contract.
-- `project/architecture/core-components/CORE-COMPONENT-260810-issue-worktree-locking.md` — exclusive issue ownership, resource isolation, and cleanup refusal rules.
-- `project/architecture/core-components/CORE-COMPONENT-260810-subprocess-execution.md` — observable process identity and graceful bounded cancellation.
-- `project/architecture/core-components/CORE-COMPONENT-260810-structured-events.md` — lifecycle history and shared structured output facts.
-- `project/architecture/core-components/CORE-COMPONENT-260810-error-handling.md` — typed actionable failures and safe ambiguity handling.
-- `project/architecture/core-components/CORE-COMPONENT-260811-issue-run-orchestration.md` — existing command/domain/adapter sequence and ownership facts.
-- `project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md` — strict completion proof and terminal classification invariants.
-- `project/architecture/core-components/CORE-COMPONENT-260810-development-standards.md` — strict TypeScript and deterministic quality constraints.
-- `project/architecture/core-components/CORE-COMPONENT-260806-rpiv-stage-contract.md` — Research scope and stable work-item path rules.
-- `project/architecture/ADR/DECISION-LOG.md` registers these artifacts as Accepted or Adopted; decisions 27 through 32 and 40 through 63 are directly relevant.
+- `project/architecture/ADR/ADR-260811-prototype-three-recovery-concurrency.md` — recovery/concurrency policy, strict result candidates, one-pass observation, exact process identity, and non-authorizing unknowns.
+- `project/architecture/ADR/ADR-260812-rpiv-integration-completion-contract.md` — immutable result handoff and Runner completion authority.
+- `project/architecture/ADR/ADR-260814-tmux-identity-failure-recovery.md` — strict tmux identity transport and non-authorizing malformed output.
+- `project/architecture/core-components/CORE-COMPONENT-260810-persistence-recovery.md` — atomic snapshots, contiguous event history, and persisted/observed separation.
+- `project/architecture/core-components/CORE-COMPONENT-260810-issue-worktree-locking.md` — per-issue exclusivity and exact ownership.
+- `project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md` — candidate classification, post-wait reload/refusal, shared reports, idempotence, and duplicate-launch prevention.
+- `project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md` — strict completion conjunction and exact reloaded revision.
+- `project/architecture/core-components/CORE-COMPONENT-260811-owned-resource-cleanup.md` — candidate non-authorization and merged-source-head cleanup proof.
+- `project/architecture/core-components/CORE-COMPONENT-260811-concurrent-run-admission.md` — atomic capacity and distinct issue resources.
+- `project/architecture/core-components/CORE-COMPONENT-260815-package-semver-governance.md` — patch classification and synchronized release surfaces.
+- `project/architecture/ADR/DECISION-LOG.md` — current `main` registers post-wait decisions 163-167, while PR #33 collides with older 163-166 records.
 
 ## Risks and Open Questions
 
-- The deterministic identity used to match a live RPIV process is unspecified. Current persisted facts identify Copilot arguments and a tmux pane but no stable process identity or start fact.
-- The authoritative meaning of an active run for concurrency counting is unspecified when lock, snapshot, tmux, and process facts disagree or are unavailable.
-- Event history may be ahead of the snapshot after an atomic snapshot replacement failure, while runtime state may also have advanced after interruption. `RunStore.load` currently ignores event history.
-- The phrase merged head is ambiguous relative to the current PR head SHA and a GitHub merge commit. A merged PR may also have its remote issue branch deleted, so branch-ref availability cannot be assumed.
-- The exact resource boundary for automatic merged-PR cleanup is not uniform: the issue criterion names the worktree and lock, while PRD section 40 also lists the tmux window for explicit cleanup.
-- Terminal evidence after stop has no specified retention location, lifetime, or relationship to the `logs` command.
-- Deterministic `resume` outcomes are unspecified for each terminal state, partially prepared state, and each mismatch among lock, tmux, process, and snapshot facts.
-- Enforcing a repository-wide concurrency limit introduces a race across distinct issue starts; the required atomic counting boundary is not stated.
-- The shared repository tmux session is intentional, but loss or ambiguity of that session can affect several otherwise isolated issue windows at once.
-- Live GitHub, remote Git, tmux, and process observations can be transient or incomplete. Existing contracts require bounded fail-safe nonsuccess, while the issue requires deterministic resumable outcomes without specifying retry semantics.
+- The synthetic merge proves textual compatibility for auto-merged source hunks, not behavioral compatibility. No combined build or runtime proof exists for candidate recovery alongside post-wait reload and concurrent evidence updates.
+- Both paths reach `finalize` and `RunStore.save`; exact revision behavior across explicit recovery, post-wait handling, and concurrent progress/result/diagnostic writes remains an integration risk.
+- The five content conflicts contain distinct required contracts and cannot safely be treated as choose-one-side conflicts. Decision-log IDs are globally ambiguous until reconciled.
+- Identical `0.1.2` edits can merge cleanly while leaving package, fixture, packed/install, manifest, and documentation surfaces semantically stale relative to current `main`.
+- PR #33 is open and its published verification metadata is stale relative to `61ac7dd`, `0.1.3`, and the combined repository state.
+- Issue #5 criteria describe the broader Prototype 3 capability. PR disposition, release `0.1.3`, repacking, and state-gold history/document reconciliation are request context, not additional GitHub Issue #5 acceptance criteria.

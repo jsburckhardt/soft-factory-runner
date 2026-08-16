@@ -13,6 +13,7 @@ import type {
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
+  RunSnapshotV5,
   TmuxIdentity,
   TmuxIdentityDiagnosticV1,
 } from "./domain";
@@ -24,6 +25,7 @@ import { RunnerError } from "./errors";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { integrationLaunch } from "./integration";
+import { classifyPostWaitState } from "./post-wait";
 import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
 import type {
@@ -209,6 +211,8 @@ class ControlFiles implements FilePort {
 
 class ControlGit implements GitPort {
   public readonly trace: string[] = [];
+  public worktreeObservations = 0;
+  public remoteObservations = 0;
   public pathExists = true;
   public registered = true;
   public observedBranch: string | null = branch;
@@ -235,6 +239,7 @@ class ControlGit implements GitPort {
     return this.registered;
   }
   public async observeWorktree() {
+    this.worktreeObservations += 1;
     return {
       pathExists: this.pathExists,
       registered: this.registered,
@@ -256,6 +261,7 @@ class ControlGit implements GitPort {
     return this.observedHead;
   }
   public async remoteBranchSha() {
+    this.remoteObservations += 1;
     return this.remoteSha;
   }
   public async createBranch(): Promise<void> {
@@ -278,6 +284,8 @@ class ControlGit implements GitPort {
 }
 
 class ControlGitHub implements GitHubPort {
+  public pullRequestObservations = 0;
+  public mergedObservations = 0;
   public merged: MergedPullRequestFactsV1 | null = {
     number: 15,
     state: "MERGED",
@@ -292,6 +300,7 @@ class ControlGitHub implements GitHubPort {
     return null;
   }
   public async loadPullRequest() {
+    this.pullRequestObservations += 1;
     return {
       number: 15,
       state: "OPEN" as const,
@@ -307,6 +316,7 @@ class ControlGitHub implements GitHubPort {
   }
   public mergedFailure: RunnerError | null = null;
   public async loadMergedPullRequest() {
+    this.mergedObservations += 1;
     if (this.mergedFailure !== null) throw this.mergedFailure;
     return this.merged;
   }
@@ -851,6 +861,250 @@ describe("V-3 exact process preservation and adoption", () => {
       code: "PROCESS_IDENTITY_AMBIGUOUS",
     });
     expect(ambiguous.processes.launches).toBe(0);
+  });
+});
+
+describe("V-13 through V-16 recovery candidate incident", () => {
+  function recoveryCandidateSnapshot(): RunSnapshotV4 {
+    const base = versionFour(
+      snapshot({
+        rpivProcess: null,
+        fetchedBaseProof: {
+          schemaVersion: 1,
+          remote: "origin",
+          defaultBranch: "main",
+          advertisedHeadSha: sha,
+          trackingRefSha: sha,
+          fetchedAt: "2026-08-11T12:00:00.000Z",
+          matches: true,
+        },
+      }),
+    );
+    const progress = {
+      schemaVersion: 1 as const,
+      runId: base.runId,
+      attempt: base.attempt,
+      issueNumber: base.issueNumber,
+      branch: base.branch,
+      sequence: 5,
+      phase: "terminal" as const,
+      status: "succeeded" as const,
+      updatedAt: "2026-08-11T13:00:00.000Z",
+    };
+    return { ...base, progress };
+  }
+
+  async function candidateFixture() {
+    const initial = recoveryCandidateSnapshot();
+    const f = await fixture(initial);
+    f.processes.observed = null;
+    f.git.remoteSha = sha;
+    f.files.values.set(
+      path.join(worktree, ".soft-factory", "agent-result.json"),
+      JSON.stringify(result),
+    );
+    f.files.values.set(
+      path.join(worktree, ".soft-factory", "rpiv-status.json"),
+      JSON.stringify(initial.progress),
+    );
+    return f;
+  }
+
+  it.each([
+    ["exact", true],
+    ["proved absent", false],
+  ])(
+    "exposes one unaccepted candidate with %s tmux and no mutation",
+    async (_label, tmuxPresent) => {
+      const f = await candidateFixture();
+      f.tmux.present = tmuxPresent;
+      const before = await f.store.load(5);
+      const report = await new IssueRunService(f.ports).reconcile(5, root);
+      expect(report).toMatchObject({
+        decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+        resultAuthority: "recovery_candidate",
+        safeActions: ["retry_finalization"],
+        observations: {
+          result: { state: "match", code: "RESULT_RECOVERY_CANDIDATE" },
+          remote: { state: "match", code: "REMOTE_BRANCH_MATCH" },
+          github: {
+            state: "match",
+            code: "PULL_REQUEST_CANDIDATE_MATCH",
+          },
+          progress: { code: "PROGRESS_REPEATED" },
+        },
+      });
+      expect(report.persisted).toMatchObject({
+        state: "running_rpiv",
+        attempt: before.attempt,
+        finalization: null,
+      });
+      expect(f.git.worktreeObservations).toBe(1);
+      expect(f.git.remoteObservations).toBe(1);
+      expect(f.github.pullRequestObservations).toBe(1);
+      expect(f.processes.launches).toBe(0);
+      expect(f.git.trace).toEqual([]);
+    },
+  );
+
+  it("keeps malformed tmux unknown ahead of a contradictory candidate remote", async () => {
+    const f = await candidateFixture();
+    f.git.remoteSha = "b".repeat(40);
+    const observeDiagnostic = { ...tmuxDiagnostic, phase: "observe" as const };
+    f.tmux.observationFailure = new TmuxIdentityOutputError(
+      "TMUX_IDENTITY_MALFORMED",
+      "tmux returned malformed or ambiguous observe identity evidence.",
+      observeDiagnostic,
+    );
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report.decisionCode).toBe("RECONCILIATION_UNKNOWN");
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        "tmux:TMUX_IDENTITY_MALFORMED",
+        "remote:REMOTE_BRANCH_MISMATCH",
+      ]),
+    );
+    expect(report.safeActions).toEqual([]);
+    expect(f.github.pullRequestObservations).toBe(1);
+    expect(f.processes.launches).toBe(0);
+  });
+
+  it("renders equivalent candidate and cleanup authority in human and JSON status", async () => {
+    const f = await candidateFixture();
+    const json = await runCli(["status", "5", "--json"], root, f.ports);
+    expect(JSON.parse(json.stdout)).toMatchObject({
+      reconciliation: {
+        decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+        resultAuthority: "recovery_candidate",
+        safeActions: ["retry_finalization"],
+      },
+    });
+    const human = await runCli(["status", "5"], root, f.ports);
+    expect(human.stdout).toContain("Result authority: recovery_candidate");
+    expect(human.stdout).toContain(
+      "Cleanup authority: persisted completion proof only",
+    );
+  });
+
+  it("keeps latest post-wait state distinct from strict candidate recovery", async () => {
+    const f = await candidateFixture();
+    const before = await f.store.load(5);
+    const worker = {
+      ...processIdentity,
+      pid: 500,
+      processGroupId: 500,
+      startToken: "worker-current",
+      executable: "/usr/bin/soft-factory",
+      args: ["internal", "run-agent", "--issue", "5"],
+    };
+    const latest = {
+      ...before,
+      schemaVersion: 5,
+      revision: before.revision + 4,
+      state: "running_rpiv",
+      workerProcess: worker,
+      rpivProcess: processIdentity,
+      progress: {
+        schemaVersion: 1,
+        runId: before.runId,
+        attempt: before.attempt,
+        issueNumber: before.issueNumber,
+        branch: before.branch,
+        sequence: 6,
+        phase: "verify",
+        status: "running",
+        updatedAt: "2026-08-11T13:01:00.000Z",
+      },
+      tmuxIdentityDiagnostic: tmuxDiagnostic,
+    } as unknown as RunSnapshotV5;
+
+    expect(
+      classifyPostWaitState(latest, {
+        runId: latest.runId,
+        ownerId: latest.ownerId,
+        workerProcess: worker,
+        rpivProcess: processIdentity,
+      }),
+    ).toEqual({ kind: "active", snapshot: latest });
+
+    const report = await new IssueRunService(f.ports).reconcile(5, root);
+    expect(report).toMatchObject({
+      decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+      resultAuthority: "recovery_candidate",
+      persisted: {
+        state: "running_rpiv",
+        workerProcess: null,
+        rpivProcess: null,
+      },
+    });
+    expect(report.persisted.revision).not.toBe(latest.revision);
+    const resumed = await new IssueRunService(f.ports).resume(5, root);
+    expect(resumed).toMatchObject({
+      code: "FINALIZATION_RECOVERED",
+      state: "completed",
+      facts: { launched: false },
+    });
+    expect(f.processes.launches).toBe(0);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      attempt: before.attempt,
+    });
+  });
+
+  it("explicitly resumes strict finalization without relaunch or attempt increment", async () => {
+    const f = await candidateFixture();
+    const before = await f.store.load(5);
+    const resumed = await new IssueRunService(f.ports).resume(5, root);
+    expect(resumed).toMatchObject({
+      code: "FINALIZATION_RECOVERED",
+      state: "completed",
+      exitCode: 0,
+      facts: { launched: false },
+    });
+    const completed = await f.store.load(5);
+    expect(completed).toMatchObject({
+      state: "completed",
+      attempt: before.attempt,
+      finalization: { result },
+    });
+    expect(f.processes.launches).toBe(0);
+    expect(f.tmux.trace).not.toContain("restart");
+    expect(
+      (await f.store.loadHistory(5)).filter(
+        (event) =>
+          event.schemaVersion === 2 &&
+          event.reason === "resume-finalization-recovery-candidate",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    ["wrong acceptance binding", { ...result, acceptanceCriteria: [] }],
+    [
+      "wrong final validation binding",
+      {
+        ...result,
+        requiredFinalValidation: {
+          command: "just another",
+          status: "passed" as const,
+          evidence: ["proof"],
+        },
+      },
+    ],
+  ])("fails closed for %s", async (_label, candidateResult) => {
+    const f = await candidateFixture();
+    f.files.values.set(
+      path.join(worktree, ".soft-factory", "agent-result.json"),
+      JSON.stringify(candidateResult),
+    );
+    const resumed = await new IssueRunService(f.ports).resume(5, root);
+    expect(resumed).toMatchObject({ code: "RESUME_REFUSED", exitCode: 4 });
+    expect(resumed.report?.safeActions).toEqual([]);
+    expect(f.github.pullRequestObservations).toBe(0);
+    expect(f.processes.launches).toBe(0);
+    await expect(f.store.load(5)).resolves.toMatchObject({
+      state: "running_rpiv",
+      finalization: null,
+    });
   });
 });
 

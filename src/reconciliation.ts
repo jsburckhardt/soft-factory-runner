@@ -48,30 +48,28 @@ export async function collectReconciliation(input: {
         ? persisted.admission.acquiredAt
         : "",
   };
-  const resultPath = persisted.worktreePath;
   const resultExpected =
     persisted.state === "finalizing" ||
     persisted.state === "completed" ||
     (persisted.schemaVersion !== 1 &&
       persisted.finalization?.result !== null &&
       persisted.finalization?.result !== undefined);
-  const pullRequestNumber =
+  const persistedPullRequestNumber =
     persisted.schemaVersion !== 1
       ? (persisted.finalization?.result?.prNumber ?? null)
       : null;
 
+  // Process and result facts are collected before candidate-keyed Git/remote/GitHub
+  // observations. This is intentional staging, not a retry: every boundary is
+  // still observed at most once.
   const [
     lock,
     lease,
     filesystem,
-    git,
     tmuxResult,
     workerProcess,
     rpivProcess,
     progress,
-    result,
-    remote,
-    github,
   ] = await Promise.all([
     observe(async () => {
       const actual = await store.readOwner(persisted.issueNumber);
@@ -105,26 +103,6 @@ export async function collectReconciliation(input: {
         ? match({ worktreePath: persisted.worktreePath }, "WORKTREE_PATH_MATCH")
         : absent<{ readonly worktreePath: string }>("WORKTREE_PATH_ABSENT"),
     ),
-    observe(async () => {
-      const facts = await ports.git.observeWorktree(
-        repositoryRoot,
-        persisted.worktreePath,
-      );
-      if (!facts.pathExists && !facts.registered)
-        return absent<WorktreeObservationV1>("GIT_WORKTREE_ABSENT", facts);
-      const expectedHead = expectedWorktreeHead(persisted);
-      const preparationClean =
-        persisted.state !== "starting_tmux" || isClean(facts);
-      const agrees =
-        facts.pathExists &&
-        facts.registered &&
-        facts.branch === persisted.branch &&
-        (expectedHead === null || facts.headSha === expectedHead) &&
-        preparationClean;
-      return agrees
-        ? match(facts, "GIT_WORKTREE_MATCH")
-        : mismatch(facts, "GIT_WORKTREE_MISMATCH");
-    }),
     collectTmuxObservation(persisted, ports),
     (persisted.schemaVersion !== 3 &&
       persisted.schemaVersion !== 4 &&
@@ -157,22 +135,64 @@ export async function collectReconciliation(input: {
         return match(facts, facts.classification);
       return mismatch(facts, facts.classification);
     }),
-    observe(async () => {
-      const text = await ports.files.readAgentResult(resultPath);
-      if (text === null)
-        return resultExpected
-          ? absent<AgentResultV1>("RESULT_ABSENT")
-          : notApplicable<AgentResultV1>("RESULT_NOT_REQUIRED");
-      const persistedResult = normalizedPersistedResult(persisted);
-      const parsed = parseObservedResult(text, persisted, persistedResult);
-      const identityMatches =
-        parsed.issueNumber === persisted.issueNumber &&
-        parsed.branch === persisted.branch;
-      if (!resultExpected) return mismatch(parsed, "RESULT_UNEXPECTED");
+  ]);
+
+  const recoveryProcessContext =
+    persisted.schemaVersion === 5 &&
+    persisted.state === "running_rpiv" &&
+    rpivProcess.state === "absent" &&
+    (workerProcess.state === "absent" ||
+      workerProcess.state === "not_applicable");
+  const result = await observe(async () => {
+    const text = await ports.files.readAgentResult(persisted.worktreePath);
+    if (text === null)
+      return resultExpected
+        ? absent<AgentResultV1>("RESULT_ABSENT")
+        : notApplicable<AgentResultV1>("RESULT_NOT_REQUIRED");
+    const persistedResult = normalizedPersistedResult(persisted);
+    const parsed = parseObservedResult(text, persisted, persistedResult);
+    const identityMatches =
+      parsed.issueNumber === persisted.issueNumber &&
+      parsed.branch === persisted.branch;
+    if (resultExpected) {
       if (!identityMatches) return mismatch(parsed, "RESULT_IDENTITY_MISMATCH");
       if (persistedResult !== null && !same(parsed, persistedResult))
         return mismatch(parsed, "RESULT_CONTENT_MISMATCH");
       return match(parsed, "RESULT_MATCH");
+    }
+    if (!recoveryProcessContext) return mismatch(parsed, "RESULT_UNEXPECTED");
+    const candidateCode = recoveryCandidateMismatch(persisted, parsed);
+    return candidateCode === null
+      ? match(parsed, "RESULT_RECOVERY_CANDIDATE")
+      : mismatch(parsed, candidateCode);
+  });
+  const candidate =
+    result.code === "RESULT_RECOVERY_CANDIDATE" ? result.facts : null;
+  const expectedHead = candidate?.headSha ?? completionHead(persisted);
+
+  const [git, remote, github] = await Promise.all([
+    observe(async () => {
+      const facts = await ports.git.observeWorktree(
+        repositoryRoot,
+        persisted.worktreePath,
+      );
+      if (!facts.pathExists && !facts.registered)
+        return absent<WorktreeObservationV1>("GIT_WORKTREE_ABSENT", facts);
+      const preparationHead =
+        persisted.state === "starting_tmux"
+          ? (persisted.fetchedBaseProof?.advertisedHeadSha ?? null)
+          : expectedHead;
+      const preparationClean =
+        persisted.state !== "starting_tmux" || isClean(facts);
+      const agrees =
+        facts.pathExists &&
+        facts.registered &&
+        facts.branch === persisted.branch &&
+        (preparationHead === null || facts.headSha === preparationHead) &&
+        preparationClean;
+      return agrees
+        ? match(facts, "GIT_WORKTREE_MATCH")
+        : mismatch(facts, "GIT_WORKTREE_MISMATCH");
     }),
     persisted.fetchedBaseProof === null
       ? Promise.resolve(
@@ -191,33 +211,67 @@ export async function collectReconciliation(input: {
               "REMOTE_BRANCH_ABSENT",
               { headSha },
             );
-          const expectedHead = completionHead(persisted);
           return expectedHead === null || headSha === expectedHead
             ? match({ headSha }, "REMOTE_BRANCH_MATCH")
             : mismatch({ headSha }, "REMOTE_BRANCH_MISMATCH");
         }),
-    pullRequestNumber === null
-      ? Promise.resolve(
-          notApplicable<MergedPullRequestFactsV1>("PULL_REQUEST_NOT_RECORDED"),
-        )
-      : observe(async () => {
-          const facts = await ports.github.loadMergedPullRequest(
+    candidate !== null
+      ? observe<MergedPullRequestFactsV1>(async () => {
+          const facts = await ports.github.loadPullRequest(
             persisted.repository,
-            pullRequestNumber,
+            candidate.prNumber,
           );
-          if (facts === null)
-            return absent<MergedPullRequestFactsV1>("PULL_REQUEST_ABSENT");
-          const expectedHead = completionHead(persisted);
-          const identityMatches =
-            facts.number === pullRequestNumber &&
-            facts.sourceBranch === persisted.branch &&
-            (expectedHead === null || facts.sourceHeadSha === expectedHead) &&
+          if (facts === null) return absent("PULL_REQUEST_CANDIDATE_ABSENT");
+          const expectedBase = persisted.fetchedBaseProof?.defaultBranch;
+          const eligible =
+            expectedBase !== undefined &&
+            facts.number === candidate.prNumber &&
+            facts.state === "OPEN" &&
+            facts.complete &&
+            facts.baseBranch === expectedBase &&
+            facts.headBranch === persisted.branch &&
+            facts.headSha === candidate.headSha &&
             facts.closesIssues.includes(persisted.issueNumber);
-          return identityMatches
-            ? match(facts, "PULL_REQUEST_MATCH")
-            : mismatch(facts, "PULL_REQUEST_MISMATCH");
-        }),
+          const candidateFacts: MergedPullRequestFactsV1 = {
+            number: facts.number,
+            state: facts.state,
+            mergedAt: null,
+            sourceBranch: facts.headBranch,
+            sourceHeadSha: facts.headSha,
+            mergeCommitSha: null,
+            closesIssues: facts.closesIssues,
+            complete: facts.complete,
+          };
+          return eligible
+            ? match(candidateFacts, "PULL_REQUEST_CANDIDATE_MATCH")
+            : mismatch(candidateFacts, "PULL_REQUEST_CANDIDATE_MISMATCH");
+        })
+      : persistedPullRequestNumber === null
+        ? Promise.resolve(
+            notApplicable<MergedPullRequestFactsV1>(
+              "PULL_REQUEST_NOT_RECORDED",
+            ),
+          )
+        : observe<MergedPullRequestFactsV1>(async () => {
+            const facts = await ports.github.loadMergedPullRequest(
+              persisted.repository,
+              persistedPullRequestNumber,
+            );
+            if (facts === null)
+              return absent<MergedPullRequestFactsV1>("PULL_REQUEST_ABSENT");
+            const completionSha = completionHead(persisted);
+            const identityMatches =
+              facts.number === persistedPullRequestNumber &&
+              facts.sourceBranch === persisted.branch &&
+              (completionSha === null ||
+                facts.sourceHeadSha === completionSha) &&
+              facts.closesIssues.includes(persisted.issueNumber);
+            return identityMatches
+              ? match(facts, "PULL_REQUEST_MATCH")
+              : mismatch(facts, "PULL_REQUEST_MISMATCH");
+          }),
   ]);
+
   const priorDiagnostic =
     persisted.schemaVersion === 5 ? persisted.tmuxIdentityDiagnostic : null;
   const desiredDiagnostic =
@@ -304,6 +358,37 @@ export function buildReconciliationReport(
       diagnostics,
       "Preserve every same-name tmux window; a name, cwd, identity, or process command never proves ownership.",
     );
+  const tmuxMatches = observations.tmux.state === "match";
+  const rpivMatches = observations.rpivProcess.state === "match";
+  const workerReconciled =
+    observations.workerProcess.state === "match" ||
+    observations.workerProcess.state === "not_applicable";
+  const exactActiveOwnership =
+    observations.lock.state === "match" &&
+    observations.lease.state === "match" &&
+    observations.filesystem.state === "match" &&
+    observations.git.state === "match" &&
+    tmuxMatches &&
+    workerReconciled;
+  // A proved active RPIV remains authoritative even if a stale, producer-owned
+  // result artifact is present. It is preserved without accepting that result.
+  if (
+    persisted.state === "running_rpiv" &&
+    rpivMatches &&
+    exactActiveOwnership &&
+    !["unknown", "mismatch"].includes(observations.remote.state) &&
+    !["unknown", "mismatch"].includes(observations.github.state)
+  ) {
+    return report(
+      persisted,
+      observations,
+      "active",
+      "active_preserved",
+      ["preserve_active", "attach", "stop"],
+      [],
+      null,
+    );
+  }
   if (unknown.length > 0)
     return report(
       persisted,
@@ -325,31 +410,36 @@ export function buildReconciliationReport(
       "Preserve contradictory resources, restore exact ownership, and explicitly retry.",
     );
 
-  const tmuxMatches = observations.tmux.state === "match";
-  const rpivMatches = observations.rpivProcess.state === "match";
-  const workerReconciled =
-    observations.workerProcess.state === "match" ||
-    observations.workerProcess.state === "not_applicable";
-  const exactActiveOwnership =
-    observations.lock.state === "match" &&
-    observations.lease.state === "match" &&
-    observations.filesystem.state === "match" &&
-    observations.git.state === "match" &&
-    tmuxMatches &&
-    workerReconciled;
   if (
     persisted.state === "running_rpiv" &&
-    rpivMatches &&
-    exactActiveOwnership
+    observations.result.code === "RESULT_RECOVERY_CANDIDATE"
   ) {
+    const candidateReady =
+      observations.lock.state === "match" &&
+      observations.lease.state === "match" &&
+      observations.filesystem.state === "match" &&
+      observations.git.state === "match" &&
+      observations.result.state === "match" &&
+      observations.remote.state === "match" &&
+      observations.github.state === "match" &&
+      observations.rpivProcess.state === "absent" &&
+      (observations.workerProcess.state === "absent" ||
+        observations.workerProcess.state === "not_applicable") &&
+      (observations.tmux.state === "match" ||
+        (observations.tmux.state === "absent" &&
+          observations.tmux.code === "TMUX_ABSENT"));
     return report(
       persisted,
       observations,
-      "active",
-      "active_preserved",
-      ["preserve_active", "attach", "stop"],
+      candidateReady ? "interrupted" : "blocked",
+      candidateReady
+        ? "FINALIZATION_RECOVERY_AVAILABLE"
+        : "FINALIZATION_RECOVERY_INELIGIBLE",
+      candidateReady ? ["retry_finalization"] : [],
       [],
-      null,
+      candidateReady
+        ? null
+        : "Preserve the unaccepted candidate and restore exact inactive ownership and completion-eligibility proof before explicit resume.",
     );
   }
   if (persisted.state === "running_rpiv") {
@@ -651,6 +741,12 @@ function report(
     activity,
     decisionCode,
     safeActions,
+    resultAuthority:
+      observations.result.code === "RESULT_RECOVERY_CANDIDATE"
+        ? "recovery_candidate"
+        : observations.result.code === "RESULT_MATCH"
+          ? "persisted_completion"
+          : "none",
     diagnostics,
     remediation,
     tmuxIdentityDiagnostic:
@@ -783,6 +879,35 @@ function sameOwner(actual: OwnerRecordV1, expected: OwnerRecordV1): boolean {
     actual.repository === expected.repository
   );
 }
+function recoveryCandidateMismatch(
+  snapshot: RunSnapshotV5,
+  result: AgentResultV1,
+): string | null {
+  if (
+    result.issueNumber !== snapshot.issueNumber ||
+    result.branch !== snapshot.branch
+  )
+    return "RESULT_IDENTITY_MISMATCH";
+  if (result.outcome !== "succeeded") return "RESULT_RECOVERY_INELIGIBLE";
+  const expectedIds = snapshot.requiredAcceptanceCriteria.map(({ id }) => id);
+  const observedIds = result.acceptanceCriteria.map(({ id }) => id);
+  if (
+    !same(expectedIds, observedIds) ||
+    result.acceptanceCriteria.some(
+      ({ status, evidence }) => status !== "verified" || evidence.length === 0,
+    )
+  )
+    return "RESULT_ACCEPTANCE_BINDING_MISMATCH";
+  if (
+    result.requiredFinalValidation.command !==
+      snapshot.requiredFinalValidation.command ||
+    result.requiredFinalValidation.status !== "passed" ||
+    result.requiredFinalValidation.evidence.length === 0
+  )
+    return "RESULT_FINAL_VALIDATION_BINDING_MISMATCH";
+  return null;
+}
+
 function normalizedPersistedResult(
   snapshot: RunSnapshot,
 ): AgentResultV1 | null {
@@ -817,11 +942,6 @@ function completionHead(snapshot: RunSnapshot): string | null {
   return snapshot.schemaVersion !== 1
     ? (snapshot.finalization?.result?.headSha ?? null)
     : null;
-}
-function expectedWorktreeHead(snapshot: RunSnapshot): string | null {
-  if (snapshot.state === "starting_tmux")
-    return snapshot.fetchedBaseProof?.advertisedHeadSha ?? null;
-  return completionHead(snapshot);
 }
 function isClean(facts: WorktreeObservationV1 | null): boolean {
   return (

@@ -218,3 +218,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 165 | Refuse missing, invalid, mismatched, or concurrently advanced post-wait state | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-16 |
 | 166 | Return exact already-terminal post-wait outcomes without appending transitions | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-16 |
 | 167 | Enter finalization or failure only from the exact reloaded current revision | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-16 |
+| 168 | Permit result-candidate finalization recovery only after exact inactive proof | ADR-260811-prototype-three-recovery-concurrency | 2026-08-15 |
+| 169 | Expose strict running-result candidates without bypassing unknown or contradictory boundaries | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-15 |
+| 170 | Use candidate head and PR only for bounded completion observations | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-15 |
+| 171 | Prohibit cleanup from result candidates or absent and malformed tmux evidence | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-15 |

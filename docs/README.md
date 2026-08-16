@@ -2,7 +2,7 @@
 
 Soft Factory Runner is a local, short-lived TypeScript CLI for explicit, isolated, recoverable RPIV issue delivery.
 
-Current local package release: **0.1.2**. The issue-run, recovery, and Doctor paths share a printable vertical-bar identity transport with exactly one terminal LF that supports controlled UTF-8 and non-UTF8 tmux client states while keeping raw values confidential. The Phase 5 guide gives the exact 0.1.1 upgrade/reinstall, installed-package confirmation, and official-manifest reconvergence path without claiming registry publication.
+Current local package release: **0.1.3**. The recovery guide documents both exact post-wait latest-snapshot handling and unaccepted strict-result candidates, including explicit relaunch-free finalization resume, unknown-before-mismatch precedence, and cleanup non-authorization. The issue-run, recovery, and Doctor paths share a printable vertical-bar identity transport with exactly one terminal LF that supports controlled UTF-8 and non-UTF8 tmux client states while keeping raw values confidential. The Phase 5 guide gives the exact 0.1.2 upgrade/reinstall, installed-package confirmation, and official-manifest reconvergence path without claiming registry publication.
 
 ## Guides
 

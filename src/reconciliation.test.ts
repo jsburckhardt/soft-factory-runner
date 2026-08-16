@@ -212,12 +212,21 @@ describe("V-2 full reconciliation matrix", () => {
           state,
         );
         const report = buildReconciliationReport(snapshot, changed);
-        expect(report.decisionCode).toBe(
-          state === "unknown"
-            ? "RECONCILIATION_UNKNOWN"
-            : "RECONCILIATION_MISMATCH",
-        );
-        expect(report.safeActions).toEqual([]);
+        if (boundary === "result") {
+          expect(report.decisionCode).toBe("active_preserved");
+          expect(report.safeActions).toEqual([
+            "preserve_active",
+            "attach",
+            "stop",
+          ]);
+        } else {
+          expect(report.decisionCode).toBe(
+            state === "unknown"
+              ? "RECONCILIATION_UNKNOWN"
+              : "RECONCILIATION_MISMATCH",
+          );
+          expect(report.safeActions).toEqual([]);
+        }
       }
     }
   });

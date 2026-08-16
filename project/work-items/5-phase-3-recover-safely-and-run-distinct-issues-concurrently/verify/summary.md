@@ -1,53 +1,51 @@
-# Verification Summary: Issue #5
+# Verification Summary — Issue #5
 
-## Delivery
+## Verdict
 
-- **Work item:** `5-phase-3-recover-safely-and-run-distinct-issues-concurrently`
-- **Branch:** `feat/5-recover-and-run-concurrently`
-- **Verified implementation commit:** `0abe9f1f13c92904ff83239fbc62afaa5ba31ecc`
-- **Implementation parent:** `89ad0f694cc43f17d25fe8f0ab4366e3f80c3077`
-- **Branch base:** `b7d036b89ca8f634f6fdeee41c4ac4a68c3c09f1` (`origin/main` merge base)
-- **Pull request:** [#14](https://github.com/jsburckhardt/soft-factory-runner/pull/14)
-- **PR base/head:** `main` ← `feat/5-recover-and-run-concurrently`
-- **PR title:** `feat(runner): recover safely and run distinct issues concurrently`
+Accepted. The exact Implement handoff branch fix/5-reconcile-successful-terminal-result at 1f599748276b3567c3b3f77845f5a6be7da589d8 passed independent verification.
 
-The exact Implement handoff branch and SHA were verified with a clean tree before validation. The complete 41-file `origin/main...HEAD` diff and all three implementation commits were reviewed. Scope, architecture, Conventional Commit subjects, required Co-authored-by trailers, and issue alignment passed.
+- Work item: project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently
+- Pull request: https://github.com/jsburckhardt/soft-factory-runner/pull/33
+- PR state at verification: OPEN
+- Main/base reviewed: 61ac7dd21ce02709ba714353c61dfb67a05e390d
+- Integration merge: dbc17347d5916dcdc9d57edad202bc1e8114815c
+- Merge parents: 1b0392df1d594f6b297b3534089b41b5f1c881e9 and 61ac7dd21ce02709ba714353c61dfb67a05e390d
 
-## Acceptance Decisions
+## Acceptance decisions
 
-| ID | Status | Evidence |
-| --- | --- | --- |
-| AC-1 | Passed | `collectReconciliation` emits separate lock, lease, filesystem, Git, tmux, worker/RPIV process, strict result, remote, and GitHub observations; V-2 matrix/collector tests pass. |
-| AC-2 | Passed | Exact compound identity returns `active_preserved`; V-3 preserves attempt 1 with zero launches and adopts only one unambiguous launch candidate. |
-| AC-3 | Passed | Parser/dispatch/common rendering and V-4 cover resume, stop, clean, list, status, attach, logs, and reconcile with equivalent human/JSON facts and stable exits. |
-| AC-4 | Passed | V-5 runs 20 temporary-root concurrency repetitions with distinct issue locks, branches, worktrees, tmux windows/panes, snapshots, and events. |
-| AC-5 | Passed | Strict configuration tests and V-6 races admit exactly two of three explicit issues, roll back only the loser lock, and expose no automatic selector. |
-| AC-6 | Passed | V-9 proves MERGED time plus expected source branch/SHA, one non-forced worktree/lease/lock cleanup, and retained tmux/durable evidence for status/list/reconcile. |
-| AC-7 | Passed | V-7 proves SIGTERM/10s before optional SIGKILL/5s, retained worktree/tmux/log, and ownership/capacity preservation when escalation does not stop the process. |
-| AC-8 | Passed | V-8 refusal matrix produces zero unauthorized destructive calls; all tmux/worktree/lease/lock event-ahead retries and unrelated replacement refusals pass. |
-| AC-9 | Passed | V-10 blocks closed-unmerged, missing, incomplete, unavailable, source-mismatched, and ambiguous ownership evidence while preserving completed state/resources. |
-| AC-10 | Passed | Repeated race/replay fixtures and repeated V-9 calls show no duplicate owner/launch/collision; second automatic cleanup leaves revision, event count, and destructive traces unchanged. |
+- **AC-1 — Passed.** Reconciliation exposes persisted state and lock, lease, filesystem, candidate-head Git, tmux, worker/RPIV, progress, strict result, fresh remote, and GitHub facts. Candidate tests prove one Git/remote/PR call per boundary.
+- **AC-2 — Passed.** Exact active RPIV returns active_preserved. Candidate resume and post-wait suites prove no duplicate launch and no candidate attempt increment.
+- **AC-3 — Passed.** Shared reports and historical tests cover deterministic resume, stop, clean, list, status, attach, and logs behavior.
+- **AC-4 — Passed.** Barrier fixtures prove distinct locks, branches, worktrees, tmux identities, run records, and leases for distinct issues.
+- **AC-5 — Passed.** Capacity races enforce configured explicit-issue admission without automatic issue selection.
+- **AC-6 — Passed.** Automatic cleanup requires persisted completion and exact merged source-head/ownership proof; candidates authorize no cleanup.
+- **AC-7 — Passed.** Stop tests prove SIGTERM, 10-second bound, conditional SIGKILL, 5-second bound, and retained worktree/tmux/log evidence.
+- **AC-8 — Passed.** Candidate, active, dirty, unknown, mismatched, absent-unproved, and malformed-tmux rows remain non-destructive.
+- **AC-9 — Passed.** Closed-unmerged, incomplete, contradictory, unavailable, and ambiguous PR/ownership facts block actionably and preserve resources.
+- **AC-10 — Passed.** Combined post-wait/candidate, interruption, same-issue, distinct-issue, and capacity fixtures pass without duplicate owner, launch, cleanup authorization, or collision.
 
-## Validation Results
+## Validation
 
-- **Direct `just verify`: Passed.** ESLint, Prettier, strict TypeScript, 8 suites/149 tests, coverage, build, and `git diff --check` all passed.
-- **Coverage:** 89.91% statements, 84.07% branches, 96.98% functions, 91.31% lines.
-- **Focused recovery/control:** `just verify-focused -- src/recovery-control.test.ts` passed 42 tests plus diff check.
-- **Harness full:** status `ok`, scope `full`, delegated command `just verify`, exit code 0, 149 tests.
-- **Root command interface:** `verify-focused` and `verify` are exposed by the root `justfile`.
+- **requiredFinalValidation — Passed:** direct just verify exited 0. ESLint, Prettier, strict TypeScript, 24 suites / 601 tests, build, and git diff --check passed. Coverage: 89.21% statements, 85.33% branches, 95.74% functions, 90.88% lines.
+- **Harness full diagnostics — Passed:** status ok, scope full, delegated command just verify, exitCode 0.
+- **Package proof — Passed:** npm pack produced soft-factory-runner-0.1.3.tgz with 71 entries; tar metadata and clean-prefix installation reported soft-factory-runner 0.1.3 with soft-factory mapped to dist/index.js and no runtime dependencies. The tarball and temporary prefix were removed.
+- **History/commits — Passed:** normal two-parent merge ancestry was verified; all seven commits after main use Conventional Commit subjects and the required Copilot Co-authored-by trailer. No force push was used.
+- **Decision log — Passed:** IDs 1–171 are complete and unique; 163–167 exactly preserve main and 168–171 contain the dated candidate-recovery decisions.
 
-## Scope, Architecture, and Documentation
+## Scope, architecture, and documentation
 
-- **Scope:** Passed. Changes are limited to Issue #5 recovery, explicit concurrency, control/cleanup behavior, tests, architecture, documentation, and RPIV evidence.
-- **Architecture:** Passed. The diff conforms to ADR-260811-prototype-three-recovery-concurrency and the run-reconciliation, concurrent-admission, and owned-cleanup core-components without weakening completion proof.
-- **Documentation:** Passed. README/setup, CLI/API applicability, configuration, usage, migration, architecture, operational runbook, and deployment categories were inspected. The docs accurately state unchanged-input idempotency, automatic tmux retention, same-owner/run progress, explicit tmux removal, local short-lived operation, no daemon, and no network API.
+The complete 38-file diff against main was inspected, including merge parents, all Research/Plan/Implementation artifacts, ADR/core-components/DECISION-LOG, source/tests, README/docs/release/package surfaces, PR #33, Issue #5, root justfile, and PR template. Scope and architecture conform to the approved plan.
 
-## Verifier Friction and Retro Harvest
+Application documentation passed. README, docs index, Phase 1 issue-run guide, Phase 3 recovery operations, Phase 5 official-assets guide, ADR, and core-components accurately describe post-wait latest-state safety, strict candidate authority, active precedence, relaunch-free explicit resume, cleanup non-authorization, and local 0.1.2-to-0.1.3 upgrade/install/reconvergence. No network API/specification, configuration default, persistence schema, database migration, service, container, or deployment procedure changed.
 
-- Seven pending verifier observations from blocked and continuation passes were read, persisted, read back, and only then cleared.
-- **Verifier retro:** `.harness/records/retro/2026-08-11/026-issue-5-rpiv-verifier.md`
-- **Harvest:** Passed with schema `harness.retro-insights/v1`, 8 records, 29 entries, plan scope `5-phase-3-recover-safely-and-run-distinct-issues-concurrently`, agents `rpiv`, `rpiv-research`, `rpiv-planner`, `rpiv-implementer`, and `rpiv-verifier`, no malformed/unsupported records, and zero pending buffered observations.
+## RPIV retro harvest
 
-## GitHub Updates
+Verifier observations were persisted in .harness/records/retro/2026-08-16/008-issue-5-rpiv-verifier.md and cleared only after read-back. The final plan-scoped harvest passed with schema harness.retro-insights/v1: 21 records, 64 entries, five agents, 60 open / 1 suggested / 3 encoded lifecycle statuses, no malformed or unsupported records, and zero pending observations.
 
-Issue #5 retains exactly one acceptance marker block with all 10 criteria checked. PR #14 was created against `main` from the verified feature branch with every AC status/evidence, documentation verdict, validation results, architecture references, and retro harvest summary.
+## GitHub
+
+Issue #5 already contained exactly one acceptance marker block with all ten criteria checked. PR #33 title and body were updated with SemVer 0.1.3, every AC result/evidence item, documentation verdict, validation/package evidence, decision/history proof, and retro harvest.
+
+## Immutable result publication
+
+Blocked at coordinator boundary: no injected no-clobber publication helper or requiredFinalValidation binding was available. The verifier preserved the existing artifact and did not read or alter Runner snapshots. Repository acceptance, final validation, push, and PR delivery passed; coordinator publication must be retried with the required injected interface. This is recorded in .harness/records/retro/2026-08-16/009-issue-5-rpiv-verifier-publication-binding-final.md.

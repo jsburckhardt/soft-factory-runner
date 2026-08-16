@@ -10,6 +10,8 @@ Prototype 2 can prove completion for one owned issue, but the persisted snapshot
 
 The architecture must settle process identity, the active-run counting boundary, event replay, resume outcomes, bounded stop escalation, terminal evidence retention, merged-head meaning, automatic cleanup scope, and transient observation behavior. These choices cross locks, files, Git, tmux, processes, result artifacts, remote Git, and GitHub and must remain deterministic when facts are absent, contradictory, or unavailable.
 
+A post-delivery interruption exposed one additional boundary: a run can remain durably `running_rpiv` after RPIV exits and the worker is absent or was never recorded while a strict immutable successful result already exists. Treating that artifact only as `RESULT_UNEXPECTED` suppresses its PR-number lookup and leaves fresh remote and GitHub contradictions unobserved. Mutable terminal progress does not close this gap, and malformed or absent tmux evidence cannot be promoted into ownership or cleanup proof.
+
 ## Decision
 
 Extend the existing command/domain/adapter architecture with one reconciliation and control plane governed by `CORE-COMPONENT-260811-run-reconciliation-control`, atomic admission governed by `CORE-COMPONENT-260811-concurrent-run-admission`, and destructive operations governed by `CORE-COMPONENT-260811-owned-resource-cleanup`.
@@ -29,6 +31,10 @@ Define command behavior as follows:
 - `resume` preserves a matching active process without incrementing the attempt. It continues an exactly owned partial preparation, retries finalization without RPIV when completion input exists, or increments the attempt and launches in the same owned worktree for an interrupted execution with no completion input. It is an idempotent no-op for `completed` and refuses `failed`, `blocked`, `cancelled`, legacy-unmigratable, mismatched, and ambiguous states.
 - `status` and `list` may persist reconciliation transitions and perform eligible automatic merged cleanup. `attach` requires an exact recorded tmux target. `logs` returns redacted retained attempt transcripts and, when exact and live, a bounded current pane capture.
 - `stop` signals only an exact matching RPIV process group, requests `SIGTERM`, waits at most 10 seconds, then sends `SIGKILL` and waits at most 5 additional seconds. It records whether escalation occurred, persists `cancelled`, captures terminal output before and after signaling, and preserves the worktree and tmux evidence. A terminal or already absent process returns an idempotent already-stopped outcome; ambiguity blocks all signals.
+
+For persisted `running_rpiv` with RPIV proved absent and the worker is absent or not recorded, recognize a strict successful result at the owned immutable path as a recovery candidate, not as an accepted result. The candidate must match persisted issue, branch, acceptance set, and final-validation binding before its head SHA and PR number may key one bounded local Git, fresh remote, and GitHub observation. Those candidate values are query inputs only: they do not mutate the snapshot, prove completion, authorize cleanup, or override an unknown or contradictory boundary.
+
+Expose `FINALIZATION_RECOVERY_AVAILABLE` only when lock, lease, filesystem, candidate-head worktree, result, fresh remote, and completion-eligible open GitHub identity all match; RPIV is absent and the worker is absent or not recorded; and tmux is either exactly matched or proved absent. Malformed tmux remains unknown, mismatched tmux remains contradictory, and either blocks mutation. A valid absent tmux target may permit only explicit `resume` into `finalizing`; it never proves ownership or cleanup eligibility. `resume` persists the event-before-snapshot transition and invokes existing finalization without launching RPIV or incrementing the attempt. Progress remains non-authorizing for every branch of this decision.
 
 Retain one redacted terminal transcript per attempt at `.soft-factory/logs/<issue>/<attempt>.log`. Capture the bounded tmux history before and after stop and before explicit tmux cleanup, mark truncation explicitly, cap each retained transcript at 2 MiB, and keep snapshots, events, and transcripts after cleanup. Configure issue panes to remain after process exit. No Prototype 3 command purges retained evidence.
 
@@ -63,6 +69,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 ### Negative
 - Snapshot and event payloads become larger and require explicit version migration.
 - Conservative unknown observations and stale leases can block progress until an operator restores proof.
+- Recovery-candidate observation requires staged result parsing before dependent Git, remote, and GitHub queries while retaining one call per boundary.
 - Status and list are reconciliation-capable and may perform narrowly scoped automatic merged cleanup.
 - Process observation needs platform-specific typed adapters for start tokens, process groups, and lineage.
 - Post-wait callers must distinguish active exact handling, terminal idempotence, and typed refusal paths.

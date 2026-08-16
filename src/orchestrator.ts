@@ -945,6 +945,8 @@ export class IssueRunService {
         },
       );
     const allowedResumeDecision =
+      (persisted.state === "running_rpiv" &&
+        report.decisionCode === "FINALIZATION_RECOVERY_AVAILABLE") ||
       (persisted.state === "finalizing" &&
         report.decisionCode === "FINALIZATION_RETRY_AVAILABLE") ||
       (persisted.state === "interrupted" &&
@@ -962,7 +964,12 @@ export class IssueRunService {
         report,
         "Resume requires the exact allowed reconciliation decision; unknown, mismatched, or blocked facts must be restored first.",
       );
-    if (report.decisionCode === "FINALIZATION_RETRY_AVAILABLE") {
+    if (
+      report.decisionCode === "FINALIZATION_RETRY_AVAILABLE" ||
+      report.decisionCode === "FINALIZATION_RECOVERY_AVAILABLE"
+    ) {
+      const recoveryCandidate =
+        report.decisionCode === "FINALIZATION_RECOVERY_AVAILABLE";
       const finalizing =
         persisted.state === "finalizing"
           ? persisted
@@ -970,7 +977,9 @@ export class IssueRunService {
               store,
               persisted,
               { state: "finalizing" },
-              "resume-finalization",
+              recoveryCandidate
+                ? "resume-finalization-recovery-candidate"
+                : "resume-finalization",
             );
       const finalized = await this.finalize(finalizing, repository, store);
       const finalReport = await collectReconciliation({
@@ -982,7 +991,7 @@ export class IssueRunService {
       return outcome(
         issueNumber,
         finalized.state,
-        "FINALIZATION_RETRIED",
+        recoveryCandidate ? "FINALIZATION_RECOVERED" : "FINALIZATION_RETRIED",
         finalized.state === "completed" ? 0 : 4,
         finalReport,
         {

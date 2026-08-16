@@ -62,6 +62,9 @@ export function renderReport(
     report.activity +
     ")\nObservations: " +
     observations +
+    "\nResult authority: " +
+    report.resultAuthority +
+    "\nCleanup authority: persisted completion proof only; recovery candidates, progress, and absent or malformed tmux evidence are non-authorizing" +
     "\nSafe actions: " +
     actions +
     "\nDiagnostics: " +
