@@ -1,0 +1,106 @@
+src/orchestration.test.ts
+  s_574eed791b016f::t_6e3757578da1e5 1716-1729
+  s_574eed791b016f::t_d712f613fdb359 1940-1947
+  s_574eed791b016f::t_0211bd88e58d73 4,15,43,49,279,308,344-347,353-364,414-415
+  s_574eed791b016f::t_b869f8eb83b73f 1705-1715,1730-1939,1948-2015
+project/architecture/core-components/CORE-COMPONENT-260811-completion-evidence-reconciliation.md
+  s_fa4c002991ccd2::t_20193f81e68d85 24,47-48
+docs/phase-5-official-assets.md
+  s_574eed791b016f::t_52926ceec7c193 34,36,40-41,43,47,56,69
+docs/README.md
+  s_574eed791b016f::t_52926ceec7c193 5
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/03-test-plan.md
+  s_fa4c002991ccd2::t_ff58eb627e1439 1-176
+src/post-wait.test.ts
+  s_574eed791b016f::t_6482dd48c4402f 1-100,108-118,120-132
+  s_574eed791b016f::t_d712f613fdb359 101-107,119
+src/asset-cli.test.ts
+  s_574eed791b016f::t_52926ceec7c193 50,208-209,231,240,282,290,327
+src/errors.ts
+  s_574eed791b016f::t_b7cf0ebef53976 50
+src/documentation.test.ts
+  s_574eed791b016f::t_32ae166e77d031 1038,1121-1159
+  s_574eed791b016f::t_52926ceec7c193 1095,1097,1100
+  s_574eed791b016f::t_19e4fc7050293b 1160
+package.json
+  s_574eed791b016f::t_52926ceec7c193 3
+src/official-assets.test.ts
+  s_574eed791b016f::t_52926ceec7c193 66-67,107-110
+docs/phase-3-recovery-operations.md
+  s_574eed791b016f::t_52926ceec7c193 105-110,163
+src/official-assets.ts
+  s_574eed791b016f::t_52926ceec7c193 3
+.harness/records/retro/2026-08-16/003-issue-34-rpiv-research.md
+  s_574eed791b016f::t_f19c8e1e3e7ec7 1-6,9,14-16,24,71-72,74
+  s_574eed791b016f::t_063c0df31f4b6b 7-8,10-13,17-23,25-70,73,75
+.harness/records/retro/2026-08-16/002-issue-34-rpiv-implementer.md
+  s_574eed791b016f::t_063c0df31f4b6b 7-8,10-13,17-23,25-98,101,103
+  s_574eed791b016f::t_f19c8e1e3e7ec7 1-6,9,14-16,24,99-100,102
+src/post-wait.ts
+  s_574eed791b016f::t_b7cf0ebef53976 1-72
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/01-action-plan.md
+  s_fa4c002991ccd2::t_07b8d0ef609cca 1-47
+project/work-items/34-reload-current-run-state-after-copilot-exits/plan/02-task-breakdown.md
+  s_574eed791b016f::t_655c64dd735a7c 100
+  s_fa4c002991ccd2::t_246b365d3a3862 1-4,6-28,30-53,55-77,79-99,101-118
+  s_574eed791b016f::t_08e06aa81fb3fd 5
+  s_574eed791b016f::t_82bebd95db9bd6 29,54
+  s_574eed791b016f::t_e7cf91c186e70b 78
+project/work-items/34-reload-current-run-state-after-copilot-exits/research/00-research.md
+  s_6da7ec42db9db6::t_7ed950cfc0ad62 1-82
+project/architecture/ADR/ADR-260811-prototype-three-recovery-concurrency.md
+  s_fa4c002991ccd2::t_20193f81e68d85 19-20,60,68,78
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_fa4c002991ccd2::t_20193f81e68d85 24-27,40,47
+project/work-items/34-reload-current-run-state-after-copilot-exits/implementation/00-implementation.md
+  s_574eed791b016f::t_655c64dd735a7c 1-70
+src/orchestrator.ts
+  s_574eed791b016f::t_c8d7985f444a53 39-43,511,513,529-568,571-576,578-583,586-590,592-620,625-639
+  s_574eed791b016f::t_d712f613fdb359 577
+  s_574eed791b016f::t_4b827a4f4f58cb 640
+project/architecture/ADR/DECISION-LOG.md
+  s_fa4c002991ccd2::t_0b2cebe1e8b5ad 216-220
+docs/phase-1-issue-run.md
+  s_574eed791b016f::t_52926ceec7c193 116-119,122,156-157,168
+  s_574eed791b016f::t_32ae166e77d031 120-121
+README.md
+  s_574eed791b016f::t_52926ceec7c193 23,25,29-30,32,36,43,79
+  s_574eed791b016f::t_32ae166e77d031 68-69
+.harness/records/retro/2026-08-16/001-issue-34-rpiv-planner-post-wait-plan.md
+  s_fa4c002991ccd2::t_116f83e97d2738 1-6,9,14-16,24,57-58,60
+  s_fa4c002991ccd2::t_8983468357b184 7-8,10-13,17-23,25-56,59,61
+package-lock.json
+  s_574eed791b016f::t_214acfdc80d096 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ab7f2f275da6e926ee52334e50766b60ceaf46f5",
+  "prompts": {},
+  "sessions": {
+    "s_574eed791b016f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_P0syTjW08S3uaaE3iFzM10TT",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_6da7ec42db9db6": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_SYsW2AlZ3X2gIyUcQDCx8nXZ",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_fa4c002991ccd2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_fs2cey6ArD9C1BpoapKaOOSb",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
