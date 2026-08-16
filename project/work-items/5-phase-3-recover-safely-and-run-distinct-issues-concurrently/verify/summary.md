@@ -1,47 +1,47 @@
 # Verification Summary — Issue #5
 
-- **Work item:** `project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently`
-- **Branch:** `fix/5-reconcile-successful-terminal-result`
-- **Implementation commit:** `5122131cf0252bc170d1dc039e42e9e81f4a91ea`
-- **Base:** `84e4cac48641b5a4ef5d9450daa3a8580726bb37` (`origin/main` merge base)
-- **Pull request:** https://github.com/jsburckhardt/soft-factory-runner/pull/33
-- **Verdict:** Accepted
+## Verdict
+
+Accepted. The exact Implement handoff branch fix/5-reconcile-successful-terminal-result at 1f599748276b3567c3b3f77845f5a6be7da589d8 passed independent verification.
+
+- Work item: project/work-items/5-phase-3-recover-safely-and-run-distinct-issues-concurrently
+- Pull request: https://github.com/jsburckhardt/soft-factory-runner/pull/33
+- PR state at verification: OPEN
+- Main/base reviewed: 61ac7dd21ce02709ba714353c61dfb67a05e390d
+- Integration merge: dbc17347d5916dcdc9d57edad202bc1e8114815c
+- Merge parents: 1b0392df1d594f6b297b3534089b41b5f1c881e9 and 61ac7dd21ce02709ba714353c61dfb67a05e390d
 
 ## Acceptance decisions
 
-- **AC-1 — Passed:** `collectReconciliation` reports lock, lease, filesystem, candidate-head Git, tmux, worker/RPIV, progress, strict result, fresh remote, and candidate-number PR facts. Composite V-13 tests assert repeated terminal progress, candidate querying, remote divergence visibility, and one call per Git/remote/PR boundary.
-- **AC-2 — Passed:** Exact active RPIV precedence returns `active_preserved`; candidate finalization records zero process launches and unchanged attempt.
-- **AC-3 — Passed:** Shared human/JSON reports expose stable candidate, authority, action, refusal, and remediation semantics; historical command suites cover resume, stop, clean, list, status, attach, and logs.
-- **AC-4 — Passed:** Existing barrier-controlled distinct-issue fixtures prove disjoint locks, branches, worktrees, tmux identities, run records, and launch snapshots.
-- **AC-5 — Passed:** Atomic capacity tests admit exactly two of three explicit issues, roll back only the loser, and perform no automatic issue selection.
-- **AC-6 — Passed:** Candidate reports expose no cleanup action; existing merged cleanup requires accepted persisted completion plus exact immutable PR source-head and ownership proof.
-- **AC-7 — Passed:** V-7 proves SIGTERM, bounded 10-second wait, conditional SIGKILL, 5-second wait, and retained worktree/tmux/log evidence.
-- **AC-8 — Passed:** Malformed tmux remains unknown; proved absence permits only explicit recovery; candidate/progress/tmux facts do not authorize cleanup; active, dirty, unknown, and mismatched cleanup paths are non-destructive.
-- **AC-9 — Passed:** Divergent candidate remote/PR evidence and closed-unmerged, missing, unavailable, or mismatched merge proof block with actionable remediation and preserve resources.
-- **AC-10 — Passed:** Composite and historical interruption/concurrency fixtures pass deterministically with bounded observations, zero duplicate launch/owner, and no resource collision.
-
-## Composite incident evidence
-
-The committed V-13–V-16 fixture starts from `running_rpiv`, absent exact worker/RPIV, terminal repeated progress, and a strict successful result with PR/head. Exact or proved-absent tmux plus matching candidate Git/remote/open PR yields only `FINALIZATION_RECOVERY_AVAILABLE`; explicit resume performs the event-before-snapshot `finalizing` transition, keeps attempt unchanged, launches no worker/RPIV, and invokes strict finalization. Malformed tmux remains `RECONCILIATION_UNKNOWN`; a different remote head remains visible as `REMOTE_BRANCH_MISMATCH`; candidate, progress, absent tmux, and malformed tmux never authorize cleanup.
+- **AC-1 — Passed.** Reconciliation exposes persisted state and lock, lease, filesystem, candidate-head Git, tmux, worker/RPIV, progress, strict result, fresh remote, and GitHub facts. Candidate tests prove one Git/remote/PR call per boundary.
+- **AC-2 — Passed.** Exact active RPIV returns active_preserved. Candidate resume and post-wait suites prove no duplicate launch and no candidate attempt increment.
+- **AC-3 — Passed.** Shared reports and historical tests cover deterministic resume, stop, clean, list, status, attach, and logs behavior.
+- **AC-4 — Passed.** Barrier fixtures prove distinct locks, branches, worktrees, tmux identities, run records, and leases for distinct issues.
+- **AC-5 — Passed.** Capacity races enforce configured explicit-issue admission without automatic issue selection.
+- **AC-6 — Passed.** Automatic cleanup requires persisted completion and exact merged source-head/ownership proof; candidates authorize no cleanup.
+- **AC-7 — Passed.** Stop tests prove SIGTERM, 10-second bound, conditional SIGKILL, 5-second bound, and retained worktree/tmux/log evidence.
+- **AC-8 — Passed.** Candidate, active, dirty, unknown, mismatched, absent-unproved, and malformed-tmux rows remain non-destructive.
+- **AC-9 — Passed.** Closed-unmerged, incomplete, contradictory, unavailable, and ambiguous PR/ownership facts block actionably and preserve resources.
+- **AC-10 — Passed.** Combined post-wait/candidate, interruption, same-issue, distinct-issue, and capacity fixtures pass without duplicate owner, launch, cleanup authorization, or collision.
 
 ## Validation
 
-- Root command interface: `verify-focused` and `verify` present.
-- Independent `just verify`: **passed**.
-- Lint, Prettier, strict type-check, 23/23 suites and 566/566 tests, build, and `git diff --check`: passed.
-- Coverage: 89.23% statements, 85.36% branches, 95.88% functions, 90.88% lines.
-- SemVer: package, lock root/package, official asset catalog, packed/installed metadata tests, manifests/fixtures, README, and guides agree on `0.1.2`; dependency metadata did not churn.
+- **requiredFinalValidation — Passed:** direct just verify exited 0. ESLint, Prettier, strict TypeScript, 24 suites / 601 tests, build, and git diff --check passed. Coverage: 89.21% statements, 85.33% branches, 95.74% functions, 90.88% lines.
+- **Harness full diagnostics — Passed:** status ok, scope full, delegated command just verify, exitCode 0.
+- **Package proof — Passed:** npm pack produced soft-factory-runner-0.1.3.tgz with 71 entries; tar metadata and clean-prefix installation reported soft-factory-runner 0.1.3 with soft-factory mapped to dist/index.js and no runtime dependencies. The tarball and temporary prefix were removed.
+- **History/commits — Passed:** normal two-parent merge ancestry was verified; all seven commits after main use Conventional Commit subjects and the required Copilot Co-authored-by trailer. No force push was used.
+- **Decision log — Passed:** IDs 1–171 are complete and unique; 163–167 exactly preserve main and 168–171 contain the dated candidate-recovery decisions.
 
-## Scope, architecture, commits, and documentation
+## Scope, architecture, and documentation
 
-The complete 30-file branch diff was reviewed. Changes remain within planned candidate reconciliation/finalization, tests, release metadata, architecture, work-item evidence, and documentation scope. ADR-260811 and the reconciliation, completion-evidence, cleanup, tmux, persistence, locking, RPIV-handoff, and SemVer core-components are respected. Decision-log records 163–166 are present. The implementation commit is Conventional Commit compliant and includes the required Copilot co-author trailer.
+The complete 38-file diff against main was inspected, including merge parents, all Research/Plan/Implementation artifacts, ADR/core-components/DECISION-LOG, source/tests, README/docs/release/package surfaces, PR #33, Issue #5, root justfile, and PR template. Scope and architecture conform to the approved plan.
 
-Documentation passed: README, docs index, Phase 3 recovery operations, and Phase 5 official-assets guidance match committed behavior and 0.1.2 upgrade/reinstall. API reference/specification, configuration migration, database migration, service/container deployment, and operational deployment changes are concretely not applicable because this remains a short-lived local CLI and the correction adds no option/default or network interface.
+Application documentation passed. README, docs index, Phase 1 issue-run guide, Phase 3 recovery operations, Phase 5 official-assets guide, ADR, and core-components accurately describe post-wait latest-state safety, strict candidate authority, active precedence, relaunch-free explicit resume, cleanup non-authorization, and local 0.1.2-to-0.1.3 upgrade/install/reconvergence. No network API/specification, configuration default, persistence schema, database migration, service, container, or deployment procedure changed.
 
 ## RPIV retro harvest
 
-Verifier observations were persisted with schema 1.2 and exact plan ID in `.harness/records/retro/2026-08-15/015-issue-5-rpiv-verifier.md` , `.harness/records/retro/2026-08-15/016-issue-5-rpiv-verifier-publication-binding.md`, and `.harness/records/retro/2026-08-15/017-issue-5-rpiv-verifier-pr-head-confirmation.md`, read back, then the buffer was cleared successfully. `harness retro insights --plan 5-phase-3-recover-safely-and-run-distinct-issues-concurrently --json` passed with schema `harness.retro-insights/v1`: 15 records, 45 entries, five agents, 41 open / 1 suggested / 3 encoded lifecycle statuses, no malformed records, and zero pending buffer entries.
+Verifier observations were persisted in .harness/records/retro/2026-08-16/008-issue-5-rpiv-verifier.md and cleared only after read-back. The final plan-scoped harvest passed with schema harness.retro-insights/v1: 20 records, 63 entries, five agents, 59 open / 1 suggested / 3 encoded lifecycle statuses, no malformed or unsupported records, and zero pending observations.
 
-## Final-result binding
+## GitHub
 
-Direct repository validation evidence is `just verify` passed. No issue-5 injected no-clobber publication command or snapshotted final-validation binding was exposed in this verifier or parent process environment. Runner snapshots were not read or changed and no binding was fabricated. Immutable AgentResultV1 publication therefore remains blocked pending coordinator injection, as recorded in verifier retro 016.
+Issue #5 already contained exactly one acceptance marker block with all ten criteria checked. PR #33 title and body were updated with SemVer 0.1.3, every AC result/evidence item, documentation verdict, validation/package evidence, decision/history proof, and retro harvest.
