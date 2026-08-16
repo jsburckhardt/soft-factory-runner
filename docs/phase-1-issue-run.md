@@ -113,7 +113,13 @@ All fields are required. Issue and PR numbers are positive; the SHA is full hexa
 
 ## Finalization and false-completion protection
 
-A nonzero Copilot exit becomes `failed` and cannot be overridden by an artifact. A zero exit first persists `finalizing`; it is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
+After the launched Copilot wait resolves, Runner strictly reloads the current snapshot and contiguous history before any exit transition. It proceeds only when the current v5 `running_rpiv` run ID, owner ID, complete worker identity, and complete RPIV identity match the pre-wait run and the exact process whose exit was awaited. A zero exit enters `finalizing` from that latest revision; a nonzero exit becomes `failed` with the observed code in history and cannot be overridden by an artifact. Concurrently accepted research, plan, implement, verify, terminal progress, immutable result bytes, and retained tmux diagnostics remain unchanged and ordered.
+
+Missing, invalid, run-mismatched, owner-mismatched, worker-mismatched, or RPIV-mismatched current state returns `POST_WAIT_STATE_REFUSED` with reason `missing`, `invalid`, `run_mismatch`, `owner_mismatch`, `worker_mismatch`, or `rpiv_mismatch`. If another writer advances after reload but before save, the store preserves the newer revision and returns reason `state_advanced`. These refusals append no fallback terminal event, release no ownership, relaunch no Copilot process, and overwrite no accepted result or diagnostic. If the exact matching current run is already terminal, repeated handling returns that existing outcome without another launch, exit, finalization, lease-release, or terminal transition.
+
+This backward-compatible correction adds no network API or API specification, configuration option/default, snapshot/result/event schema, database or data migration, service, container, or deployment/runtime procedure. Existing persisted v5 data needs no migration.
+
+A zero exit is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
 
 - worktree `HEAD` and the selected remote issue-branch SHA from one authoritative `git ls-remote --refs <selected-remote> refs/heads/<issue-branch>` query;
 - the reported pull request by number, including open state, expected base, head branch, head SHA, and closing-issue links;
@@ -147,7 +153,8 @@ Human and `--json` status derive from the same snapshot and reconciliation facts
 | Code | Meaning | Operator action |
 | --- | --- | --- |
 | `ISSUE_ALREADY_OWNED`, `RESOURCE_OWNERSHIP_UNKNOWN` | Ownership cannot be proven | Preserve resources and inspect status. |
-| `STATE_NOT_FOUND`, `STATE_INVALID` | Snapshot is absent, malformed, or unsupported | Preserve it and migrate with a supported version. |
+| `STATE_NOT_FOUND`, `STATE_INVALID` | Snapshot is absent, malformed, or unsupported before execution | Preserve it and migrate with a supported version. |
+| `POST_WAIT_STATE_REFUSED` | Current post-wait state is missing, invalid, identity-mismatched, or advanced after reload | Preserve current history and evidence; inspect the closed `reason`, restore exact identity if possible, and use an explicit later reconciliation or retry. |
 | `RESULT_MISSING`, `RESULT_INVALID`, `RESULT_VERSION_UNSUPPORTED` | Owned result proof is absent or invalid | Emit one strict schema-version-1 artifact. |
 | `COMPLETION_PROOF_INCOMPLETE` | Git or GitHub completion facts are unavailable or malformed | Restore the named observation and start a new bounded attempt. |
 | `RESULT_*_MISMATCH`, `PR_*_MISMATCH` | Identity, branch, SHA, or PR evidence contradicts the run | Reconcile the exact expected and observed facts. |
@@ -158,7 +165,7 @@ Human and `--json` status derive from the same snapshot and reconciliation facts
 
 ## Deterministic evidence fixtures
 
-`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves the operation trace from zero exit through `finalizing` to `completed` and invalid-artifact interruption. `src/tmux-identity.test.ts` proves the exact six-byte zero-exit no-HT creation record, explicit UTF-8/non-UTF8 rows and repeats, first-two-separator cwd retention, the closed malformed matrix, normal overlap, byte/count caps, and sentinel confidentiality through a protocol-aware controlled adapter without live tmux or ambient locale. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
+`src/completion.test.ts` proves strict artifact parsing, successful pure reconciliation, every isolated mismatch, all terminal states, v1/v2 compatibility, and event-before-snapshot failure behavior. `src/orchestration.test.ts` proves bounded held-wait zero/nonzero advances, exact identity refusals, terminal idempotence, the reload/save race, the operation trace from zero exit through `finalizing` to `completed`, and invalid-artifact interruption. `src/tmux-identity.test.ts` proves the exact six-byte zero-exit no-HT creation record, explicit UTF-8/non-UTF8 rows and repeats, first-two-separator cwd retention, the closed malformed matrix, normal overlap, byte/count caps, and sentinel confidentiality through a protocol-aware controlled adapter without live tmux or ambient locale. `src/integration.test.ts` uses temporary Git roots, an argument-recording command adapter, and fake credential-free `gh` executables. Its named stale-cache divergence fixture leaves `refs/remotes/origin/<issue-branch>` at SHA A while a second repository advances the actual remote to SHA B, proves the live adapter observes B, rejects stale result/local/PR SHA A with `RESULT_REMOTE_SHA_MISMATCH`, and retains a matching authoritative control that completes. Coverage remains at least 80% for statements, branches, functions, and lines.
 
 Run:
 

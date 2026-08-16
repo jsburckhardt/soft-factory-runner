@@ -1055,7 +1055,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issue 31 portable tmux and 0.1.2 user guidance", () => {
+describe("Issues 5 and 34 combined recovery safety and 0.1.2 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1136,5 +1136,45 @@ describe("Issue 31 portable tmux and 0.1.2 user guidance", () => {
       "no `--version` command",
     ])
       expect(readme + assetGuide + docsIndex).toContain(phrase);
+  });
+});
+
+describe("Issue 34 post-wait operator contract", () => {
+  it("documents reload identity, refusal, preservation, race, and idempotence", () => {
+    for (const phrase of [
+      "reloads the strict current snapshot",
+      "run ID, owner ID, complete worker identity, and complete RPIV identity",
+      "POST_WAIT_STATE_REFUSED",
+      "run_mismatch",
+      "owner_mismatch",
+      "worker_mismatch",
+      "rpiv_mismatch",
+      "state_advanced",
+      "no stale fallback save",
+      "idempotent",
+    ])
+      expect(readme + issueRun + operations).toContain(phrase);
+    for (const phrase of [
+      "progress",
+      "immutable result",
+      "retained diagnostic",
+      "duplicate launch",
+      "result overwrite",
+    ])
+      expect(readme + issueRun + operations).toContain(phrase);
+  });
+
+  it("states the no-impact migration and deployment scope", () => {
+    for (const phrase of [
+      "network API",
+      "configuration",
+      "snapshot schema",
+      "database",
+      "data migration",
+      "service",
+      "container",
+      "deployment",
+    ])
+      expect(readme + issueRun).toContain(phrase);
   });
 });

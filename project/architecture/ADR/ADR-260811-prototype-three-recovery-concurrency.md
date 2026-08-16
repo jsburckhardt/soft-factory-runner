@@ -18,6 +18,8 @@ Extend the existing command/domain/adapter architecture with one reconciliation 
 
 Introduce `RunSnapshotV3` with a monotonic revision, attempt number, concurrency lease, worker and RPIV process identities, launch intent, stop facts, cleanup facts, retained-log references, and merged-pull-request cleanup facts. Introduce `TransitionEventV2` with the prior and resulting revisions plus the complete redacted resulting snapshot. Continue reading valid snapshot versions 1 and 2 and event version 1, but upgrade them only through an explicit version 3 reconciliation transition. Replay only a contiguous, identity-matching version 2 event chain ahead of the snapshot; malformed, conflicting, legacy-ahead, or noncontiguous history blocks mutation.
 
+After a launched Copilot process wait resolves, reload and strictly parse the durable current snapshot before deriving any post-exit transition. Continue only when schema, active state, run ID, owner ID, complete worker identity, and complete RPIV process identity equal the pre-wait run and the exact process whose exit was awaited. Treat a missing, invalid, or mismatched reload as a typed `POST_WAIT_STATE_REFUSED` result with a closed reason; do not launch, transition, release ownership, or mutate accepted evidence. If the exact current run is already terminal, return its existing outcome idempotently after run, owner, and worker identity checks without requiring a now-cleared active RPIV field and without appending history. A zero exit from an exact active reload enters strict finalization; a nonzero exit appends the observed exit and failed state. Keep `RunStore.save` as the final compare-and-append boundary: an advance after reload is translated to the same typed refusal with reason `state_advanced`, and the worker must not attempt a fallback terminal save from its stale object.
+
 Represent each external observation as `match`, `absent`, `mismatch`, `unknown`, or `not_applicable` in one structured reconciliation report. Each reconciliation attempt performs one bounded observation per required lock, filesystem, Git, tmux, process, result, remote, and GitHub boundary without polling or hidden retry. Unavailable observations remain `unknown`; they never authorize launch, signaling, reuse, or cleanup. Human and JSON command output derive from the same report and stable outcome code.
 
 Identify a long-running worker and RPIV process by positive PID, process-group ID, OS process start token, resolved executable, exact argument vector, cwd, launch time, and recorded tmux pane lineage. A process matches only when every available identity field and pane lineage agree, preventing PID reuse. Persist launch intent before spawn and process identity immediately after spawn. If interruption occurs between those writes, adopt exactly one observed pane descendant matching the launch intent; zero candidates means absent and multiple or incomplete candidates mean ambiguous. Preserve an exact active match without launching another process.
@@ -61,6 +63,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 - Exact process matching prevents duplicate launch and unsafe signaling after PID reuse.
 - Atomic leases enforce concurrency without selecting issues automatically.
 - Event-ahead failures can be replayed when the history chain proves the complete next snapshot.
+- Post-wait transitions preserve concurrent progress, result, and diagnostic revisions by deriving only from reloaded state.
 - Merged cleanup is safe with deleted remote branches and varying merge strategies.
 
 ### Negative
@@ -69,6 +72,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 - Recovery-candidate observation requires staged result parsing before dependent Git, remote, and GitHub queries while retaining one call per boundary.
 - Status and list are reconciliation-capable and may perform narrowly scoped automatic merged cleanup.
 - Process observation needs platform-specific typed adapters for start tokens, process groups, and lineage.
+- Post-wait callers must distinguish active exact handling, terminal idempotence, and typed refusal paths.
 
 ### Neutral
 - The five terminal run states remain unchanged; final-validation proof follows ADR-260812-rpiv-integration-completion-contract.
@@ -78,6 +82,7 @@ Automatic merged cleanup removes only the clean owned worktree registration and 
 ## Related Issues
 
 - [#5](https://github.com/jsburckhardt/soft-factory-runner/issues/5)
+- [#34](https://github.com/jsburckhardt/soft-factory-runner/issues/34)
 
 ## References
 
