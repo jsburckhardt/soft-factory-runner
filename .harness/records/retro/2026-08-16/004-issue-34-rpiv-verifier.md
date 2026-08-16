@@ -9,8 +9,8 @@ plan_id: "34-reload-current-run-state-after-copilot-exits"
 schema_version: "1.2"
 retro_id: "2026-08-16T05:00:17Z-rpiv-verifier-34verify"
 started_at: "2026-08-16T04:51:47.674Z"
-ended_at: "2026-08-16T05:00:53.851Z"
-summary: "Issue 34 verification passed all acceptance, documentation, architecture, release, and direct validation checks; two tooling retries occurred while generating metadata files."
+ended_at: "2026-08-16T05:03:22.456Z"
+summary: "Issue 34 verification passed all acceptance, documentation, architecture, release, and direct validation checks; two metadata-generation retries and one PR-head convergence retry occurred."
 entries:
   - id: DL-001
     kind: difficulty
@@ -40,8 +40,22 @@ entries:
         status: open
         source: agent-self
         first_seen_at: "2026-08-16T05:00:43.954Z"
+  - id: COORD-001
+    kind: coordination
+    description: "PR head confirmation initially returned the implementation SHA immediately after final push"
+    target: tooling
+    severity: annoying
+    workaround: "Wait briefly and re-query GitHub PR head facts"
+    suggested_encoding: "Add bounded PR head convergence confirmation"
+    fp: "d46dae41a5df"
+    disposition: kept
+    system:
+      compound:
+        status: open
+        source: agent-self
+        first_seen_at: "2026-08-16T05:02:59.042Z"
 ---
 
 # Retro — Issue 34 RPIV Verify
 
-The verifier retained both concrete metadata-generation retries and otherwise found no additional verification friction.
+The verifier retained all three concrete retries and otherwise found no additional verification friction.

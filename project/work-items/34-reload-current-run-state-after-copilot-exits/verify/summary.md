@@ -37,4 +37,4 @@ Passed. README, docs index, issue-run guide, recovery operations, and official-a
 
 ## RPIV retro harvest
 
-Final `harness retro insights --plan 34-reload-current-run-state-after-copilot-exits --json` returned status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 4 committed records, 15 entries, 4 RPIV agents, and no pending buffer entries. Verifier record: `.harness/records/retro/2026-08-16/004-issue-34-rpiv-verifier.md`; it preserves two concrete metadata-generation retries.
+Final `harness retro insights --plan 34-reload-current-run-state-after-copilot-exits --json` returned status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 4 committed records, 16 entries, 4 RPIV agents, and no pending buffer entries. Verifier record: `.harness/records/retro/2026-08-16/004-issue-34-rpiv-verifier.md`; it preserves two metadata-generation retries and one PR-head convergence retry.
