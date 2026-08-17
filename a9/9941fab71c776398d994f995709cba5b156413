@@ -1,0 +1,197 @@
+PRD.md
+  s_1aded7cbc25310::t_2855aa2e330e11 2303-2306
+fixtures/doctor/ready.json
+  s_1aded7cbc25310::t_835b6c8f8297b0 47-56
+src/post-wait.test.ts
+  s_1aded7cbc25310::t_be8d59972beaef 1,35,41
+README.md
+  s_1aded7cbc25310::t_2855aa2e330e11 23,25,68,177-184
+  s_1aded7cbc25310::t_9852f131b913ca 29-30,32,36,43,79
+  s_1aded7cbc25310::t_36995249821967 185-186
+docs/phase-5-official-assets.md
+  s_1aded7cbc25310::t_9852f131b913ca 34,36,40-41,43,47,56,69
+docs/phase-1-issue-run.md
+  s_1aded7cbc25310::t_2855aa2e330e11 116,137,186-191
+docs/phase-3-recovery-operations.md
+  s_1aded7cbc25310::t_2855aa2e330e11 69,145,195-198
+  s_1aded7cbc25310::t_36995249821967 199-200
+docs/phase-4-repository-doctor.md
+  s_1aded7cbc25310::t_2855aa2e330e11 193-196
+src/render.ts
+  s_1aded7cbc25310::t_1b32c65fd338f2 16-17
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/plan/01-action-plan.md
+  s_4f0e98d407bdb7::t_a8242a7ee01431 1-65
+src/asset-cli.test.ts
+  s_1aded7cbc25310::t_9852f131b913ca 50,208-209,231,240,282,290,327
+src/documentation.test.ts
+  s_1aded7cbc25310::t_843974957753a8 1117-1137
+  s_1aded7cbc25310::t_95816376fa2328 1058,1079,1116,1138-1143,1145,1148
+  s_1aded7cbc25310::t_625c76d9dba7b4 410
+fixtures/tmux/issue-36-scenarios.json
+  s_1aded7cbc25310::t_b1c6a8e609a044 1-62
+src/reconciliation.test.ts
+  s_1aded7cbc25310::t_843974957753a8 53-60,62-66,86-99
+  s_1aded7cbc25310::t_677874a6fae3e6 8,40-41,85,100,102,201
+src/issue-36-repository.test.ts
+  s_1aded7cbc25310::t_843974957753a8 6-11,25-27,29-36,38-40,44-63,67-73,79-93
+  s_1aded7cbc25310::t_35965f0b3799d1 1-5,12-24,28,37,41-43,64-66,74-78,94-96
+src/doctor-service.ts
+  s_1aded7cbc25310::t_b8c12b92dc1af1 7,22-25,46-47,119-124,236,256-262,291,307
+  s_1aded7cbc25310::t_843974957753a8 26-29,125-137,223-226,263-290,292-306
+  s_1aded7cbc25310::t_97a8b8249e65d6 308
+.harness/records/retro/2026-08-17/002-issue-36-rpiv-implementer.md
+  s_1aded7cbc25310::t_2b779ed5a1e101 1-6,9,14-16,24,98-99,101
+  s_1aded7cbc25310::t_f2c8d5519ef522 7-8,10-13,17-23,25-97,100,102
+.harness/records/retro/2026-08-17/003-issue-36-rpiv-planner.md
+  s_1aded7cbc25310::t_f2c8d5519ef522 7-8,10-13,17-23,25-55,58,60
+  s_1aded7cbc25310::t_2b779ed5a1e101 1-6,9,14-16,24,56-57,59
+src/tmux-context.test.ts
+  s_1aded7cbc25310::t_0ea4e36480054c 1-7,18-21,32-35,46,51-53,65-74,91,164-167,171,181,197-199,226-231,235-239,290,311-313,323-324,329-331,397
+  s_1aded7cbc25310::t_843974957753a8 8-17,22-31,36-45,47-50,54-64,75-90,94-99,101-103,107-112,114-122,124-126,131-142,147-156,158-160,168-170,172-180,182-196,200-225,232-234,240-289,291-310,314-322,325-328,333-339,341-344,348-387,390-392
+  s_1aded7cbc25310::t_b1c6a8e609a044 92-93,100,104-106,113,123,127-130,143-146,157,161-163,332,340,345-347,388-389,393-396
+src/doctor-integration.test.ts
+  s_1aded7cbc25310::t_a4c1ab2504e9f2 103-104,113-114
+  s_1aded7cbc25310::t_843974957753a8 105-112
+src/persistence.ts
+  s_1aded7cbc25310::t_898fd63554142a 16,404-405,413,443-445,475-476,749,754-755,772-773,784,901,1021,1025-1026
+  s_1aded7cbc25310::t_843974957753a8 415-417,447-448,750-753,756-771,775-783,902-905
+  s_1aded7cbc25310::t_76ca718a3233b7 774
+src/ports.ts
+  s_1aded7cbc25310::t_48d1a3d03f0582 8,106-108,110,115,117,121-124,130-131
+  s_1aded7cbc25310::t_843974957753a8 13-17,126
+  s_1aded7cbc25310::t_b92c4ad4eb330d 105
+docs/rpiv-integration-contract.md
+  s_1aded7cbc25310::t_36995249821967 98-99
+  s_1aded7cbc25310::t_2855aa2e330e11 26,80
+.harness/records/retro/2026-08-17/001-issue-36-rpiv-research.md
+  s_1aded7cbc25310::t_2b779ed5a1e101 1-6,9,14-16,24,56-57,59
+  s_1aded7cbc25310::t_f2c8d5519ef522 7-8,10-13,17-23,25-55,58,60
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/plan/03-test-plan.md
+  s_4f0e98d407bdb7::t_b86b5c14a4b304 1-265
+project/architecture/ADR/ADR-260817-invoking-tmux-context-targeting.md
+  s_4f0e98d407bdb7::t_08b01463159229 1-66
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/implementation/00-implementation.md
+  s_1aded7cbc25310::t_2e721d4e4b9927 1-70
+src/tmux-target.ts
+  s_1aded7cbc25310::t_843974957753a8 19-22,37-40,42-43,45-47,49-57,59-60,64-81,84-94,96-97,99-100,102-103,105-113,116-148
+  s_1aded7cbc25310::t_555e97da3a8210 114-115
+  s_1aded7cbc25310::t_a47393862873e7 1-18,23-36,41,44,48,58,61-63,82-83,95,98,101,104,149
+src/live.ts
+  s_1aded7cbc25310::t_55ba49ae275544 965
+  s_1aded7cbc25310::t_843974957753a8 18-29,926-929,942-951,958-962,977,982,984-985,989,996-997,1002-1003,1010,1015,1022-1025,1027-1028,1030-1035,1044,1048-1052,1055-1063,1084-1085,1088,1090,1099-1105,1108,1116-1124,1138-1142,1146,1149-1156,1167,1171-1172,1180,1182,1185-1189,1193-1197,1199,1201,1205,1207-1210,1212-1218,1220-1229,1231-1242,1244-1273,1276,1278-1288,1292-1297,1299-1324,1326-1329,1331,1333,1335,1337-1344,1720-1725
+  s_1aded7cbc25310::t_690b38cca9f979 1719,1726-1727
+  s_1aded7cbc25310::t_fbf57457a6297f 925,930-940,952-957,963-964,967-975,983,986,1021,1026,1042,1078-1080,1096-1097,1111-1113,1192,1198,1206,1211,1219,1230,1243,1274-1275,1291,1298,1325,1330
+  s_1aded7cbc25310::t_092a7b4ea196f8 941,966,1204
+src/official-assets.ts
+  s_1aded7cbc25310::t_9852f131b913ca 3
+src/orchestrator.ts
+  s_1aded7cbc25310::t_beebe12647dac8 401-404,1707
+  s_1aded7cbc25310::t_76ca718a3233b7 1710
+  s_1aded7cbc25310::t_97511cea24ae22 1711,1722
+  s_1aded7cbc25310::t_61b3ca76da5559 25,75,171-172,184,228,233,304,340-343,373,379,588,635,650,665,668,783,787,837,858,938,1156,1399,1465,1495-1496,1550,1672,1729,1770-1771,1785-1786,1788,1795-1797,1801,1969,2011,2019,2045
+  s_1aded7cbc25310::t_fca684fb78369d 1837,2165-2167,2177,2186,2188-2196
+  s_1aded7cbc25310::t_843974957753a8 43-47,66-69,118-124,1824-1836,2168-2176,2178-2179,2181-2183,2197-2198
+project/architecture/core-components/CORE-COMPONENT-260817-exact-tmux-context-ownership.md
+  s_4f0e98d407bdb7::t_bcdec1624e02bc 1-87
+src/domain.ts
+  s_1aded7cbc25310::t_9cfd269709c1c0 1-2,120-125,136,421-424,500-501,515-516,518
+  s_1aded7cbc25310::t_843974957753a8 417-420,427-432,452-453
+project/architecture/ADR/DECISION-LOG.md
+  s_4f0e98d407bdb7::t_d66fac922bd7f2 19,48,227-234
+src/post-wait.ts
+  s_1aded7cbc25310::t_76ca718a3233b7 1,21-22,37
+src/integration.test.ts
+  s_1aded7cbc25310::t_29fbcb401130ec 257
+  s_1aded7cbc25310::t_3fa92774dd22f8 10,17,1084-1094
+  s_1aded7cbc25310::t_68ba2ebfb70d6d 18,220,231,234,236-239,244-245
+  s_1aded7cbc25310::t_843974957753a8 221-229,240-243,844-845,1095-1150
+src/recovery-control.test.ts
+  s_1aded7cbc25310::t_843974957753a8 343-351,522-530,552-555,670-674
+  s_1aded7cbc25310::t_68ba2ebfb70d6d 25,45-50,352
+  s_1aded7cbc25310::t_1912a6e1f8ddb5 469,505-521,531-537,605,691
+  s_1aded7cbc25310::t_1c0f30ba682fa1 661,664-665,789,1195,1216,1264,1383,1594
+  s_1aded7cbc25310::t_29fbcb401130ec 370
+  s_1aded7cbc25310::t_fa3223d5f7a905 1380
+  s_1aded7cbc25310::t_be8d59972beaef 16,609,618-619,682,721,746,1056,1073,1250,1381
+src/integration.ts
+  s_1aded7cbc25310::t_fa3223d5f7a905 320-321
+  s_1aded7cbc25310::t_843974957753a8 296-298,330-332,394-396
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/research/00-research.md
+  s_ba3d37522b55a2::t_a01be8766d81ef 1-97,99-101,103-104
+  s_ba3d37522b55a2::t_d68e52529a0058 98,102,105-106
+src/asset-doctor-regression.test.ts
+  s_1aded7cbc25310::t_a4c1ab2504e9f2 80
+src/doctor-render.ts
+  s_1aded7cbc25310::t_a4c1ab2504e9f2 24-25
+src/orchestration.test.ts
+  s_1aded7cbc25310::t_29fbcb401130ec 277,324
+  s_1aded7cbc25310::t_be8d59972beaef 4,598,1755-1756,1762,1793,1814,1880,1958,2010
+  s_1aded7cbc25310::t_68ba2ebfb70d6d 18,278,292,294,299,301,305-307,312-313
+  s_1aded7cbc25310::t_843974957753a8 284-291,308-311,522-525,661-662
+  s_1aded7cbc25310::t_1c0f30ba682fa1 681
+  s_1aded7cbc25310::t_1a4101012488b3 663
+docs/README.md
+  s_1aded7cbc25310::t_9852f131b913ca 5
+  s_1aded7cbc25310::t_2855aa2e330e11 39-40
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/plan/02-task-breakdown.md
+  s_1aded7cbc25310::t_4cb08debc0ad67 5,36,67,100,130,159,187,215
+  s_4f0e98d407bdb7::t_e17b7440162b78 1-4,6-35,37-66,68-99,101-129,131-158,160-186,188-214,216-243,245-268
+  s_1aded7cbc25310::t_2e721d4e4b9927 244
+package.json
+  s_1aded7cbc25310::t_9852f131b913ca 3
+src/doctor.ts
+  s_1aded7cbc25310::t_63836ee927dfd5 319,323-324,359
+  s_1aded7cbc25310::t_843974957753a8 162-163,196-202,291-295,315,320-322,325-358
+  s_1aded7cbc25310::t_481dd1c304ac0d 153-161,169
+  s_1aded7cbc25310::t_57889fa4cfd131 152
+src/errors.ts
+  s_1aded7cbc25310::t_76ca718a3233b7 24
+src/reconciliation.ts
+  s_1aded7cbc25310::t_812e856c758b89 16,342,569,673,686,744,776,782,792
+  s_1aded7cbc25310::t_a54edaa19af684 146,290,896
+  s_1aded7cbc25310::t_843974957753a8 46-48,85-86,112-113,121-122,281-283,760-762,777-781,945-947
+src/tmux-identity.test.ts
+  s_1aded7cbc25310::t_1af62c095d8721 1-3,185-186,190-204,206-209,222,230-236,262-265,275
+  s_1aded7cbc25310::t_843974957753a8 187-189,211-218,223-226,228,237-259,266-274,276-291
+src/official-assets.test.ts
+  s_1aded7cbc25310::t_9852f131b913ca 66-67,107-110
+src/doctor.test.ts
+  s_1aded7cbc25310::t_a4c1ab2504e9f2 54
+src/index.ts
+  s_1aded7cbc25310::t_843974957753a8 71-75,209-216
+  s_1aded7cbc25310::t_2b7008227eb9da 13,42
+package-lock.json
+  s_1aded7cbc25310::t_73e8e368d7924c 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a99941fab71c776398d994f995709cba5b156413",
+  "prompts": {},
+  "sessions": {
+    "s_1aded7cbc25310": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_HIQahXO6fiIsg8fGKaTe8dWp",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_4f0e98d407bdb7": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_HkjScsXxIADwOrfe38juPyID",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_ba3d37522b55a2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_xZjh1iFX28gGvVJvkzddd1rj",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
