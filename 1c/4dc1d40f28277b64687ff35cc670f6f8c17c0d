@@ -1,0 +1,67 @@
+src/doctor.ts
+  s_bc9c61e8e7dad2::t_d12edb29e26771 159-161,334,357-359
+.harness/records/retro/2026-08-17/005-issue-36-rpiv-implementer-correction.md
+  s_bc9c61e8e7dad2::t_a19b6999780b97 7-8,10-13,17-23,25-84,87,89
+  s_bc9c61e8e7dad2::t_e96750268672b5 1-6,9,14-16,24,85-86,88
+src/tmux-context.test.ts
+  s_bc9c61e8e7dad2::t_f2e36a55504050 439,557,579,591
+  s_bc9c61e8e7dad2::t_d17107b7984153 204-209,211-215,219-226
+  s_bc9c61e8e7dad2::t_8cec3b98ee58bd 536-537,541-551,558-564,569-578,580-585,593-597,605-607,618-619,650,660-663,672-674,681,685,690-694,702-705,720-724,749-751,771-776,781-787,792-796,800-801,805,820-823,849,865,873-875,879-881,894-895,987-989
+  s_bc9c61e8e7dad2::t_9a07bf33a2d745 49-52,57-61,63-72,75-78,81-91,304-308,313-316,334-336,444-446,538-540,553-555,565-568,587-589,598-604,608-617,620-649,651-659,664-671,675-680,682-684,686-689,695-701,706-719,725-748,752-770,777-780,788-791,797-799,802-804,806-819,824-848,850-864,866-872,876-878,882-893,896-899,905-907,912-941,943-978,980-982,984-986
+  s_bc9c61e8e7dad2::t_b6fc5e5b3100e8 271,286,332-333,337-349
+  s_bc9c61e8e7dad2::t_382502c05a51bc 552,556,586,590,592
+  s_bc9c61e8e7dad2::t_339fd2190dd2fb 47-48,53-56,62,73-74,79-80,92-95,900-904,908-911,942,979,983
+  s_bc9c61e8e7dad2::t_c8e9a30d20336b 294-303,309-312,317-331
+  s_bc9c61e8e7dad2::t_e0558b7a5cedc5 354,359,378,400,403,434-438,440-443,447-448,452,455,461-462,464
+fixtures/tmux/issue-36-scenarios.json
+  s_bc9c61e8e7dad2::t_e7ca913278775d 2,4-9,13-17,21-25,29-32,36-39,43-47,51-54,58-61,65-68,72-75,79-82,86-89,93-96,100-103,107-110
+docs/phase-3-recovery-operations.md
+  s_bc9c61e8e7dad2::t_5289f3e6a7bf34 148,150,200
+src/orchestration.test.ts
+  s_bc9c61e8e7dad2::t_fb61384317f903 1-5,21,38-39,2247,2251-2258,2295-2301,2304-2308,2334-2338,2346-2348
+  s_bc9c61e8e7dad2::t_9a07bf33a2d745 2248-2250,2259-2294,2302-2303,2309-2333,2339-2345
+README.md
+  s_bc9c61e8e7dad2::t_91d6e6fd885360 184
+  s_bc9c61e8e7dad2::t_5289f3e6a7bf34 66,137
+src/live.ts
+  s_bc9c61e8e7dad2::t_a1438ceccb411c 1195-1197
+  s_bc9c61e8e7dad2::t_64317b007456a3 1193-1194
+src/doctor-service.ts
+  s_bc9c61e8e7dad2::t_1c274b0c050bd1 1-3,51-55,136-138,273-274,276,297-298,306-323,330-336,339-340,344-350,355-358
+  s_bc9c61e8e7dad2::t_9a07bf33a2d745 131-132,324-329,337-338,341-343,351-354
+src/documentation.test.ts
+  s_bc9c61e8e7dad2::t_d35722e982e8c7 374-375,419,440,442,454
+  s_bc9c61e8e7dad2::t_f2e36a55504050 467
+src/tmux-identity.test.ts
+  s_bc9c61e8e7dad2::t_cca3c3b9c12444 221,258-270
+fixtures/doctor/ready.json
+  s_bc9c61e8e7dad2::t_b6fc5e5b3100e8 55-56
+PRD.md
+  s_bc9c61e8e7dad2::t_f2e36a55504050 1160-1167,1169-1174
+  s_bc9c61e8e7dad2::t_5289f3e6a7bf34 921,1136,1142,1305,1578
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/implementation/00-implementation.md
+  s_bc9c61e8e7dad2::t_d3c77e821d17a3 21-22,25,27-28,30,33-35,38-42,64-67,75,77
+src/recovery-control.test.ts
+  s_bc9c61e8e7dad2::t_9a07bf33a2d745 1708-1710,1714-1719,1728-1736,1738-1741,1748-1750,1752-1755,1758-1763,1772-1781,1783-1789
+  s_bc9c61e8e7dad2::t_330ccd88d5ec77 1707,1711-1713,1720-1727,1737,1742-1747,1751,1756-1757,1764-1771,1782,1790-1793
+docs/phase-1-issue-run.md
+  s_bc9c61e8e7dad2::t_57998e7f60f0d1 120
+docs/phase-4-repository-doctor.md
+  s_bc9c61e8e7dad2::t_91d6e6fd885360 196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1c4dc1d40f28277b64687ff35cc670f6f8c17c0d",
+  "prompts": {},
+  "sessions": {
+    "s_bc9c61e8e7dad2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_c8sot3WeFww8GRGfw9WgUUBa",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
