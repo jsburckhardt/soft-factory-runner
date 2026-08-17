@@ -1302,7 +1302,7 @@ This artifact is the formal handoff between RPIV and Runner.
 
 # 36. Completion Reconciliation
 
-New runs persist `RunSnapshotV6`; supported exact v4/v5 state normalizes only through explicit revisioned transitions, while v1-v5 remain readable, non-authorizing compatibility inputs when complete tmux selectors are absent. `ReconciliationReportV2` and status schema v4 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
+New runs persist `RunSnapshotV6`; supported exact v4/v5 state normalizes only through explicit revisioned transitions, while v1-v5 remain readable, non-authorizing compatibility inputs when complete tmux selectors are absent. `ReconciliationReportV3` with schema version 3 and `StatusFactsV5` with status schema version 5 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
 
 A successful RPIV artifact is necessary but not sufficient.
 

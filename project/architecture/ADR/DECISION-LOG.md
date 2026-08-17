@@ -183,10 +183,10 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 128 | Cap tmux identity diagnostics at eight records, eight fields, and 32 tokens | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
 | 129 | Retain the latest tmux identity diagnostic until valid identity proof clears it | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
 | 130 | Prohibit raw tmux output and field values in durable identity diagnostics | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
-| 131 | Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5 | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
+| 131 | Read RunSnapshotV1-V6 and persist new runs as revisioned RunSnapshotV6 | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
 | 132 | Authorize preparation resume only with exact clean fetched-HEAD ownership and zero same-name candidates | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
 | 133 | Preserve one-pass reconciliation while persisting returned tmux identity failure diagnostics | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-14 |
-| 134 | Preserve v4 completion evidence unchanged within RunSnapshotV5 | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-14 |
+| 134 | Preserve v4 completion evidence unchanged through RunSnapshotV6 | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-14 |
 | 135 | Strengthen `command.tmux` with an isolated functional readiness probe while preserving 24 IDs | ADR-260812-repository-doctor-readiness | 2026-08-14 |
 | 136 | Run Doctor tmux probes on managed foreground servers with private sockets and configurations | ADR-260812-repository-doctor-readiness | 2026-08-14 |
 | 137 | Prove tmux readiness through session, window, pane, identity, observation, and cleanup operations | ADR-260812-repository-doctor-readiness | 2026-08-14 |

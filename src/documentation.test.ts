@@ -19,6 +19,9 @@ const runReconciliationContract = read(
 const tmuxIdentityContract = read(
   "project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md",
 );
+const tmuxIdentityAdr = read(
+  "project/architecture/ADR/ADR-260814-tmux-identity-failure-recovery.md",
+);
 const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
@@ -135,12 +138,12 @@ describe("V-11 Phase 3 operator documentation", () => {
     );
   });
 
-  it("guards corrected v5 architecture and final publication ordering against stale contracts", () => {
+  it("guards corrected v6 architecture and final publication ordering against stale contracts", () => {
     for (const phrase of [
-      "Persist new runs as `RunSnapshotV5`",
-      "snapshot versions 1 through 5",
-      "explicit revisioned v5 transition",
-      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, or `RunSnapshotV5`",
+      "Persist new runs as `RunSnapshotV6`",
+      "snapshot versions 1 through 6",
+      "explicit revisioned v6 transition",
+      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, `RunSnapshotV5`, or `RunSnapshotV6`",
       "nullable `tmuxIdentityDiagnostic`",
     ])
       expect(runReconciliationContract).toContain(phrase);
@@ -151,7 +154,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Read valid snapshot versions 1 through 3",
     );
     expect(decisionLog).toContain(
-      "Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5",
+      "Read RunSnapshotV1-V6 and persist new runs as revisioned RunSnapshotV6",
     );
     for (const phrase of [
       "commits and pushes the required verification summary and verifier retro records",
@@ -368,13 +371,19 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     ])
       expect(operations + issueRun).toContain(phrase);
     for (const phrase of [
-      "RunSnapshotV5",
-      "ReconciliationReportV2",
-      "status schema v4",
+      "RunSnapshotV6",
+      "ReconciliationReportV3",
+      "schema version 3",
+      "StatusFactsV5",
+      "status schema v5",
       "explicit revisioned transitions",
       "complete exact-target authority",
     ])
       expect(readme + operations + prd).toContain(phrase);
+    expect(tmuxIdentityAdr).toContain("Preserve `RunSnapshotV5`");
+    expect(integrationGuide).toContain(
+      "Compatibility note: `RunSnapshotV5` remains readable as legacy input",
+    );
     expect(tmuxIdentityContract).toContain(
       "window_id`, `pane_id`, `vertical_bar`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
     );

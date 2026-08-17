@@ -1,16 +1,17 @@
-# Action Plan: Preserve the invoking tmux server and session for issue windows
+# Action Plan: Issue #36 consistency correction
 
 ## Feature
 - **ID:** 36
 - **Research Brief:** project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/research/00-research.md
 - **Branch:** `feat/36-preserve-invoking-tmux-context`
-- **Release:** `0.2.0` from `0.1.3` — backward-compatible functionality requires a MINOR increment under `CORE-COMPONENT-260815-package-semver-governance`.
+- **Scope:** Plan-only consistency correction; implementation may change current docs/tests but must not redesign delivered tmux behavior.
+- **Release:** Preserve and validate Issue #36 release `0.2.0`; this correction does not authorize another version increment.
 
 ## ADRs Created
-- `ADR-260817-invoking-tmux-context-targeting` — new global decision for validated invoking selection, deterministic owned fallback, complete persisted target identity, Doctor classification, and release class. Existing ADR creation dates are unchanged; no existing ADR was edited.
+- None. `ADR-260817-invoking-tmux-context-targeting` already records the controlling decision; no new architectural decision exists.
 
 ## Core-Components Created
-- `CORE-COMPONENT-260817-exact-tmux-context-ownership` — new global cross-cutting contract for selection, persistence, explicit socket routing, lifecycle authorization, confidentiality, concurrency, Doctor, and isolated evidence. Existing core-component creation dates are unchanged; no existing core-component was edited.
+- None. Correct the existing adopted schema references in `CORE-COMPONENT-260811-run-reconciliation-control`, `CORE-COMPONENT-260811-completion-evidence-reconciliation`, and `CORE-COMPONENT-260814-tmux-identity-diagnostics`; retain their IDs and creation dates. `CORE-COMPONENT-260817-exact-tmux-context-ownership` remains authoritative and unchanged.
 
 ## Acceptance Criteria
 - **AC-1:** From a valid client on a non-default socket, one run creates one Runner-owned issue window in that clients current server and session; a bounded local query through the same socket/session returns its exact window and pane, and no same-run window exists on the default server.
@@ -32,34 +33,29 @@
 
 ## Acceptance Coverage
 
-| AC | Implementation tasks | Tests / validation | Expected evidence | Documentation | Relevant architecture |
-|---|---|---|---|---|---|
-| AC-1 | T1, T2, T5 | V1, V8, V12 | Explicit custom `-S` trace; exact session/window/pane inventory; default-server absence | README; phase-1; PRD | ADR-260817; CC-260817; ADR-260811-prototype-one-run-orchestration |
-| AC-2 | T1, T5, T6 | V2, V8, V9 | Repeated equal target derivation and distinct-repository target ledger | README; phase-1; phase-3 | ADR-260817; CC-260817; CC-260815-package-semver-governance |
-| AC-3 | T1, T3 | V3, V8 | Strict v6 snapshot/event round trip and complete equality decision table | phase-1; phase-3; PRD schema | ADR-260817; CC-260817; CC-260810-persistence-recovery |
-| AC-4 | T2, T3, T5 | V3, V4, V8 | Context matrix traces and byte-equivalent human/JSON classifications | README; phase-3 | ADR-260817; CC-260817; CC-260811-run-reconciliation-control |
-| AC-5 | T2, T3, T5 | V4, V8 | Exact pane capture/attach/window-ID removal traces and unchanged inventories | phase-3 | CC-260817; CC-260811-owned-resource-cleanup |
-| AC-6 | T1, T2, T5 | V2, V5 | Same-name collision refusal with zero create/select/capture/remove calls | README; phase-1; phase-3 | ADR-260817; CC-260817; CC-260814-tmux-identity-diagnostics |
-| AC-7 | T2, T3, T5 | V4, V8 | Twin-server equal-local-ID inventories before/after stop and clean | phase-3 | ADR-260817; CC-260817; CC-260811-owned-resource-cleanup |
-| AC-8 | T1, T4, T5 | V5, V7, V8 | Closed refusal codes, nonzero exits, byte-identical state/server inventories | phase-1; phase-4; troubleshooting | ADR-260817; CC-260817; CC-260810-error-handling |
-| AC-9 | T1, T2, T5 | V2, V5 | Fallback-only absence proof and preserved expected-name window inventory | README; phase-1 | ADR-260817; CC-260817; CC-260814-tmux-identity-diagnostics |
-| AC-10 | T3, T5 | V6, V8 | Barrier race ledger: one owner/window and whole-target-or-absence reports | phase-3 | CC-260817; CC-260811-concurrent-run-admission; CC-260810-issue-worktree-locking |
-| AC-11 | T2, T3, T5 | V4, V6 | Repeated terminal/absence outputs and zero mutation traces for refusals | phase-3 troubleshooting | CC-260817; CC-260811-run-reconciliation-control; CC-260811-owned-resource-cleanup |
-| AC-12 | T1, T3, T4, T5 | V5, V7, V8 | Sentinel scan across every rendered/durable/log artifact; no tuple/PID fields | README; phase-1; phase-3; phase-4 | ADR-260817; CC-260817; CC-260810-structured-events |
-| AC-13 | T4, T5 | V7, V8 | Doctor `command.tmux` mode/reason evidence, bounds, and unchanged inventories | phase-4; docs index | ADR-260817; CC-260817; ADR-260812-repository-doctor-readiness; CC-260812-repository-doctor-contract |
-| AC-14 | T5 | V1-V8, V12 | Repeatable isolated-socket scenario manifest with exact cleanup and no network/credentials | phase-1; phase-3; phase-4 | CC-260817; CC-260806-agent-executable-acceptance-criteria |
-| AC-15 | T6 | V9, V12 | Documentation assertions for all required behavior, migration, and confidentiality | README; docs index; phase-1; phase-3; phase-4; PRD | ADR-260817; CC-260817; CC-260806-rpiv-stage-contract |
-| AC-16 | T5, T7, T8, T9 | V8, V10, V11, V12 | AC evidence index; zero stale skill references; synchronized 0.2.0 package proof; passing just recipes | README; docs index; phase-5 upgrade guidance | CC-260806-project-command-interface; CC-260815-package-semver-governance; CC-260817 |
+| AC | Implementation tasks | Tests / validation | Expected evidence |
+|---|---|---|---|
+| AC-1 | T3 | V4, V5 | Custom-socket inventory and explicit-selector regression proof |
+| AC-2 | T2, T3 | V2, V4, V5 | Correct fallback docs and deterministic derivation assertions |
+| AC-3 | T1, T2, T3 | V1, V2, V3, V4, V5 | V6 persistence plus report-v3 complete-equality proof |
+| AC-4 | T1, T2, T3 | V1, V2, V3, V4, V5 | Status-v5/report-v3 context and renderer parity evidence |
+| AC-5 | T3 | V4, V5 | Exact attach/log/cleanup traces and unchanged inventories |
+| AC-6 | T2, T3 | V2, V4, V5 | Non-adoption docs and collision refusal proof |
+| AC-7 | T3 | V4, V5 | Twin-server before/after inventory proof |
+| AC-8 | T2, T3 | V2, V4, V5 | Refusal matrix with nonzero codes and unchanged inventories |
+| AC-9 | T2, T3 | V2, V4, V5 | Absence-only fallback and preserved collision evidence |
+| AC-10 | T3 | V4, V5 | Deterministic one-owner and overlap regression evidence |
+| AC-11 | T2, T3 | V2, V4, V5 | Repeated absence/refusal evidence with zero mutation |
+| AC-12 | T1, T2, T3 | V1, V2, V4, V5 | Value-free architecture/docs and sentinel scan evidence |
+| AC-13 | T2, T3 | V2, V4, V5 | Doctor classification and unchanged-inventory evidence |
+| AC-14 | T3 | V4, V5 | Repository-local isolated-socket evidence index |
+| AC-15 | T1, T2 | V1, V2, V5 | Cross-document behavior/schema coverage report |
+| AC-16 | T1, T2, T3, T4 | V1-V5 | Focused/full exits, stale-label scan, release matrix, implementation handoff |
 
-Coverage proof: all 16 ordered acceptance criteria have implementation tasks, executable validation, expected evidence, documentation scope, and architecture references before these plan artifacts were written.
+Coverage proof: all 16 criteria map to implementation work, validation, and expected evidence. The correction retains behavioral coverage for AC-1 through AC-14 while changing only stale global architecture, current user documentation, and documentation assertions.
 
 ## Implementation Tasks
-1. **T1 — Model and resolve exact tmux targets (AC-1, AC-2, AC-3, AC-6, AC-8, AC-9, AC-12):** add ephemeral invoking-evidence parsing, deterministic repository-owned fallback derivation, typed refusals, `TmuxTargetV2`/pane lineage, and strict v6 persistence without raw tuple/PID retention.
-2. **T2 — Route every tmux operation through the persisted socket and immutable IDs (AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-9, AC-11):** change `TmuxPort` and `LiveTmuxPort`, eliminate bare runtime tmux commands, preserve exact attach/capture/restart/remove behavior, and refuse same-name resources.
-3. **T3 — Integrate exact targets with orchestration, reconciliation, concurrency, and cleanup (AC-3, AC-4, AC-5, AC-7, AC-10, AC-11, AC-12):** use complete one-pass target equality and durable progress so lifecycle context and overlaps cannot mix identities.
-4. **T4 — Extend Doctor with safe target classification (AC-8, AC-12, AC-13):** preserve 24 IDs/private probe while adding bounded read-only invoking/fallback/refusal evidence and unchanged-inventory proof.
-5. **T5 — Build isolated-socket acceptance fixtures (AC-1 through AC-14):** add protocol/unit and local tmux integration matrices for visibility, fallback, collisions, lifecycle contexts, refusals, concurrency, idempotence, confidentiality, and cleanup.
-6. **T6 — Update user and schema documentation (AC-2, AC-4, AC-6, AC-8, AC-9, AC-11, AC-12, AC-13, AC-15):** update README, docs index, phase 1/3/4 guides, PRD, help/schema examples, migration, and troubleshooting.
-7. **T7 — Preserve intentional skill deletions and remove all stale references (AC-16):** retain all eight deleted `.agents/skills` paths, remove the four `skills-lock.json` entries, and prove zero residual live name/path references with tracked-file content and symlink scans excluding dependencies/generated output and the historical research/plan record.
-8. **T8 — Release backward-compatible functionality as 0.2.0 (AC-16):** synchronize package/lock root versions, official asset version, package/install fixtures, manifests, tests, and exact 0.1.3-to-0.2.0 upgrade/reinstall guidance without dependency churn.
-9. **T9 — Execute root validation and assemble Implement handoff (AC-16):** run focused and full root `justfile` recipes, map inspectable outputs to AC-1..AC-16, record documentation/deletion/version evidence, and commit the implementation with a Conventional Commit and required trailer.
+1. **T1 — Reconcile global architecture contracts (AC-3, AC-4, AC-12, AC-15, AC-16):** retain the accepted Issue #36 ADR and adopted exact-target component; correct only the three older adopted components that still claim current V5/V2/V4 contracts; update Decision Log decisions 131 and 134 without changing artifact IDs or creation dates. Do not create an ADR/core-component.
+2. **T2 — Correct current user documentation and documentation assertions (AC-2, AC-3, AC-4, AC-6, AC-8, AC-9, AC-11, AC-12, AC-13, AC-15, AC-16):** change current schema claims in `README.md`, `PRD.md`, and `docs/phase-3-recovery-operations.md` to `RunSnapshotV6`, `ReconciliationReportV3`/schema v3, and `StatusFactsV5`/status schema v5; update `src/documentation.test.ts` to require current labels while preserving intentional compatibility references and Issue #29 historical assertions where scoped.
+3. **T3 — Re-run focused behavioral and schema proof (AC-1 through AC-16):** confirm source emits snapshot v6, report v3, and status v5; run documentation tests plus existing reconciliation, recovery-control, tmux-target/orchestration, Doctor, confidentiality, concurrency, and isolated-socket coverage. Treat any behavior defect as a Plan return rather than silently expanding this correction.
+4. **T4 — Validate release and write Implement evidence (AC-16):** prove all authoritative release surfaces remain `0.2.0`, no release bump/dependency churn occurred, current live contracts have no stale new-run/report/status labels, historical work-item records remain untouched, and focused/full root validation passes with an AC-indexed handoff.
