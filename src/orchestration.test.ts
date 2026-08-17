@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import * as fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import type {
   IssueFacts,
   ProcessIdentityV1,
@@ -13,7 +18,7 @@ import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
-import { copilotChildEnvironment } from "./live";
+import { copilotChildEnvironment, createLivePorts } from "./live";
 import { renderError } from "./render";
 import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import type {
@@ -29,6 +34,8 @@ import {
   resolveRemote,
   validateAcceptanceCriteria,
 } from "./readiness";
+
+const executeFile = promisify(execFile);
 
 const validBody = `# Acceptance
 <!-- ACCEPTANCE_CRITERIA_START -->
@@ -2237,6 +2244,108 @@ ${validBody}`,
 });
 
 describe("ownership, status, and attach", () => {
+  it("runs completely in the invoking custom server/session and creates no default-server issue window", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-complete-custom-run-"),
+    );
+    const selectedSocket = path.join(directory, "selected.sock");
+    const defaultSocket = path.join(directory, "default.sock");
+    const worker = path.join(directory, "worker.sh");
+    const physicalWorktree = "/tmp/soft-factory-fixture/.trees/3";
+    await fs.mkdir(physicalWorktree, { recursive: true });
+    await fs.writeFile(worker, "#!/bin/sh\nsleep 30\n", { mode: 0o700 });
+    try {
+      for (const socket of [selectedSocket, defaultSocket])
+        await executeFile("tmux", [
+          "-S",
+          socket,
+          "new-session",
+          "-d",
+          "-s",
+          "same",
+          "-n",
+          "origin",
+          "-c",
+          directory,
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+      const invokingPane = (
+        await executeFile("tmux", [
+          "-S",
+          selectedSocket,
+          "display-message",
+          "-p",
+          "-t",
+          "same:origin",
+          "#{pane_id}",
+        ])
+      ).stdout.trim();
+      const defaultBefore = (
+        await executeFile("tmux", [
+          "-S",
+          defaultSocket,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_id}|#{window_name}|#{pane_id}",
+        ])
+      ).stdout;
+      const f = fixture();
+      const liveTmux = createLivePorts().tmux;
+      const completed = await new IssueRunService(
+        { ...f.ports, tmux: liveTmux },
+        worker,
+        { tmux: `${selectedSocket},123,0`, tmuxPane: invokingPane },
+      ).run(3, "/tmp/start");
+      if (completed.tmux === null)
+        throw new Error("complete run did not persist tmux target");
+      expect(completed.tmux).toMatchObject({
+        socketPath: selectedSocket,
+        sessionName: "same",
+        windowName: "3",
+      });
+      const exact = (
+        await executeFile("tmux", [
+          "-S",
+          selectedSocket,
+          "display-message",
+          "-p",
+          "-t",
+          completed.tmux.paneId,
+          "-F",
+          "#{session_id}|#{window_id}|#{pane_id}",
+        ])
+      ).stdout;
+      expect(exact).toBe(
+        `${completed.tmux.sessionId}|${completed.tmux.windowId}|${completed.tmux.paneId}\n`,
+      );
+      const defaultAfter = (
+        await executeFile("tmux", [
+          "-S",
+          defaultSocket,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_id}|#{window_name}|#{pane_id}",
+        ])
+      ).stdout;
+      expect(defaultAfter).toBe(defaultBefore);
+      expect(defaultAfter).not.toContain("|3|");
+      await liveTmux.removeWindow(completed.tmux);
+    } finally {
+      for (const socket of [selectedSocket, defaultSocket])
+        await executeFile("tmux", ["-S", socket, "kill-server"]).catch(
+          () => undefined,
+        );
+      await fs.rm("/tmp/soft-factory-fixture", {
+        recursive: true,
+        force: true,
+      });
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
   it("gives two simultaneous starts exactly one owner and resource set", async () => {
     const f = fixture();
     const serviceA = new IssueRunService(f.ports);

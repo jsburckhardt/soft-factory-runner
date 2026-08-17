@@ -44,6 +44,55 @@ class ResolverRunner implements CommandRunner {
     throw new Error("not used");
   }
 }
+class AttachProbeRunner implements CommandRunner {
+  public selectedAtAttachment: string | null = null;
+  public async run(
+    executable: string,
+    args: readonly string[],
+  ): Promise<CommandResult> {
+    try {
+      const completed = await execute(executable, [...args]);
+      return commandResult(completed.stdout);
+    } catch (cause) {
+      const failure = cause as {
+        code?: number;
+        stdout?: string;
+        stderr?: string;
+      };
+      const stdout = failure.stdout ?? "";
+      const result = commandResult(
+        stdout,
+        typeof failure.code === "number" ? failure.code : 1,
+      );
+      return {
+        ...result,
+        stderr: failure.stderr ?? "",
+        stderrBuffer: Buffer.from(failure.stderr ?? ""),
+        stderrByteCount: Buffer.byteLength(failure.stderr ?? ""),
+      };
+    }
+  }
+  public async runInherited(
+    _executable: string,
+    args: readonly string[],
+  ): Promise<CommandResult> {
+    const socketIndex = args.indexOf("-S");
+    const socket = args[socketIndex + 1];
+    if (socket === undefined)
+      throw new Error("attachment omitted socket selector");
+    this.selectedAtAttachment = (
+      await execute("tmux", [
+        "-S",
+        socket,
+        "display-message",
+        "-p",
+        "#{window_id}|#{pane_id}",
+      ])
+    ).stdout.trim();
+    return commandResult("");
+  }
+}
+
 const repository: RepositoryIdentity = {
   nameWithOwner: "owner/repo",
   normalizedName: "owner-repo",
@@ -152,13 +201,29 @@ describe("Issue 36 exact tmux context resolver", () => {
     ) as {
       schemaVersion: number;
       issue: number;
-      scenarios: Array<{ acceptance: string; evidence: string }>;
+      isolation: { credentials: boolean; network: boolean; cleanup: string };
+      scenarios: Array<{
+        acceptance: string;
+        fixture: string;
+        assertions: string[];
+      }>;
     };
-    expect(ledger).toMatchObject({ schemaVersion: 1, issue: 36 });
+    expect(ledger).toMatchObject({
+      schemaVersion: 2,
+      issue: 36,
+      isolation: { credentials: false, network: false },
+    });
     expect(ledger.scenarios.map((row) => row.acceptance)).toEqual(
       Array.from({ length: 14 }, (_, index) => `AC-${index + 1}`),
     );
-    expect(ledger.scenarios.every((row) => row.evidence.length > 0)).toBe(true);
+    expect(
+      ledger.scenarios.every(
+        (row) =>
+          row.fixture === "src/tmux-context.test.ts" &&
+          row.assertions.length > 0 &&
+          row.assertions.every((assertion) => assertion.length > 20),
+      ),
+    ).toBe(true);
   });
 
   it("validates one custom-socket record and discards tuple PID", async () => {
@@ -203,6 +268,7 @@ describe("Issue 36 exact tmux context resolver", () => {
       } as never,
       { tmux: null, tmuxPane: null },
       repository.nameWithOwner,
+      async () => ({ ambient: Buffer.from("a"), unrelated: Buffer.from("u") }),
     );
     expect(fallback).toMatchObject({
       mode: "standalone-fallback",
@@ -217,6 +283,7 @@ describe("Issue 36 exact tmux context resolver", () => {
       } as never,
       { tmux: "redacted,1,0", tmuxPane: "%1" },
       repository.nameWithOwner,
+      async () => ({ ambient: Buffer.from("a"), unrelated: Buffer.from("u") }),
     );
     expect(invalid).toMatchObject({
       mode: "invalid-context",
@@ -224,16 +291,72 @@ describe("Issue 36 exact tmux context resolver", () => {
       unrelatedUnchanged: true,
     });
     expect(JSON.stringify(invalid)).not.toContain("redacted");
+    for (const reason of [
+      "partial-evidence",
+      "malformed-evidence",
+      "stale-server",
+      "contradictory-target",
+      "ambiguous-session",
+      "unavailable-proof",
+    ] as const) {
+      let inventorySamples = 0;
+      const classified = await classifyDoctorTmuxTargeting(
+        {
+          selectTarget: async () => {
+            throw tmuxContextRefusal(reason);
+          },
+        } as never,
+        { tmux: "value-never-rendered,1,0", tmuxPane: "%1" },
+        repository.nameWithOwner,
+        async () => {
+          inventorySamples += 1;
+          return {
+            ambient: Buffer.from("ambient"),
+            unrelated: Buffer.from("unrelated"),
+          };
+        },
+      );
+      expect(inventorySamples).toBe(2);
+      expect(classified).toEqual({
+        schemaVersion: 1,
+        kind: "tmux-targeting",
+        mode: "invalid-context",
+        reason,
+        bounded: true,
+        inventoryMeasured: true,
+        ambientUnchanged: true,
+        unrelatedUnchanged: true,
+      });
+      expect(JSON.stringify(classified)).not.toContain("value-never-rendered");
+    }
+    let samples = 0;
+    const changed = await classifyDoctorTmuxTargeting(
+      {
+        selectTarget: async () => deriveStandaloneTmuxTarget(repository),
+      } as never,
+      { tmux: null, tmuxPane: null },
+      repository.nameWithOwner,
+      async () => ({
+        ambient: Buffer.from(samples++ === 0 ? "before" : "after"),
+        unrelated: Buffer.from("stable"),
+      }),
+    );
+    expect(samples).toBe(2);
+    expect(changed).toMatchObject({
+      inventoryMeasured: true,
+      ambientUnchanged: false,
+      unrelatedUnchanged: true,
+    });
   });
 });
 
 describe("Issue 36 isolated custom-socket acceptance", () => {
-  it("creates, observes, and removes only the invoking-server window", async () => {
+  it("completes the custom-socket target lifecycle with no default-server issue window", async () => {
     const directory = await fs.mkdtemp(
       path.join(os.tmpdir(), "sf-isolated-tmux-"),
     );
     const selectedSocket = path.join(directory, "selected.sock");
-    const unrelatedSocket = path.join(directory, "unrelated.sock");
+    const defaultSocket = path.join(directory, "default.sock");
     const helper = ["node", "-e", "setInterval(() => {}, 1000)"];
     const tmux = createLivePorts().tmux;
     try {
@@ -252,7 +375,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       ]);
       await execute("tmux", [
         "-S",
-        unrelatedSocket,
+        defaultSocket,
         "new-session",
         "-d",
         "-s",
@@ -274,10 +397,10 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
           "#{pane_id}",
         ])
       ).stdout.trim();
-      const beforeUnrelated = (
+      const beforeDefault = (
         await execute("tmux", [
           "-S",
-          unrelatedSocket,
+          defaultSocket,
           "list-windows",
           "-F",
           "#{window_id}|#{window_name}",
@@ -308,21 +431,37 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       expect(raw.stdout).toBe(
         `${selectedSocket}|${created.sessionId}|same|${created.windowId}|36|${created.paneId}|${directory}\n`,
       );
+      const selectedInventory = (
+        await execute("tmux", [
+          "-S",
+          selectedSocket,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_id}|#{window_id}|#{window_name}|#{pane_id}",
+        ])
+      ).stdout;
+      expect(
+        selectedInventory.split("\n").filter((line) => line.includes("|36|")),
+      ).toEqual([
+        `${created.sessionId}|${created.windowId}|36|${created.paneId}`,
+      ]);
       expect(await tmux.observe(created)).toEqual(created);
       await tmux.removeWindow(created);
       expect(await tmux.observe(created)).toBeNull();
-      const afterUnrelated = (
+      const afterDefault = (
         await execute("tmux", [
           "-S",
-          unrelatedSocket,
+          defaultSocket,
           "list-windows",
           "-F",
           "#{window_id}|#{window_name}",
         ])
       ).stdout;
-      expect(afterUnrelated).toBe(beforeUnrelated);
+      expect(afterDefault).toBe(beforeDefault);
+      expect(afterDefault).not.toContain("|36");
     } finally {
-      for (const socket of [selectedSocket, unrelatedSocket])
+      for (const socket of [selectedSocket, defaultSocket])
         await execute("tmux", ["-S", socket, "kill-server"]).catch(
           () => undefined,
         );
@@ -391,6 +530,460 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
         () => undefined,
       );
       await fs.rm(selected.socketPath + ".owner.json", { force: true });
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("proves sequential clean standalone runs and distinct repository targets", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-fallback-repeat-"),
+    );
+    const helper = ["node", "-e", "setInterval(() => {}, 1000)"];
+    const tmux = createLivePorts().tmux;
+    const sameRepository: RepositoryIdentity = {
+      nameWithOwner: `owner/${path.basename(directory)}`,
+      normalizedName: path.basename(directory),
+    };
+    const distinctRepository: RepositoryIdentity = {
+      nameWithOwner: `other/${path.basename(directory)}-other`,
+      normalizedName: `${path.basename(directory)}-other`,
+    };
+    const targets = [];
+    const initial = deriveStandaloneTmuxTarget(sameRepository);
+    await execute("tmux", ["-S", initial.socketPath, "kill-server"]).catch(
+      () => undefined,
+    );
+    await fs.rm(initial.socketPath + ".owner.json", { force: true });
+    await fs.rm(initial.socketPath, { force: true });
+    try {
+      for (let cycle = 0; cycle < 2; cycle += 1) {
+        const selected = await tmux.selectTarget?.({
+          evidence: { tmux: null, tmuxPane: null },
+          repository: sameRepository,
+        });
+        if (selected === undefined) throw new Error("selection unavailable");
+        targets.push({
+          socketPath: selected.socketPath,
+          sessionName: selected.sessionName,
+        });
+        const created = await tmux.createIssueWindow({
+          target: selected,
+          windowName: "36",
+          cwd: directory,
+          executable: helper[0],
+          args: helper.slice(1),
+        });
+        await tmux.removeWindow(created);
+        await execute("tmux", ["-S", selected.socketPath, "kill-server"]);
+        await fs.rm(selected.socketPath + ".owner.json", { force: true });
+        await fs.rm(selected.socketPath, { force: true });
+      }
+      expect(targets[1]).toEqual(targets[0]);
+      const different = deriveStandaloneTmuxTarget(distinctRepository);
+      expect(different.socketPath).not.toBe(targets[0]?.socketPath);
+      expect(different.sessionName).not.toBe(targets[0]?.sessionName);
+    } finally {
+      for (const target of targets) {
+        await execute("tmux", ["-S", target.socketPath, "kill-server"]).catch(
+          () => undefined,
+        );
+        await fs.rm(target.socketPath + ".owner.json", { force: true });
+        await fs.rm(target.socketPath, { force: true });
+      }
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps identical persisted names isolated across two servers and exact cleanup", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-twin-targets-"),
+    );
+    const sockets = [
+      path.join(directory, "one.sock"),
+      path.join(directory, "two.sock"),
+    ];
+    const tmux = createLivePorts().tmux;
+    const targets = [];
+    const inventory = async (socket: string): Promise<string> =>
+      (
+        await execute("tmux", [
+          "-S",
+          socket,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_name}|#{window_name}|#{window_id}|#{pane_id}",
+        ])
+      ).stdout;
+    try {
+      for (const [index, socket] of sockets.entries()) {
+        await execute("tmux", [
+          "-S",
+          socket,
+          "new-session",
+          "-d",
+          "-s",
+          "same",
+          "-n",
+          "origin",
+          "-c",
+          directory,
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+        const pane = (
+          await execute("tmux", [
+            "-S",
+            socket,
+            "display-message",
+            "-p",
+            "-t",
+            "same:origin",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const selected = await tmux.selectTarget?.({
+          evidence: { tmux: `${socket},${100 + index},0`, tmuxPane: pane },
+          repository,
+        });
+        if (selected === undefined) throw new Error("selection unavailable");
+        targets.push(
+          await tmux.createIssueWindow({
+            target: selected,
+            windowName: "36",
+            cwd: directory,
+            executable: "sh",
+            args: ["-c", `printf twin-${index}; sleep 30`],
+          }),
+        );
+      }
+      expect(targets[0]?.sessionName).toBe(targets[1]?.sessionName);
+      expect(targets[0]?.windowName).toBe(targets[1]?.windowName);
+      const secondBefore = await inventory(sockets[1] as string);
+      const firstLog = await tmux.capturePane(
+        targets[0] as NonNullable<(typeof targets)[number]>,
+        4096,
+      );
+      const secondLog = await tmux.capturePane(
+        targets[1] as NonNullable<(typeof targets)[number]>,
+        4096,
+      );
+      expect(firstLog.content).toContain("twin-0");
+      expect(firstLog.content).not.toContain("twin-1");
+      expect(secondLog.content).toContain("twin-1");
+      await tmux.removeWindow(
+        targets[0] as NonNullable<(typeof targets)[number]>,
+      );
+      expect(
+        await tmux.observe(targets[0] as NonNullable<(typeof targets)[number]>),
+      ).toBeNull();
+      expect(await inventory(sockets[1] as string)).toBe(secondBefore);
+      expect(
+        await tmux.observe(targets[1] as NonNullable<(typeof targets)[number]>),
+      ).toEqual(targets[1]);
+    } finally {
+      for (const socket of sockets)
+        await execute("tmux", ["-S", socket, "kill-server"]).catch(
+          () => undefined,
+        );
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses the complete invalid-context matrix with byte-identical state and server inventories", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-invalid-matrix-"),
+    );
+    const sockets = [
+      path.join(directory, "ambient.sock"),
+      path.join(directory, "unrelated.sock"),
+    ];
+    const statePath = path.join(directory, "run-state.json");
+    const inventory = async (): Promise<Buffer> => {
+      const parts = [await fs.readFile(statePath)];
+      for (const socket of sockets)
+        parts.push(
+          Buffer.from(
+            (
+              await execute("tmux", [
+                "-S",
+                socket,
+                "list-panes",
+                "-a",
+                "-F",
+                "#{session_id}|#{window_id}|#{pane_id}",
+              ])
+            ).stdout,
+          ),
+        );
+      return Buffer.concat(parts);
+    };
+    try {
+      await fs.writeFile(statePath, Buffer.from("unchanged-run-state\n"));
+      for (const socket of sockets)
+        await execute("tmux", [
+          "-S",
+          socket,
+          "new-session",
+          "-d",
+          "-s",
+          "tripwire",
+          "-n",
+          "sentinel",
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+      const pane = (
+        await execute("tmux", [
+          "-S",
+          sockets[0] as string,
+          "display-message",
+          "-p",
+          "-t",
+          "tripwire:sentinel",
+          "#{pane_id}",
+        ])
+      ).stdout.trim();
+      const valid = `${sockets[0]}|$1|tripwire|@1|sentinel|${pane}|${directory}\n`;
+      const rows = [
+        { evidence: { tmux: "malformed", tmuxPane: pane }, response: valid },
+        {
+          evidence: {
+            tmux: path.join(directory, "stopped.sock") + ",1,0",
+            tmuxPane: pane,
+          },
+          response: valid,
+        },
+        {
+          evidence: { tmux: `${sockets[0]},1,0`, tmuxPane: pane },
+          response: valid + valid,
+        },
+        {
+          evidence: { tmux: `${sockets[0]},1,0`, tmuxPane: "%999" },
+          response: valid,
+        },
+        {
+          evidence: { tmux: `${sockets[0]},1,0`, tmuxPane: pane },
+          response: "unresolvable\n",
+        },
+      ] as const;
+      for (const row of rows) {
+        const before = await inventory();
+        const runner = new ResolverRunner(commandResult(row.response));
+        let machineCode = "";
+        try {
+          await createLivePorts(runner).tmux.selectTarget?.({
+            evidence: row.evidence,
+            repository,
+          });
+        } catch (cause) {
+          machineCode = (cause as { code?: string }).code ?? "";
+        }
+        expect(machineCode).toBe("TMUX_CONTEXT_REFUSED");
+        expect(await inventory()).toEqual(before);
+      }
+    } finally {
+      for (const socket of sockets)
+        await execute("tmux", ["-S", socket, "kill-server"]).catch(
+          () => undefined,
+        );
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("bounds cleanup overlaps with status and reconciliation to whole-target or absence", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-clean-overlap-"),
+    );
+    const socket = path.join(directory, "owned.sock");
+    const unrelated = path.join(directory, "unrelated.sock");
+    const observe = async (
+      target: import("./tmux-target").TmuxTargetV2,
+    ): Promise<string | null> => {
+      try {
+        return (
+          await execute("tmux", [
+            "-S",
+            target.socketPath,
+            "list-panes",
+            "-t",
+            target.paneId,
+            "-F",
+            "#{session_id}|#{window_id}|#{pane_id}|#{pane_current_path}",
+          ])
+        ).stdout;
+      } catch {
+        return null;
+      }
+    };
+    const tmux = createLivePorts().tmux;
+    try {
+      for (const current of [socket, unrelated])
+        await execute("tmux", [
+          "-S",
+          current,
+          "new-session",
+          "-d",
+          "-s",
+          "same",
+          "-n",
+          "origin",
+          "-c",
+          directory,
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+      const unrelatedBefore = (
+        await execute("tmux", [
+          "-S",
+          unrelated,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_id}|#{window_id}|#{pane_id}",
+        ])
+      ).stdout;
+      for (const label of ["status", "reconciliation"] as const) {
+        const pane = (
+          await execute("tmux", [
+            "-S",
+            socket,
+            "display-message",
+            "-p",
+            "-t",
+            "same:origin",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const selected = await tmux.selectTarget?.({
+          evidence: { tmux: `${socket},1,0`, tmuxPane: pane },
+          repository,
+        });
+        if (selected === undefined) throw new Error("selection unavailable");
+        const target = await tmux.createIssueWindow({
+          target: selected,
+          windowName: label,
+          cwd: directory,
+          executable: "node",
+          args: ["-e", "setInterval(() => {}, 1000)"],
+        });
+        const expected = `${target.sessionId}|${target.windowId}|${target.paneId}|${target.cwd}\n`;
+        const overlap = await Promise.race([
+          Promise.all([observe(target), tmux.removeWindow(target)]),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("overlap exceeded bound")), 2000),
+          ),
+        ]);
+        expect([expected, null]).toContain(overlap[0]);
+        expect(await tmux.observe(target)).toBeNull();
+        expect(
+          (
+            await execute("tmux", [
+              "-S",
+              unrelated,
+              "list-panes",
+              "-a",
+              "-F",
+              "#{session_id}|#{window_id}|#{pane_id}",
+            ])
+          ).stdout,
+        ).toBe(unrelatedBefore);
+      }
+    } finally {
+      for (const current of [socket, unrelated])
+        await execute("tmux", ["-S", current, "kill-server"]).catch(
+          () => undefined,
+        );
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("selects the exact persisted window and pane before live attachment", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-live-attach-"),
+    );
+    const socket = path.join(directory, "attach.sock");
+    const runner = new AttachProbeRunner();
+    const tmux = createLivePorts(runner).tmux;
+    try {
+      await execute("tmux", [
+        "-S",
+        socket,
+        "new-session",
+        "-d",
+        "-s",
+        "same",
+        "-n",
+        "origin",
+        "-c",
+        directory,
+        "node",
+        "-e",
+        "setInterval(() => {}, 1000)",
+      ]);
+      const invokingPane = (
+        await execute("tmux", [
+          "-S",
+          socket,
+          "display-message",
+          "-p",
+          "-t",
+          "same:origin",
+          "#{pane_id}",
+        ])
+      ).stdout.trim();
+      const selected = await tmux.selectTarget?.({
+        evidence: { tmux: `${socket},1,0`, tmuxPane: invokingPane },
+        repository,
+      });
+      if (selected === undefined) throw new Error("selection unavailable");
+      const target = await tmux.createIssueWindow({
+        target: selected,
+        windowName: "36",
+        cwd: directory,
+        executable: "node",
+        args: ["-e", "setInterval(() => {}, 1000)"],
+      });
+      await execute("tmux", [
+        "-S",
+        socket,
+        "split-window",
+        "-d",
+        "-t",
+        target.windowId,
+        "node",
+        "-e",
+        "setInterval(() => {}, 1000)",
+      ]);
+      await execute("tmux", [
+        "-S",
+        socket,
+        "select-window",
+        "-t",
+        "same:origin",
+      ]);
+      expect(
+        (
+          await execute("tmux", [
+            "-S",
+            socket,
+            "display-message",
+            "-p",
+            "#{window_id}|#{pane_id}",
+          ])
+        ).stdout.trim(),
+      ).not.toBe(`${target.windowId}|${target.paneId}`);
+      await tmux.attach(target);
+      expect(runner.selectedAtAttachment).toBe(
+        `${target.windowId}|${target.paneId}`,
+      );
+    } finally {
+      await execute("tmux", ["-S", socket, "kill-server"]).catch(
+        () => undefined,
+      );
       await fs.rm(directory, { recursive: true, force: true });
     }
   });

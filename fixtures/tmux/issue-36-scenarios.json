@@ -1,62 +1,113 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "issue": 36,
+  "isolation": {
+    "sockets": "repository-local temporary explicit selectors",
+    "credentials": false,
+    "network": false,
+    "cleanup": "unconditional exact server and directory removal"
+  },
   "scenarios": [
     {
       "acceptance": "AC-1",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "custom-socket complete lifecycle creates exact persisted window/pane",
+        "default tripwire inventory contains no issue-36 window"
+      ]
     },
     {
       "acceptance": "AC-2",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "two clean standalone cycles resolve equal same-repository targets",
+        "different repository names resolve distinct socket/session targets"
+      ]
     },
     {
       "acceptance": "AC-3",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "v6 persisted target equality covers socket/session/window/pane/cwd"
+      ]
     },
     {
       "acceptance": "AC-4",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "lifecycle observations consume the persisted target independent of ambient context"
+      ]
     },
     {
       "acceptance": "AC-5",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "attach selects persisted window then pane before attachment",
+        "cleanup removes only persisted window ID"
+      ]
     },
     {
       "acceptance": "AC-6",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "same-name collision inventory remains byte-identical after refusal"
+      ]
     },
     {
       "acceptance": "AC-7",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "two persisted equal-name targets remain isolated by socket through cleanup"
+      ]
     },
     {
       "acceptance": "AC-8",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "finite invalid-context rows return TMUX_CONTEXT_REFUSED and preserve byte inventories"
+      ]
     },
     {
       "acceptance": "AC-9",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "absence derives owned fallback and never adopts same-name resources"
+      ]
     },
     {
       "acceptance": "AC-10",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "bounded cleanup/status and cleanup/reconciliation overlaps return whole target or absence"
+      ]
     },
     {
       "acceptance": "AC-11",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "repeated absence is stable and unauthorized controls do not mutate"
+      ]
     },
     {
       "acceptance": "AC-12",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "sentinel scan excludes raw tuple PID and inherited values"
+      ]
     },
     {
       "acceptance": "AC-13",
-      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "Doctor inventoryMeasured evidence compares two before/after samples"
+      ]
     },
     {
       "acceptance": "AC-14",
-      "evidence": "root focused acceptance suite and cleanup"
+      "fixture": "src/tmux-context.test.ts",
+      "assertions": [
+        "isolated sockets, no-network inputs, exact inventories, bounds, and unconditional cleanup are asserted directly"
+      ]
     }
   ]
 }

@@ -371,8 +371,8 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "RunSnapshotV5",
       "ReconciliationReportV2",
       "status schema v4",
-      "explicit revisioned v5 transition",
-      "tmuxIdentityDiagnostic: null",
+      "explicit revisioned transitions",
+      "complete exact-target authority",
     ])
       expect(readme + operations + prd).toContain(phrase);
     expect(tmuxIdentityContract).toContain(
@@ -416,7 +416,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     );
   });
 
-  it("parses the exact current PRD RunSnapshotV5 and distinguishes schema families", () => {
+  it("parses the exact current PRD RunSnapshotV6 and distinguishes schema families", () => {
     const assetSection = sectionBetween(
       prd,
       "# 12. Asset Manifest",
@@ -437,9 +437,9 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "# 35. RPIV Result Artifact",
       "# 36. Completion Reconciliation",
     );
-    expect(snapshotSection).toContain("New runs write `RunSnapshotV5`");
+    expect(snapshotSection).toContain("New runs write `RunSnapshotV6`");
     expect(snapshotSection).toContain(
-      "Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.",
+      "Snapshot versions v1-v5 are compatibility inputs only and migrate only through supported explicit transitions that prove an exact target.",
     );
 
     const assetExample = firstFencedJson(assetSection);
@@ -451,7 +451,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       doctor: objectValue(doctorExample, "schemaVersion"),
       snapshot: objectValue(snapshotExample, "schemaVersion"),
       result: objectValue(resultExample, "schemaVersion"),
-    }).toEqual({ asset: 1, doctor: 2, snapshot: 5, result: 1 });
+    }).toEqual({ asset: 1, doctor: 2, snapshot: 6, result: 1 });
 
     const expectedKeys = [
       "schemaVersion",
@@ -464,6 +464,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "branch",
       "worktreePath",
       "fetchedBaseProof",
+      "tmuxSelection",
       "tmux",
       "copilot",
       "error",

@@ -156,8 +156,9 @@ export interface DoctorTmuxTargetingEvidenceV1 {
   readonly mode: "invoking-valid" | "standalone-fallback" | "invalid-context";
   readonly reason: import("./tmux-target").TmuxContextRefusalReason | null;
   readonly bounded: true;
-  readonly ambientUnchanged: true;
-  readonly unrelatedUnchanged: true;
+  readonly inventoryMeasured: true;
+  readonly ambientUnchanged: boolean;
+  readonly unrelatedUnchanged: boolean;
 }
 export type DoctorCheckEvidenceV1 =
   DoctorTmuxProbeEvidenceV1 | DoctorTmuxTargetingEvidenceV1;
@@ -330,6 +331,7 @@ function isDoctorTmuxTargetingEvidence(value: unknown): boolean {
       "mode",
       "reason",
       "bounded",
+      "inventoryMeasured",
       "ambientUnchanged",
       "unrelatedUnchanged",
     ])
@@ -352,8 +354,9 @@ function isDoctorTmuxTargetingEvidence(value: unknown): boolean {
     (value.reason === null ||
       (typeof value.reason === "string" && reasons.includes(value.reason))) &&
     value.bounded === true &&
-    value.ambientUnchanged === true &&
-    value.unrelatedUnchanged === true &&
+    value.inventoryMeasured === true &&
+    typeof value.ambientUnchanged === "boolean" &&
+    typeof value.unrelatedUnchanged === "boolean" &&
     (value.mode === "invalid-context") === (value.reason !== null)
   );
 }

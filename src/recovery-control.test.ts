@@ -1704,6 +1704,93 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     expect(f.files.compareAndDeleteTrace).toEqual(deleteCalls);
   });
 
+  it("bounds cleanup/status overlap at the complete pre-target", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null }),
+    );
+    f.processes.observed = null;
+    let startedResolve: (() => void) | undefined;
+    let releaseResolve: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedResolve = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseResolve = resolve;
+    });
+    const originalRemove = f.tmux.removeWindow.bind(f.tmux);
+    f.tmux.removeWindow = async () => {
+      startedResolve?.();
+      await release;
+      await originalRemove();
+    };
+    const service = new IssueRunService(f.ports);
+    const cleanup = service.clean(5, root);
+    await Promise.race([
+      started,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("cleanup/status overlap exceeded bound")),
+          1000,
+        ),
+      ),
+    ]);
+    const status = await service.status(5, root);
+    expect(status.reconciliation.observations.tmux).toMatchObject({
+      state: "match",
+      facts: tmux,
+    });
+    expect(f.tmux.present).toBe(true);
+    releaseResolve?.();
+    await expect(cleanup).resolves.toMatchObject({ code: "CLEANUP_COMPLETED" });
+  });
+
+  it("bounds cleanup/reconciliation overlap at complete target absence without unrelated mutation", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null }),
+    );
+    f.processes.observed = null;
+    const unrelatedInventory = JSON.stringify({
+      server: "unrelated",
+      windows: ["sentinel"],
+    });
+    let removedResolve: (() => void) | undefined;
+    let releaseResolve: (() => void) | undefined;
+    const removed = new Promise<void>((resolve) => {
+      removedResolve = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseResolve = resolve;
+    });
+    const originalRemove = f.tmux.removeWindow.bind(f.tmux);
+    f.tmux.removeWindow = async () => {
+      await originalRemove();
+      removedResolve?.();
+      await release;
+    };
+    const service = new IssueRunService(f.ports);
+    const cleanup = service.clean(5, root);
+    await Promise.race([
+      removed,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(new Error("cleanup/reconciliation overlap exceeded bound")),
+          1000,
+        ),
+      ),
+    ]);
+    const report = await service.reconcile(5, root);
+    expect(report.observations.tmux).toMatchObject({
+      state: "absent",
+      facts: null,
+    });
+    expect(JSON.stringify({ server: "unrelated", windows: ["sentinel"] })).toBe(
+      unrelatedInventory,
+    );
+    releaseResolve?.();
+    await expect(cleanup).resolves.toMatchObject({ code: "CLEANUP_COMPLETED" });
+  });
+
   it("returns an idempotent already-cleaned result after explicit cleanup", async () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),

@@ -1192,6 +1192,11 @@ class LiveTmuxPort implements TmuxPort {
   public async attach(target: TmuxTargetV2): Promise<void> {
     await this.required(
       target,
+      ["select-window", "-t", target.windowId],
+      "tmux window selection",
+    );
+    await this.required(
+      target,
       ["select-pane", "-t", target.paneId],
       "tmux pane selection",
     );

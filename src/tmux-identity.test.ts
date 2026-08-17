@@ -218,6 +218,7 @@ describe("Issue 36 LiveTmuxPort exact selector routing", () => {
         result(""),
         result(""),
         result(""),
+        result(""),
       ]);
       const tmux = createLivePorts(commands).tmux;
       const created = await tmux.createIssueWindow({
@@ -254,6 +255,19 @@ describe("Issue 36 LiveTmuxPort exact selector routing", () => {
           )
           .every(({ args }) => args.includes(created.paneId)),
       ).toBe(true);
+      const selectWindow = commands.calls.findIndex(({ args }) =>
+        args.includes("select-window"),
+      );
+      const selectPane = commands.calls.findIndex(({ args }) =>
+        args.includes("select-pane"),
+      );
+      const attachSession = commands.calls.findIndex(({ args }) =>
+        args.includes("attach-session"),
+      );
+      expect(selectWindow).toBeGreaterThanOrEqual(0);
+      expect(commands.calls[selectWindow]?.args).toContain(created.windowId);
+      expect(selectPane).toBeGreaterThan(selectWindow);
+      expect(attachSession).toBeGreaterThan(selectPane);
     } finally {
       await fs.rm(fixture.directory, { recursive: true, force: true });
     }

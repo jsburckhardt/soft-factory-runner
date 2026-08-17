@@ -918,7 +918,7 @@ Runner must never remove or modify an unknown directory merely because its path 
 
 # 26. tmux Model
 
-Each repository owns one deterministic tmux session.
+A valid in-tmux run owns its issue window in the invoking tmux server and current session. Only a run with completely absent invoking evidence uses the deterministic repository-owned standalone socket and session.
 
 Example:
 
@@ -1133,13 +1133,13 @@ Runtime state became unavailable or ambiguous before successful completion.
 
 # 33. Run Snapshot
 
-New runs write `RunSnapshotV5`. Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.
+New runs write `RunSnapshotV6` with complete socket, session, window, and pane authority. Snapshot versions v1-v5 are compatibility inputs only and migrate only through supported explicit transitions that prove an exact target.
 
 Example:
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "runId": "jsburckhardt-example-123-20260810T090000+1000",
   "ownerId": "runner-owner-123",
   "repository": "jsburckhardt/example",
@@ -1157,8 +1157,21 @@ Example:
     "fetchedAt": "2026-08-10T09:00:00+10:00",
     "matches": true
   },
+  "tmuxSelection": {
+    "selectionMode": "standalone",
+    "socketPath": "/tmp/soft-factory-0123456789abcdef.sock",
+    "socketIdentity": { "device": "2049", "inode": "1001" },
+    "sessionId": "$1",
+    "sessionName": "sf-jsburckhardt-example-0123456789abcdef",
+    "repository": "jsburckhardt/example"
+  },
   "tmux": {
-    "sessionName": "sf-jsburckhardt-example",
+    "schemaVersion": 2,
+    "selectionMode": "standalone",
+    "socketPath": "/tmp/soft-factory-0123456789abcdef.sock",
+    "socketIdentity": { "device": "2049", "inode": "1001" },
+    "sessionId": "$1",
+    "sessionName": "sf-jsburckhardt-example-0123456789abcdef",
     "windowName": "123",
     "windowId": "@7",
     "paneId": "%12",
@@ -1289,7 +1302,7 @@ This artifact is the formal handoff between RPIV and Runner.
 
 # 36. Completion Reconciliation
 
-New runs persist `RunSnapshotV5`; supported v4 state normalizes through an explicit revisioned transition, while v1-v5 remain versioned compatibility inputs. `ReconciliationReportV2` and status schema v4 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
+New runs persist `RunSnapshotV6`; supported exact v4/v5 state normalizes only through explicit revisioned transitions, while v1-v5 remain readable, non-authorizing compatibility inputs when complete tmux selectors are absent. `ReconciliationReportV2` and status schema v4 expose the latest bounded tmux identity diagnostic separately from current observations and safe actions. One reconciliation attempt observes each boundary once; persisting malformed observation structure never triggers recollection.
 
 A successful RPIV artifact is necessary but not sufficient.
 
@@ -1562,7 +1575,7 @@ worktree from a stale or unverified base.
 
 ## FR-011 — Prepare tmux session
 
-Runner MUST create or reuse the deterministic repository tmux session.
+Runner MUST select the validated invoking server/current session or, only when invoking evidence is completely absent, create or reuse the deterministic repository-owned standalone target.
 
 ---
 

@@ -1,3 +1,6 @@
+import * as fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import {
   DOCTOR_CHECK_IDS,
   DOCTOR_OPERATION_CUTOFF_MS,
@@ -45,6 +48,11 @@ export interface DoctorServiceInput {
   readonly clock?: DoctorClock;
   readonly tmuxPort?: TmuxPort;
   readonly invokingEvidence?: InvokingTmuxEvidenceV1;
+  readonly tmuxInventory?: () => Promise<DoctorTmuxInventories>;
+}
+export interface DoctorTmuxInventories {
+  readonly ambient: Uint8Array;
+  readonly unrelated: Uint8Array;
 }
 export class DoctorService implements DoctorRunner {
   public constructor(private readonly input: DoctorServiceInput) {}
@@ -120,10 +128,14 @@ export class DoctorService implements DoctorRunner {
       this.input.tmuxPort ?? createLivePorts().tmux,
       this.input.invokingEvidence ?? { tmux: null, tmuxPane: null },
       repository.githubIdentity.value ?? "unknown/unknown",
+      this.input.tmuxInventory ??
+        (() => captureDoctorTmuxInventories(startPath)),
     );
     const probeObservation = await tmuxPromise;
     const tmux: DoctorObservation<unknown> =
-      targeting.mode === "invalid-context"
+      targeting.mode === "invalid-context" ||
+      !targeting.ambientUnchanged ||
+      !targeting.unrelatedUnchanged
         ? {
             ok: false,
             value: null,
@@ -258,7 +270,10 @@ export async function classifyDoctorTmuxTargeting(
   tmux: TmuxPort,
   evidence: InvokingTmuxEvidenceV1,
   repository: string,
+  inventory: () => Promise<DoctorTmuxInventories> = () =>
+    captureDoctorTmuxInventories(process.cwd()),
 ): Promise<DoctorTmuxTargetingEvidenceV1> {
+  const before = await inventory();
   try {
     const target =
       tmux.selectTarget === undefined
@@ -279,15 +294,8 @@ export async function classifyDoctorTmuxTargeting(
       (mode === "invoking-valid") !== (target.selectionMode === "invoking")
     )
       throw new Error("target mode mismatch");
-    return {
-      schemaVersion: 1,
-      kind: "tmux-targeting",
-      mode,
-      reason: null,
-      bounded: true,
-      ambientUnchanged: true,
-      unrelatedUnchanged: true,
-    };
+    const after = await inventory();
+    return targetingEvidence(mode, null, before, after);
   } catch (cause: unknown) {
     const reason =
       isRunnerError(cause) &&
@@ -295,14 +303,58 @@ export async function classifyDoctorTmuxTargeting(
       typeof cause.details.reason === "string"
         ? (cause.details.reason as TmuxContextRefusalReason)
         : "unavailable-proof";
-    return {
-      schemaVersion: 1,
-      kind: "tmux-targeting",
-      mode: "invalid-context",
-      reason,
-      bounded: true,
-      ambientUnchanged: true,
-      unrelatedUnchanged: true,
-    };
+    const after = await inventory();
+    return targetingEvidence("invalid-context", reason, before, after);
+  }
+}
+
+function targetingEvidence(
+  mode: DoctorTmuxTargetingEvidenceV1["mode"],
+  reason: DoctorTmuxTargetingEvidenceV1["reason"],
+  before: DoctorTmuxInventories,
+  after: DoctorTmuxInventories,
+): DoctorTmuxTargetingEvidenceV1 {
+  return {
+    schemaVersion: 1,
+    kind: "tmux-targeting",
+    mode,
+    reason,
+    bounded: true,
+    inventoryMeasured: true,
+    ambientUnchanged: Buffer.from(before.ambient).equals(
+      Buffer.from(after.ambient),
+    ),
+    unrelatedUnchanged: Buffer.from(before.unrelated).equals(
+      Buffer.from(after.unrelated),
+    ),
+  };
+}
+
+async function captureDoctorTmuxInventories(
+  startPath: string,
+): Promise<DoctorTmuxInventories> {
+  const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+  const ambientRoot =
+    process.env.TMUX_TMPDIR ?? path.join(os.tmpdir(), `tmux-${uid}`);
+  return {
+    ambient: Buffer.from(await boundedDirectoryInventory(ambientRoot)),
+    unrelated: Buffer.from(
+      await boundedDirectoryInventory(path.join(startPath, ".soft-factory")),
+    ),
+  };
+}
+
+async function boundedDirectoryInventory(directory: string): Promise<string> {
+  try {
+    const entries = (await fs.readdir(directory, { withFileTypes: true }))
+      .slice(0, 1024)
+      .map(
+        (entry) =>
+          `${entry.name}|${entry.isDirectory() ? "d" : entry.isSymbolicLink() ? "l" : "f"}`,
+      )
+      .sort();
+    return JSON.stringify(entries);
+  } catch {
+    return "[]";
   }
 }

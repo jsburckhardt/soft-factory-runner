@@ -52,7 +52,8 @@
         "reason": null,
         "bounded": true,
         "ambientUnchanged": true,
-        "unrelatedUnchanged": true
+        "unrelatedUnchanged": true,
+        "inventoryMeasured": true
       }
     },
     {

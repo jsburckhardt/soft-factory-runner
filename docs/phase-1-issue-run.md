@@ -117,7 +117,7 @@ After the launched Copilot wait resolves, Runner strictly reloads the current sn
 
 Missing, invalid, run-mismatched, owner-mismatched, worker-mismatched, or RPIV-mismatched current state returns `POST_WAIT_STATE_REFUSED` with reason `missing`, `invalid`, `run_mismatch`, `owner_mismatch`, `worker_mismatch`, or `rpiv_mismatch`. If another writer advances after reload but before save, the store preserves the newer revision and returns reason `state_advanced`. These refusals append no fallback terminal event, release no ownership, relaunch no Copilot process, and overwrite no accepted result or diagnostic. If the exact matching current run is already terminal, repeated handling returns that existing outcome without another launch, exit, finalization, lease-release, or terminal transition.
 
-This backward-compatible correction adds no network API or API specification, configuration option/default, snapshot/result/event schema, database or data migration, service, container, or deployment/runtime procedure. Existing persisted v5 data needs no migration.
+This backward-compatible correction adds no network API or API specification, configuration option/default, database migration, service, container, or deployment runtime. New runs use snapshot schema v6; existing v1-v5 data remains readable but cannot authorize tmux mutation until an explicit migration proves the complete target.
 
 A zero exit is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
 
