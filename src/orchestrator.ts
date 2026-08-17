@@ -22,16 +22,14 @@ import type {
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
-  RunSnapshotV5,
+  RunSnapshotV6,
   RunState,
   StatusFacts,
-  TmuxIdentity,
 } from "./domain";
 import {
   issueName,
   normalizeRepositoryName,
   otelResourceAttributes,
-  tmuxSessionName,
 } from "./domain";
 import { isRunnerError, RunnerError } from "./errors";
 import { TmuxIdentityOutputError } from "./tmux-identity";
@@ -42,6 +40,11 @@ import {
   type PostWaitIdentityV1,
 } from "./post-wait";
 import type { RunnerPorts } from "./ports";
+import {
+  deriveStandaloneTmuxTarget,
+  type InvokingTmuxEvidenceV1,
+  type TmuxTargetV2,
+} from "./tmux-target";
 import { collectReconciliation } from "./reconciliation";
 import {
   integrationContract,
@@ -60,12 +63,16 @@ export class IssueRunService {
   public constructor(
     private readonly ports: RunnerPorts,
     private readonly executable = "soft-factory",
+    private readonly invokingEvidence: InvokingTmuxEvidenceV1 = {
+      tmux: null,
+      tmuxPane: null,
+    },
   ) {}
 
   public async run(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     if (await store.snapshotExists(issueNumber)) {
@@ -108,6 +115,13 @@ export class IssueRunService {
         },
       );
     }
+    const tmuxSelection =
+      this.ports.tmux.selectTarget === undefined
+        ? deriveStandaloneTmuxTarget(repository.identity)
+        : await this.ports.tmux.selectTarget({
+            evidence: this.invokingEvidence,
+            repository: repository.identity,
+          });
     const configuration = await this.configuration(repository.root);
     const issue = await this.ports.github.loadIssue(
       repository.identity.nameWithOwner,
@@ -154,8 +168,8 @@ export class IssueRunService {
       startedAt: owner.acquiredAt,
       requiredFinalValidation: configuration.finalValidation,
     });
-    let snapshot: RunSnapshotV5 = {
-      schemaVersion: 5,
+    let snapshot: RunSnapshotV6 = {
+      schemaVersion: 6,
       revision: 1,
       attempt: 1,
       runId: owner.runId,
@@ -167,6 +181,7 @@ export class IssueRunService {
       branch: prepared.branchName,
       worktreePath,
       fetchedBaseProof: null,
+      tmuxSelection,
       tmux: null,
       copilot: null,
       admission: admission.lease,
@@ -210,12 +225,12 @@ export class IssueRunService {
   }
 
   private async prepareResources(
-    initial: RunSnapshotV5,
+    initial: RunSnapshotV6,
     repository: RepositoryFacts,
     configuredRemote: string | null,
     configuredBase: string | null,
     store: RunStore,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     let snapshot = initial;
     if (snapshot.state === "acquiring_lock") {
       await this.assertResourcesAbsent(
@@ -286,7 +301,7 @@ export class IssueRunService {
       if (tmux === null) {
         try {
           tmux = await this.ports.tmux.createIssueWindow({
-            sessionName: tmuxSessionName(repository.identity),
+            target: snapshot.tmuxSelection,
             windowName: String(snapshot.issueNumber),
             cwd: snapshot.worktreePath,
             executable: this.executable,
@@ -322,6 +337,10 @@ export class IssueRunService {
       const workerProcess = await this.ports.processes.identify(
         workerPid,
         {
+          schemaVersion: 2,
+          socketPath: tmux.socketPath,
+          socketIdentity: tmux.socketIdentity,
+          sessionId: tmux.sessionId,
           sessionName: tmux.sessionName,
           windowId: tmux.windowId,
           paneId: tmux.paneId,
@@ -351,13 +370,13 @@ export class IssueRunService {
   public async runWorker(
     issueNumber: number,
     startPath: string,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     const repository = await this.ports.git.discover(startPath);
     const store = this.store(repository.root);
     let loaded = await store.load(issueNumber);
     loaded = await this.normalizeCurrentSnapshot(loaded, store);
     if (
-      loaded.schemaVersion !== 5 ||
+      loaded.schemaVersion !== 6 ||
       loaded.state !== "running_rpiv" ||
       loaded.tmux === null
     )
@@ -379,6 +398,10 @@ export class IssueRunService {
       const workerIdentity = await this.ports.processes.identify(
         workerPid,
         {
+          schemaVersion: 2,
+          socketPath: tmuxTarget.socketPath,
+          socketIdentity: tmuxTarget.socketIdentity,
+          sessionId: tmuxTarget.sessionId,
           sessionName: tmuxTarget.sessionName,
           windowId: tmuxTarget.windowId,
           paneId: tmuxTarget.paneId,
@@ -562,7 +585,7 @@ export class IssueRunService {
     expected: PostWaitIdentityV1,
     repository: RepositoryFacts,
     store: RunStore,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     let loaded: RunSnapshot;
     try {
       loaded = await store.load(issueNumber);
@@ -609,7 +632,7 @@ export class IssueRunService {
 
   private async savePostWait(
     store: RunStore,
-    snapshot: RunSnapshotV5,
+    snapshot: RunSnapshotV6,
     from: RunState,
     reason: string,
   ): Promise<void> {
@@ -624,7 +647,7 @@ export class IssueRunService {
 
   private async failCopilotLaunch(
     store: RunStore,
-    snapshot: RunSnapshotV5,
+    snapshot: RunSnapshotV6,
     cause: unknown,
   ): Promise<never> {
     if (!isRunnerError(cause)) throw cause;
@@ -639,10 +662,10 @@ export class IssueRunService {
   }
 
   private async finalize(
-    snapshot: RunSnapshotV5,
+    snapshot: RunSnapshotV6,
     repository: RepositoryFacts,
     store: RunStore,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     let result: AgentResultV1;
     try {
       result = parseAgentResult(
@@ -757,11 +780,11 @@ export class IssueRunService {
 
   private async persistIncompleteFinalization(
     store: RunStore,
-    snapshot: RunSnapshotV5,
+    snapshot: RunSnapshotV6,
     result: AgentResultV1,
     message: string,
     code = "COMPLETION_PROOF_INCOMPLETE",
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     const interrupted = this.next(snapshot, {
       state: "interrupted",
       finalization: {
@@ -811,7 +834,7 @@ export class IssueRunService {
       });
     }
     if (
-      persisted.schemaVersion === 5 &&
+      persisted.schemaVersion === 6 &&
       report.safeActions.includes("automatic_clean")
     ) {
       await this.performCleanup("automatic_merged", report, repository, store);
@@ -832,7 +855,7 @@ export class IssueRunService {
   ): Promise<StatusFacts> {
     const report = await this.reconcile(issueNumber, startPath);
     return {
-      schemaVersion: 4,
+      schemaVersion: 5,
       issueNumber,
       persisted: report.persisted,
       observed: report.observations.tmux.facts,
@@ -912,7 +935,7 @@ export class IssueRunService {
       store,
     });
     persisted = report.persisted;
-    if (persisted.schemaVersion !== 5)
+    if (persisted.schemaVersion !== 6)
       return refused(
         issueNumber,
         persisted.state,
@@ -1130,7 +1153,7 @@ export class IssueRunService {
       store,
     });
     persisted = report.persisted;
-    if (persisted.schemaVersion !== 5)
+    if (persisted.schemaVersion !== 6)
       return refused(
         issueNumber,
         persisted.state,
@@ -1373,7 +1396,7 @@ export class IssueRunService {
       store,
     });
     persisted = report.persisted;
-    if (persisted.schemaVersion !== 5)
+    if (persisted.schemaVersion !== 6)
       return refused(
         issueNumber,
         persisted.state,
@@ -1439,7 +1462,7 @@ export class IssueRunService {
     } catch (cause: unknown) {
       if (!isRunnerError(cause)) throw cause;
       const partial = await store.load(issueNumber);
-      if (partial.schemaVersion !== 5) throw cause;
+      if (partial.schemaVersion !== 6) throw cause;
       const partialReport = await collectReconciliation({
         persisted: partial,
         repositoryRoot: repository.root,
@@ -1469,8 +1492,8 @@ export class IssueRunService {
     report: ReconciliationReportV2,
     repository: RepositoryFacts,
     store: RunStore,
-  ): Promise<RunSnapshotV5> {
-    if (report.persisted.schemaVersion !== 5)
+  ): Promise<RunSnapshotV6> {
+    if (report.persisted.schemaVersion !== 6)
       throw new RunnerError(
         "CLEANUP_OWNERSHIP_UNPROVED",
         "Cleanup requires a version 3 ownership record.",
@@ -1524,7 +1547,7 @@ export class IssueRunService {
         ports: this.ports,
         store,
       });
-      if (currentReport.persisted.schemaVersion === 5)
+      if (currentReport.persisted.schemaVersion === 6)
         snapshot = currentReport.persisted;
       if (!currentReport.safeActions.includes(requiredAction))
         throw new RunnerError(
@@ -1646,7 +1669,7 @@ export class IssueRunService {
   ): Promise<ControlOutcomeV1> {
     const report = await this.reconcile(issueNumber, startPath);
     const snapshot = report.persisted;
-    if (snapshot.schemaVersion !== 5)
+    if (snapshot.schemaVersion !== 6)
       return refused(
         issueNumber,
         snapshot.state,
@@ -1681,11 +1704,11 @@ export class IssueRunService {
   public async attach(
     issueNumber: number,
     startPath: string,
-  ): Promise<TmuxIdentity> {
+  ): Promise<TmuxTargetV2> {
     const report = await this.reconcile(issueNumber, startPath);
-    const expected = report.persisted.tmux;
     if (
-      expected === null ||
+      report.persisted.schemaVersion !== 6 ||
+      report.persisted.tmux === null ||
       report.observations.tmux.state !== "match" ||
       !report.safeActions.includes("attach")
     )
@@ -1696,13 +1719,14 @@ export class IssueRunService {
         `No exact attachable tmux target exists for issue #${issueNumber}.`,
         "Inspect the shared reconciliation report and preserve mismatched panes.",
       );
+    const expected = report.persisted.tmux;
     await this.ports.tmux.attach(expected);
     return expected;
   }
 
   private async retainLog(
     store: RunStore,
-    snapshot: RunSnapshotV5,
+    snapshot: RunSnapshotV6,
     before: string,
     after: string,
     adapterTruncated: boolean,
@@ -1743,8 +1767,8 @@ export class IssueRunService {
 
   private async releaseTerminalLease(
     store: RunStore,
-    snapshot: RunSnapshotV5,
-  ): Promise<RunSnapshotV5> {
+    snapshot: RunSnapshotV6,
+  ): Promise<RunSnapshotV6> {
     if (snapshot.admission === null) return snapshot;
     const released = await store.releaseLease(snapshot.admission);
     if (!released) return snapshot;
@@ -1758,23 +1782,23 @@ export class IssueRunService {
 
   private async persistTransition(
     store: RunStore,
-    snapshot: RunSnapshotV5,
-    changes: Partial<RunSnapshotV5>,
+    snapshot: RunSnapshotV6,
+    changes: Partial<RunSnapshotV6>,
     reason: string,
-  ): Promise<RunSnapshotV5> {
+  ): Promise<RunSnapshotV6> {
     const next = this.next(snapshot, changes);
     await store.save(next, snapshot.state, reason);
     return next;
   }
 
   private next(
-    snapshot: RunSnapshotV5,
-    changes: Partial<RunSnapshotV5>,
-  ): RunSnapshotV5 {
+    snapshot: RunSnapshotV6,
+    changes: Partial<RunSnapshotV6>,
+  ): RunSnapshotV6 {
     return {
       ...snapshot,
       ...changes,
-      schemaVersion: 5,
+      schemaVersion: 6,
       revision: snapshot.revision + 1,
       updatedAt: this.ports.clock.now(),
     };
@@ -1797,10 +1821,20 @@ export class IssueRunService {
       );
       current = versionFour;
     }
-    if (current.schemaVersion === 4) {
-      const versionFive = migrateV4Snapshot(current, this.ports.clock.now());
-      await store.save(versionFive, current.state, "v4-v5-snapshot-normalized");
-      current = versionFive;
+    if (
+      (current.schemaVersion === 4 || current.schemaVersion === 5) &&
+      isExactLegacyTarget(current.tmux)
+    ) {
+      const versionSix = migrateExactLegacySnapshot(
+        current,
+        this.ports.clock.now(),
+      );
+      await store.save(
+        versionSix,
+        current.state,
+        "legacy-v6-exact-target-migration",
+      );
+      current = versionSix;
     }
     return current;
   }
@@ -1932,7 +1966,7 @@ export class IssueRunService {
     return validateBoundResult(text, await this.trustedResultBinding(snapshot));
   }
 
-  private async trustedResultBinding(snapshot: RunSnapshotV5) {
+  private async trustedResultBinding(snapshot: RunSnapshotV6) {
     const [headSha, pullRequest] = await Promise.all([
       this.ports.git.localHeadSha(snapshot.worktreePath),
       this.ports.github.findOpenPullRequest(
@@ -1974,7 +2008,7 @@ export class IssueRunService {
   private async boundV5Snapshot(
     issueNumber: number,
     startPath: string,
-  ): Promise<{ snapshot: RunSnapshotV5; store: RunStore }> {
+  ): Promise<{ snapshot: RunSnapshotV6; store: RunStore }> {
     const repository = await this.ports.git.discover(startPath);
     const roots = [repository.root, path.dirname(repository.commonDirectory)];
     for (const root of [...new Set(roots)]) {
@@ -1982,7 +2016,7 @@ export class IssueRunService {
       if (!(await store.snapshotExists(issueNumber))) continue;
       let loaded = await store.load(issueNumber);
       loaded = await this.normalizeCurrentSnapshot(loaded, store);
-      if (loaded.schemaVersion !== 5)
+      if (loaded.schemaVersion !== 6)
         throw new RunnerError(
           "STATE_INVALID",
           "RPIV helper requires a v5 run binding.",
@@ -2008,7 +2042,7 @@ export class IssueRunService {
 
   private async configuration(
     repositoryRoot: string,
-    persistedFinalValidation?: RunSnapshotV5["requiredFinalValidation"],
+    persistedFinalValidation?: RunSnapshotV6["requiredFinalValidation"],
   ) {
     const [configuration, justfile] = await Promise.all([
       this.ports.files.readText(
@@ -2128,15 +2162,40 @@ function migrateLegacySnapshot(
   };
 }
 
-function migrateV4Snapshot(
-  snapshot: RunSnapshotV4,
+function isExactLegacyTarget(value: unknown): value is TmuxTargetV2 {
+  if (typeof value !== "object" || value === null) return false;
+  const target = value as Partial<TmuxTargetV2>;
+  return (
+    target.schemaVersion === 2 &&
+    (target.selectionMode === "invoking" ||
+      target.selectionMode === "standalone") &&
+    typeof target.socketPath === "string" &&
+    typeof target.sessionId === "string" &&
+    typeof target.socketIdentity?.device === "string" &&
+    typeof target.socketIdentity.inode === "string"
+  );
+}
+function migrateExactLegacySnapshot(
+  snapshot: RunSnapshotV4 | import("./domain").RunSnapshotV5,
   updatedAt: string,
-): RunSnapshotV5 {
+): RunSnapshotV6 {
+  if (!isExactLegacyTarget(snapshot.tmux))
+    throw new Error("exact target migration invariant");
   return {
     ...snapshot,
-    schemaVersion: 5,
+    schemaVersion: 6,
     revision: snapshot.revision + 1,
-    tmuxIdentityDiagnostic: null,
+    tmuxSelection: {
+      selectionMode: snapshot.tmux.selectionMode,
+      socketPath: snapshot.tmux.socketPath,
+      socketIdentity: snapshot.tmux.socketIdentity,
+      sessionId: snapshot.tmux.sessionId,
+      sessionName: snapshot.tmux.sessionName,
+      repository: snapshot.repository,
+    },
+    tmux: snapshot.tmux,
+    tmuxIdentityDiagnostic:
+      snapshot.schemaVersion === 5 ? snapshot.tmuxIdentityDiagnostic : null,
     updatedAt,
   };
 }

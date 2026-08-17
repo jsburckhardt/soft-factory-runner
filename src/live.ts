@@ -15,11 +15,22 @@ import type {
   WorktreeObservationV1,
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
+import {
+  deriveStandaloneTmuxTarget,
+  parseInvokingContextRecord,
+  parseInvokingTmuxEvidence,
+  sameSocketIdentity,
+  TMUX_INVOKING_CONTEXT_FORMAT,
+  tmuxContextRefusal,
+  type InvokingTmuxEvidenceV1,
+  type TmuxSessionTargetV1,
+  type TmuxSocketIdentityV1,
+  type TmuxTargetV2,
+} from "./tmux-target";
 import { RunnerError } from "./errors";
 import {
   parseTmuxIdentityResult,
   TMUX_CREATE_IDENTITY_FORMAT,
-  TMUX_OBSERVE_IDENTITY_FORMAT,
 } from "./tmux-identity";
 import type {
   FilePort,
@@ -911,87 +922,145 @@ class LiveGitHubPort implements GitHubPort {
 
 class LiveTmuxPort implements TmuxPort {
   public constructor(private readonly commands: CommandRunner) {}
+
+  public async selectTarget(input: {
+    readonly evidence: InvokingTmuxEvidenceV1;
+    readonly repository: import("./domain").RepositoryIdentity;
+  }): Promise<TmuxSessionTargetV1> {
+    const parsed = parseInvokingTmuxEvidence(input.evidence);
+    if (parsed === null) return deriveStandaloneTmuxTarget(input.repository);
+    let socketPath: string;
+    let socketIdentity: TmuxSocketIdentityV1;
+    try {
+      socketPath = await fs.realpath(parsed.socketPath);
+      socketIdentity = await this.socketIdentity(socketPath);
+    } catch {
+      throw tmuxContextRefusal("stale-server");
+    }
+    const result = await this.commands.run(
+      "tmux",
+      [
+        "-S",
+        socketPath,
+        "display-message",
+        "-p",
+        "-t",
+        parsed.paneId,
+        "-F",
+        TMUX_INVOKING_CONTEXT_FORMAT,
+      ],
+      process.cwd(),
+      2_000,
+    );
+    if (result.exitCode !== 0) throw tmuxContextRefusal("stale-server");
+    const observed = parseInvokingContextRecord(result.stdoutBuffer);
+    let observedSocket: string;
+    try {
+      observedSocket = await fs.realpath(observed.socketPath);
+    } catch {
+      throw tmuxContextRefusal("stale-server");
+    }
+    if (observedSocket !== socketPath || observed.paneId !== parsed.paneId)
+      throw tmuxContextRefusal("contradictory-target");
+    await this.assertSocket(observedSocket, socketIdentity);
+    return {
+      selectionMode: "invoking",
+      socketPath,
+      socketIdentity,
+      sessionId: observed.sessionId,
+      sessionName: observed.sessionName,
+      repository: input.repository.nameWithOwner,
+    };
+  }
+
   public async createIssueWindow(input: {
-    readonly sessionName: string;
+    readonly target: TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
     readonly executable: string;
     readonly args: readonly string[];
-  }): Promise<TmuxIdentity> {
-    const session = await this.commands.run(
-      "tmux",
-      ["has-session", "-t", input.sessionName],
-      input.cwd,
-      15_000,
-    );
-    if (session.exitCode !== 0) {
-      const created = await this.commands.run(
-        "tmux",
-        [
-          "new-session",
-          "-d",
-          "-s",
-          input.sessionName,
-          "-n",
-          "dashboard",
-          "-c",
-          input.cwd,
-        ],
-        input.cwd,
-        15_000,
-      );
-      if (created.exitCode !== 0)
-        throw commandFailure("tmux session creation", created);
-    }
+  }): Promise<TmuxTargetV2> {
+    let target = input.target;
+    if (target.selectionMode === "standalone")
+      target = await this.ensureStandaloneSession(target, input.cwd);
+    else await this.assertSessionTarget(target);
     if (
       await this.observeIssueWindowName({
-        sessionName: input.sessionName,
+        target,
         windowName: input.windowName,
         cwd: input.cwd,
       })
     )
       throw new RunnerError(
         "RESOURCE_OWNERSHIP_UNKNOWN",
-        `tmux window ${input.windowName} already exists.`,
-        "Preserve the unknown window and reconcile ownership manually.",
+        "The expected tmux window name is already present without exact ownership.",
+        "Preserve the unknown window; names never authorize adoption.",
       );
     const created = await this.commands.run(
       "tmux",
       [
+        "-S",
+        target.socketPath,
         "new-window",
         "-d",
         "-P",
         "-F",
         TMUX_CREATE_IDENTITY_FORMAT,
         "-t",
-        input.sessionName,
+        target.sessionId ?? target.sessionName,
         "-n",
         input.windowName,
         "-c",
         input.cwd,
-        input.executable,
-        ...input.args,
+        tmuxShellCommand(input.executable, input.args),
       ],
       input.cwd,
       15_000,
     );
     const parsed = parseTmuxIdentityResult("create", created);
+    const identity = await this.socketIdentity(target.socketPath);
+    if (
+      target.socketIdentity !== null &&
+      !sameSocketIdentity(identity, target.socketIdentity)
+    )
+      throw tmuxContextRefusal("stale-server");
+    if (target.sessionId === null)
+      throw tmuxContextRefusal("unavailable-proof");
     return {
-      sessionName: input.sessionName,
+      schemaVersion: 2,
+      selectionMode: target.selectionMode,
+      socketPath: target.socketPath,
+      socketIdentity: identity,
+      sessionId: target.sessionId,
+      sessionName: target.sessionName,
       windowName: input.windowName,
       windowId: parsed.windowId,
       paneId: parsed.paneId,
       cwd: input.cwd,
     };
   }
+
   public async observeIssueWindowName(input: {
-    readonly sessionName: string;
+    readonly target: TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
   }): Promise<boolean> {
+    if (input.target.socketIdentity !== null)
+      await this.assertSocket(
+        input.target.socketPath,
+        input.target.socketIdentity,
+      );
     const existing = await this.commands.run(
       "tmux",
-      ["list-windows", "-t", input.sessionName, "-F", "#{window_name}"],
+      [
+        "-S",
+        input.target.socketPath,
+        "list-windows",
+        "-t",
+        input.target.sessionId ?? input.target.sessionName,
+        "-F",
+        "#{window_name}",
+      ],
       input.cwd,
       15_000,
     );
@@ -1006,33 +1075,53 @@ class LiveTmuxPort implements TmuxPort {
     }
     return existing.stdout.split(/\r?\n/).includes(input.windowName);
   }
-  public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
+
+  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null> {
+    await this.assertSocket(target.socketPath, target.socketIdentity);
     const result = await this.commands.run(
       "tmux",
       [
+        "-S",
+        target.socketPath,
         "list-panes",
         "-t",
-        `${target.sessionName}:${target.windowName}`,
+        target.paneId,
         "-F",
-        TMUX_OBSERVE_IDENTITY_FORMAT,
+        TMUX_INVOKING_CONTEXT_FORMAT,
       ],
       target.cwd,
       15_000,
     );
     if (result.exitCode !== 0) return null;
-    const parsed = parseTmuxIdentityResult("observe", result);
+    const parsed = parseInvokingContextRecord(result.stdoutBuffer);
+    const canonical = await fs.realpath(parsed.socketPath);
     return {
-      sessionName: target.sessionName,
-      windowName: target.windowName,
+      schemaVersion: 2,
+      selectionMode: target.selectionMode,
+      socketPath: canonical,
+      socketIdentity: await this.socketIdentity(canonical),
+      sessionId: parsed.sessionId,
+      sessionName: parsed.sessionName,
+      windowName: parsed.windowName,
       windowId: parsed.windowId,
       paneId: parsed.paneId,
-      cwd: parsed.cwd ?? target.cwd,
+      cwd: parsed.cwd,
     };
   }
-  public async panePid(target: TmuxIdentity): Promise<number | null> {
+
+  public async panePid(target: TmuxTargetV2): Promise<number | null> {
+    await this.assertSocket(target.socketPath, target.socketIdentity);
     const result = await this.commands.run(
       "tmux",
-      ["display-message", "-p", "-t", target.paneId, "#{pane_pid}"],
+      [
+        "-S",
+        target.socketPath,
+        "display-message",
+        "-p",
+        "-t",
+        target.paneId,
+        "#{pane_pid}",
+      ],
       target.cwd,
       15_000,
     );
@@ -1046,32 +1135,25 @@ class LiveTmuxPort implements TmuxPort {
       );
     return Number(value);
   }
-  public async setRemainOnExit(target: TmuxIdentity): Promise<void> {
-    const result = await this.commands.run(
-      "tmux",
-      [
-        "set-window-option",
-        "-t",
-        `${target.sessionName}:${target.windowName}`,
-        "remain-on-exit",
-        "on",
-      ],
-      target.cwd,
-      15_000,
+  public async setRemainOnExit(target: TmuxTargetV2): Promise<void> {
+    await this.required(
+      target,
+      ["set-window-option", "-t", target.windowId, "remain-on-exit", "on"],
+      "tmux remain-on-exit configuration",
     );
-    if (result.exitCode !== 0)
-      throw commandFailure("tmux remain-on-exit configuration", result);
   }
   public async capturePane(
-    target: TmuxIdentity,
+    target: TmuxTargetV2,
     maxBytes: number,
   ): Promise<{ readonly content: string; readonly truncated: boolean }> {
-    const result = await this.commands.run(
-      "tmux",
-      ["capture-pane", "-p", "-S", "-", "-t", target.paneId],
-      target.cwd,
-      15_000,
-    );
+    const result = await this.runTarget(target, [
+      "capture-pane",
+      "-p",
+      "-S",
+      "-",
+      "-t",
+      target.paneId,
+    ]);
     if (result.exitCode !== 0)
       throw commandFailure("tmux pane capture", result);
     const bytes = Buffer.from(redact(result.stdout), "utf8");
@@ -1082,12 +1164,12 @@ class LiveTmuxPort implements TmuxPort {
     return { content: selected.toString("utf8"), truncated };
   }
   public async restartWorker(
-    target: TmuxIdentity,
+    target: TmuxTargetV2,
     executable: string,
     args: readonly string[],
   ): Promise<void> {
-    const result = await this.commands.run(
-      "tmux",
+    await this.required(
+      target,
       [
         "respawn-pane",
         "-k",
@@ -1095,47 +1177,171 @@ class LiveTmuxPort implements TmuxPort {
         target.paneId,
         "-c",
         target.cwd,
-        executable,
-        ...args,
+        tmuxShellCommand(executable, args),
       ],
-      target.cwd,
-      15_000,
+      "tmux worker restart",
     );
-    if (result.exitCode !== 0)
-      throw commandFailure("tmux worker restart", result);
   }
-  public async removeWindow(target: TmuxIdentity): Promise<void> {
-    const result = await this.commands.run(
-      "tmux",
-      ["kill-window", "-t", `${target.sessionName}:${target.windowName}`],
-      target.cwd,
-      15_000,
+  public async removeWindow(target: TmuxTargetV2): Promise<void> {
+    await this.required(
+      target,
+      ["kill-window", "-t", target.windowId],
+      "tmux window removal",
     );
-    if (result.exitCode !== 0)
-      throw commandFailure("tmux window removal", result);
   }
-  public async attach(target: TmuxIdentity): Promise<void> {
-    const selected = await this.commands.run(
-      "tmux",
-      ["select-window", "-t", `${target.sessionName}:${target.windowName}`],
-      target.cwd,
-      15_000,
-    );
-    if (selected.exitCode !== 0)
-      throw commandFailure("tmux window selection", selected);
-    const pane = await this.commands.run(
-      "tmux",
+  public async attach(target: TmuxTargetV2): Promise<void> {
+    await this.required(
+      target,
       ["select-pane", "-t", target.paneId],
-      target.cwd,
-      15_000,
+      "tmux pane selection",
     );
-    if (pane.exitCode !== 0) throw commandFailure("tmux pane selection", pane);
+    await this.assertSocket(target.socketPath, target.socketIdentity);
     const attached = await this.commands.runInherited(
       "tmux",
-      ["attach-session", "-t", target.sessionName],
+      ["-S", target.socketPath, "attach-session", "-t", target.sessionId],
       target.cwd,
     );
     if (attached.exitCode !== 0) throw commandFailure("tmux attach", attached);
+  }
+
+  private async ensureStandaloneSession(
+    target: TmuxSessionTargetV1,
+    cwd: string,
+  ): Promise<TmuxSessionTargetV1> {
+    const metadataPath = target.socketPath + ".owner.json";
+    const expected =
+      JSON.stringify({
+        schemaVersion: 1,
+        repository: target.repository,
+        socketPath: target.socketPath,
+        sessionName: target.sessionName,
+      }) + "\n";
+    let metadata: string | null = null;
+    try {
+      metadata = await fs.readFile(metadataPath, "utf8");
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) !== "ENOENT")
+        throw fileFailure(
+          "read standalone tmux ownership",
+          metadataPath,
+          cause,
+        );
+    }
+    let socketPresent = true;
+    try {
+      await fs.lstat(target.socketPath);
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") socketPresent = false;
+      else throw cause;
+    }
+    if (metadata !== null && metadata !== expected)
+      throw tmuxContextRefusal("contradictory-target");
+    if (socketPresent && metadata === null)
+      throw tmuxContextRefusal("contradictory-target");
+    if (!socketPresent && metadata !== null)
+      throw tmuxContextRefusal("stale-server");
+    if (!socketPresent) {
+      try {
+        await fs.writeFile(metadataPath, expected, { flag: "wx", mode: 0o600 });
+      } catch (cause: unknown) {
+        throw tmuxContextRefusal(
+          nodeErrorCode(cause) === "EEXIST"
+            ? "ambiguous-session"
+            : "unavailable-proof",
+        );
+      }
+      const created = await this.commands.run(
+        "tmux",
+        [
+          "-S",
+          target.socketPath,
+          "new-session",
+          "-d",
+          "-s",
+          target.sessionName,
+          "-n",
+          "dashboard",
+          "-c",
+          cwd,
+        ],
+        cwd,
+        15_000,
+      );
+      if (created.exitCode !== 0) {
+        await fs.rm(metadataPath, { force: true });
+        throw commandFailure("standalone tmux session creation", created);
+      }
+    }
+    const identity = await this.socketIdentity(target.socketPath);
+    const session = await this.commands.run(
+      "tmux",
+      [
+        "-S",
+        target.socketPath,
+        "display-message",
+        "-p",
+        "-t",
+        target.sessionName,
+        "-F",
+        "#{session_id}|#{session_name}",
+      ],
+      cwd,
+      15_000,
+    );
+    const match = /^(\$[0-9]+)\|([^\r\n|]+)\n$/.exec(session.stdout);
+    if (
+      session.exitCode !== 0 ||
+      match === null ||
+      match[2] !== target.sessionName
+    )
+      throw tmuxContextRefusal("ambiguous-session");
+    return { ...target, socketIdentity: identity, sessionId: match[1] };
+  }
+  private async assertSessionTarget(
+    target: TmuxSessionTargetV1,
+  ): Promise<void> {
+    if (target.socketIdentity === null || target.sessionId === null)
+      throw tmuxContextRefusal("unavailable-proof");
+    await this.assertSocket(target.socketPath, target.socketIdentity);
+  }
+  private async socketIdentity(
+    socketPath: string,
+  ): Promise<TmuxSocketIdentityV1> {
+    const stat = await fs.stat(socketPath);
+    return { device: String(stat.dev), inode: String(stat.ino) };
+  }
+  private async assertSocket(
+    socketPath: string,
+    expected: TmuxSocketIdentityV1,
+  ): Promise<void> {
+    let actual: TmuxSocketIdentityV1;
+    try {
+      actual = await this.socketIdentity(socketPath);
+    } catch {
+      throw tmuxContextRefusal("stale-server");
+    }
+    if (!sameSocketIdentity(actual, expected))
+      throw tmuxContextRefusal("stale-server");
+  }
+  private async runTarget(
+    target: TmuxTargetV2,
+    args: readonly string[],
+  ): Promise<CommandResult> {
+    await this.assertSocket(target.socketPath, target.socketIdentity);
+    return this.commands.run(
+      "tmux",
+      ["-S", target.socketPath, ...args],
+      target.cwd,
+      15_000,
+    );
+  }
+  private async required(
+    target: TmuxTargetV2,
+    args: readonly string[],
+    operation: string,
+  ): Promise<void> {
+    const result = await this.runTarget(target, args);
+    if (result.exitCode !== 0) throw commandFailure(operation, result);
   }
 }
 
@@ -1510,6 +1716,15 @@ function fileFailure(
     { cause },
   );
 }
+function tmuxShellCommand(executable: string, args: readonly string[]): string {
+  return [executable, ...args]
+    .map(
+      (word) =>
+        '"' + word.replaceAll("\\", "\\\\").replaceAll('"', '\\"') + '"',
+    )
+    .join(" ");
+}
+
 function commandFailure(operation: string, result: CommandResult): RunnerError {
   return new RunnerError(
     "EXTERNAL_COMMAND_FAILED",

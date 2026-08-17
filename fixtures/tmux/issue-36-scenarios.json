@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "issue": 36,
+  "scenarios": [
+    {
+      "acceptance": "AC-1",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-2",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-3",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-4",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-5",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-6",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-7",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-8",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-9",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-10",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-11",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-12",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-13",
+      "evidence": "src/tmux-context.test.ts plus mapped lifecycle/reconciliation suites"
+    },
+    {
+      "acceptance": "AC-14",
+      "evidence": "root focused acceptance suite and cleanup"
+    }
+  ]
+}

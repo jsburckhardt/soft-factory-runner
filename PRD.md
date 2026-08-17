@@ -2300,3 +2300,7 @@ RPIV
   ↓
 Pull Request
 ```
+
+## Exact invoking tmux ownership
+
+Runner must preserve a valid invoking tmux server and current session, use a deterministic repository-owned standalone target only when invoking evidence is completely absent, persist complete v6 target identity, and route every lifecycle action through that identity. Invalid, stale, ambiguous, nested, contradictory, mismatched, and same-name evidence must fail before mutation without disclosure or arbitrary adoption. Doctor must expose only value-free targeting classifications. Legacy v1-v5 records must not invent authority.

@@ -407,7 +407,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.",
     );
     expect(section).not.toContain("all supported inputs to sole");
-    expect(section).toContain("new runs use revisioned `RunSnapshotV5`");
+    expect(section).toContain("new runs use revisioned `RunSnapshotV6`");
     expect(section).toContain(
       "Valid Phase 1 `RunSnapshotV1` files remain readable",
     );
@@ -1055,7 +1055,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
+describe("Issue 36 exact tmux ownership and 0.2.0 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1076,6 +1076,7 @@ describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
       "## Troubleshooting",
       "## Deterministic evidence fixtures",
       "## Phase 3 continuation",
+      "## Invoking tmux target and v6 migration",
     ]);
     expect(issueRun.split("^@[0-9]+$")).toHaveLength(2);
     expect(issueRun.split("^%[0-9]+$")).toHaveLength(2);
@@ -1112,13 +1113,40 @@ describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
     }
   });
 
-  it("documents exact local 0.1.3 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents invoking selection, v6 lifecycle isolation, refusal, confidentiality, and Doctor classification", () => {
+    const combined = [
+      readme,
+      issueRun,
+      operations,
+      doctorGuide,
+      docsIndex,
+      prd,
+    ].join("\n");
+    for (const phrase of [
+      "TMUX_PANE",
+      "standalone",
+      "RunSnapshotV6",
+      "same-name",
+      "never adopted",
+      "persisted socket",
+      "invalid-context",
+      "server PIDs",
+      "v1-v5",
+      "no network API",
+    ])
+      expect(combined).toContain(phrase);
+    expect(readme).toContain("Complete equality authorizes action");
+    expect(operations).toContain("tmux -S <persisted-socket>");
+    expect(doctorGuide).toContain("ordered 24 check IDs");
+  });
+
+  it("documents exact local 0.1.3-to-0.2.0 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.1.3",
+      "0.2.0",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.2.0");
       expect(document).toContain("0.1.3");
-      expect(document).toContain("0.1.2");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }

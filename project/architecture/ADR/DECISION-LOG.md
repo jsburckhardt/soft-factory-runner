@@ -16,6 +16,7 @@ This file is the single registry of all architectural decisions and core-compone
 | ADR-260812-copilot-child-environment | Copilot Child Environment Configuration | Accepted | 2026-08-12 |
 | ADR-260812-rpiv-integration-completion-contract | RPIV Integration and Completion Contract | Accepted | 2026-08-12 |
 | ADR-260814-tmux-identity-failure-recovery | Tmux Identity Failure Recovery | Accepted | 2026-08-14 |
+| ADR-260817-invoking-tmux-context-targeting | Invoking Tmux Context Targeting | Accepted | 2026-08-17 |
 
 ## Core-Components
 
@@ -44,6 +45,7 @@ This file is the single registry of all architectural decisions and core-compone
 | CORE-COMPONENT-260812-rpiv-integration-handoff | RPIV Integration Handoff | Adopted | 2026-08-12 |
 | CORE-COMPONENT-260814-tmux-identity-diagnostics | Tmux Identity Diagnostics | Adopted | 2026-08-14 |
 | CORE-COMPONENT-260815-package-semver-governance | Package Semantic Versioning Governance | Adopted | 2026-08-15 |
+| CORE-COMPONENT-260817-exact-tmux-context-ownership | Exact Tmux Context Ownership | Adopted | 2026-08-17 |
 
 ## Decisions
 
@@ -222,3 +224,11 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 169 | Expose strict running-result candidates without bypassing unknown or contradictory boundaries | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-15 |
 | 170 | Use candidate head and PR only for bounded completion observations | CORE-COMPONENT-260811-completion-evidence-reconciliation | 2026-08-15 |
 | 171 | Prohibit cleanup from result candidates or absent and malformed tmux evidence | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-15 |
+| 172 | Select the validated invoking socket and current session for in-tmux issue windows | ADR-260817-invoking-tmux-context-targeting | 2026-08-17 |
+| 173 | Use deterministic repository-owned socket and session targets outside tmux | ADR-260817-invoking-tmux-context-targeting | 2026-08-17 |
+| 174 | Persist complete socket, session, window, and pane identity for lifecycle actions | ADR-260817-invoking-tmux-context-targeting | 2026-08-17 |
+| 175 | Refuse malformed, stale, ambiguous, or same-name targets before mutation | ADR-260817-invoking-tmux-context-targeting | 2026-08-17 |
+| 176 | Prefix every runtime tmux command with the persisted explicit socket selector | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
+| 177 | Require complete target equality before attach, logs, stop, resume, or cleanup | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
+| 178 | Keep raw invoking tuples and tmux server process identifiers ephemeral and unrendered | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
+| 179 | Preserve Doctor 24 IDs while adding read-only targeting classification evidence | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |

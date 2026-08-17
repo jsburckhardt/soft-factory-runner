@@ -44,7 +44,16 @@
     {
       "id": "command.tmux",
       "status": "passed",
-      "blocking": true
+      "blocking": true,
+      "evidence": {
+        "schemaVersion": 1,
+        "kind": "tmux-targeting",
+        "mode": "standalone-fallback",
+        "reason": null,
+        "bounded": true,
+        "ambientUnchanged": true,
+        "unrelatedUnchanged": true
+      }
     },
     {
       "id": "command.node",

@@ -21,7 +21,8 @@ export function renderDoctor(result: DoctorResultV2, json: boolean): string {
       lines.push("  REMEDIATION: " + check.remediation);
       if (check.evidence !== undefined)
         lines.push("  EVIDENCE: " + JSON.stringify(check.evidence));
-    }
+    } else if (check.evidence !== undefined)
+      lines.push("  EVIDENCE: " + JSON.stringify(check.evidence));
   }
   lines.push(result.ready ? "STATUS: READY" : "STATUS: NOT READY");
   return lines.join("\n") + "\n";

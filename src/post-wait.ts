@@ -1,4 +1,4 @@
-import type { ProcessIdentityV1, RunSnapshot, RunSnapshotV5 } from "./domain";
+import type { ProcessIdentityV1, RunSnapshot, RunSnapshotV6 } from "./domain";
 import { isRunnerError, RunnerError } from "./errors";
 
 export type PostWaitRefusalReasonV1 =
@@ -18,8 +18,8 @@ export interface PostWaitIdentityV1 {
 }
 
 export type PostWaitDecisionV1 =
-  | { readonly kind: "active"; readonly snapshot: RunSnapshotV5 }
-  | { readonly kind: "terminal"; readonly snapshot: RunSnapshotV5 }
+  | { readonly kind: "active"; readonly snapshot: RunSnapshotV6 }
+  | { readonly kind: "terminal"; readonly snapshot: RunSnapshotV6 }
   | { readonly kind: "refused"; readonly reason: PostWaitRefusalReasonV1 };
 
 const TERMINAL_STATES = new Set([
@@ -34,7 +34,7 @@ export function classifyPostWaitState(
   current: RunSnapshot,
   expected: PostWaitIdentityV1,
 ): PostWaitDecisionV1 {
-  if (current.schemaVersion !== 5) return refused("invalid");
+  if (current.schemaVersion !== 6) return refused("invalid");
   if (current.runId !== expected.runId) return refused("run_mismatch");
   if (current.ownerId !== expected.ownerId) return refused("owner_mismatch");
   if (!same(current.workerProcess, expected.workerProcess))

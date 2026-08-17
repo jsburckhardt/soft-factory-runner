@@ -13,7 +13,8 @@ export function renderRun(snapshot: RunSnapshot, json: boolean): string {
   const revision =
     snapshot.schemaVersion === 3 ||
     snapshot.schemaVersion === 4 ||
-    snapshot.schemaVersion === 5
+    snapshot.schemaVersion === 5 ||
+    snapshot.schemaVersion === 6
       ? ` r${snapshot.revision}`
       : "";
   return `Issue #${snapshot.issueNumber}: ${snapshot.state}${revision}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}\n`;

@@ -1,7 +1,7 @@
 import type {
   IssueFacts,
   ProcessIdentityV1,
-  RunSnapshotV5,
+  RunSnapshotV6,
   RepositoryFacts,
   TmuxIdentity,
   TmuxIdentityDiagnosticV1,
@@ -15,6 +15,7 @@ import { IssueRunService } from "./orchestrator";
 import { RunStore } from "./persistence";
 import { copilotChildEnvironment } from "./live";
 import { renderError } from "./render";
+import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import type {
   FilePort,
   GitHubPort,
@@ -273,26 +274,43 @@ class RecordingGitHub implements GitHubPort {
 
 class RecordingTmux implements TmuxPort {
   public readonly trace: string[];
-  public observedOverride: TmuxIdentity | null | undefined;
-  public created: TmuxIdentity | null = null;
+  public observedOverride: TmuxTargetV2 | null | undefined;
+  public created: TmuxTargetV2 | null = null;
   public createFailure: TmuxIdentityOutputError | null = null;
   public observeFailure: TmuxIdentityOutputError | null = null;
   public constructor(trace: string[]) {
     this.trace = trace;
   }
+  public async selectTarget(input: {
+    readonly repository: import("./domain").RepositoryIdentity;
+  }) {
+    return {
+      ...deriveStandaloneTmuxTarget(input.repository),
+      socketIdentity: { device: "1", inode: "1" },
+      sessionId: "$1",
+    };
+  }
   public async createIssueWindow(input: {
-    readonly sessionName: string;
+    readonly target: import("./tmux-target").TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
     readonly executable: string;
     readonly args: readonly string[];
-  }): Promise<TmuxIdentity> {
+  }): Promise<TmuxTargetV2> {
     this.trace.push(
-      `tmux:create:${input.sessionName}:${input.windowName}:${input.cwd}:${input.executable} ${input.args.join(" ")}`,
+      `tmux:create:${input.target.sessionName}:${input.windowName}:${input.cwd}:${input.executable} ${input.args.join(" ")}`,
     );
     if (this.createFailure !== null) throw this.createFailure;
     this.created = {
-      sessionName: input.sessionName,
+      schemaVersion: 2,
+      selectionMode: input.target.selectionMode,
+      socketPath: input.target.socketPath,
+      socketIdentity: input.target.socketIdentity ?? {
+        device: "1",
+        inode: "1",
+      },
+      sessionId: input.target.sessionId ?? "$1",
+      sessionName: input.target.sessionName,
       windowName: input.windowName,
       windowId: "@" + input.windowName,
       paneId: "%" + input.windowName,
@@ -303,7 +321,7 @@ class RecordingTmux implements TmuxPort {
   public async observeIssueWindowName(): Promise<boolean> {
     return false;
   }
-  public async observe(target: TmuxIdentity): Promise<TmuxIdentity | null> {
+  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null> {
     this.trace.push(`tmux:observe:${target.paneId}`);
     if (this.observeFailure !== null) throw this.observeFailure;
     return this.observedOverride === undefined ? target : this.observedOverride;
@@ -501,7 +519,10 @@ function fixture(
     tmux,
     processes,
     clock: {
-      now: () => `2026-08-11T07:00:${String(tick++).padStart(2, "0")}.000Z`,
+      now: () =>
+        new Date(
+          Date.parse("2026-08-11T07:00:00.000Z") + tick++ * 1000,
+        ).toISOString(),
     },
     ids: { nextOwnerId: () => `owner-${++id}`, nextRunId: () => `run-${++id}` },
   };
@@ -574,7 +595,7 @@ describe("Issue 29 initial creation failure retention", () => {
       new IssueRunService(f.ports).run(3, "/tmp/fixture-start"),
     ).rejects.toMatchObject({ code: "TMUX_IDENTITY_MALFORMED" });
     expect(readSnapshot(f.files)).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       state: "starting_tmux",
       tmux: null,
       admission: { slot: 1, issueNumber: 3 },
@@ -637,7 +658,9 @@ describe("deterministic issue-to-RPIV fixture", () => {
       "/tmp/fixture-start",
       f.ports,
     );
-    expect(attached.stdout).toContain("sf-jsburckhardt-soft-factory-runner:3");
+    expect(attached.stdout).toContain(
+      "sf-jsburckhardt-soft-factor-6ddfad3aac2a:3",
+    );
 
     const snapshot = readSnapshot(f.files);
     expect(snapshot.fetchedBaseProof).toMatchObject({
@@ -655,7 +678,7 @@ describe("deterministic issue-to-RPIV fixture", () => {
       `git:create-branch:feat/3-phase-1-run-one-issue:${sha}`,
     );
     expect(f.trace).toContain(
-      "tmux:create:sf-jsburckhardt-soft-factory-runner:3:/tmp/soft-factory-fixture/.trees/3:soft-factory internal run-agent --issue 3",
+      "tmux:create:sf-jsburckhardt-soft-factor-6ddfad3aac2a:3:/tmp/soft-factory-fixture/.trees/3:soft-factory internal run-agent --issue 3",
     );
     expect(
       f.trace.some(
@@ -1729,14 +1752,14 @@ async function within<T>(promise: Promise<T>): Promise<T> {
   }
 }
 
-function snapshotV5(files: MemoryFiles): RunSnapshotV5 {
-  return readSnapshot(files) as unknown as RunSnapshotV5;
+function snapshotV5(files: MemoryFiles): RunSnapshotV6 {
+  return readSnapshot(files) as unknown as RunSnapshotV6;
 }
 
 function eventLedger(files: MemoryFiles): Array<{
   priorRevision: number;
   resultingRevision: number;
-  resultingSnapshot: RunSnapshotV5;
+  resultingSnapshot: RunSnapshotV6;
   runId: string;
 }> {
   const text =
@@ -1767,7 +1790,7 @@ function expectContiguousHistory(files: MemoryFiles): void {
 async function advanceHeldEvidence(
   f: Fixture,
   service: IssueRunService,
-): Promise<RunSnapshotV5> {
+): Promise<RunSnapshotV6> {
   for (const [phase, status] of [
     ["research", "running"],
     ["plan", "running"],
@@ -1788,7 +1811,7 @@ async function advanceHeldEvidence(
 
 async function startHeldWorker(f: Fixture): Promise<{
   service: IssueRunService;
-  worker: Promise<RunSnapshotV5>;
+  worker: Promise<RunSnapshotV6>;
   release: (exitCode?: number) => void;
 }> {
   const service = new IssueRunService(f.ports);
@@ -1854,7 +1877,7 @@ describe("Issue 34 current post-wait state handling", () => {
           "/tmp/soft-factory-fixture/.soft-factory/runs/3.json";
         const eventsPath =
           "/tmp/soft-factory-fixture/.soft-factory/events/3.jsonl";
-        const current = snapshotV5(f.files) as RunSnapshotV5 & {
+        const current = snapshotV5(f.files) as RunSnapshotV6 & {
           integrationLaunch: { runId: string };
         };
         if (target === "run") {
@@ -1932,7 +1955,7 @@ describe("Issue 34 current post-wait state handling", () => {
     const { worker, release } = await startHeldWorker(f);
     try {
       const current = snapshotV5(f.files);
-      const terminal: RunSnapshotV5 = {
+      const terminal: RunSnapshotV6 = {
         ...current,
         revision: current.revision + 1,
         state: "failed",
@@ -1984,7 +2007,7 @@ describe("Issue 34 current post-wait state handling", () => {
         if (snapshotReads !== 2) return;
         f.files.onReadText = null;
         const current = snapshotV5(f.files);
-        const advanced: RunSnapshotV5 = {
+        const advanced: RunSnapshotV6 = {
           ...current,
           revision: current.revision + 1,
           tmuxIdentityDiagnostic: observeDiagnostic,

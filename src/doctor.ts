@@ -149,12 +149,24 @@ export interface DoctorTmuxProbeEvidenceV1 {
     readonly workspace: DoctorTmuxCleanupStateV1;
   };
 }
-export type DoctorCheckEvidenceV1 = DoctorTmuxProbeEvidenceV1;
+
+export interface DoctorTmuxTargetingEvidenceV1 {
+  readonly schemaVersion: 1;
+  readonly kind: "tmux-targeting";
+  readonly mode: "invoking-valid" | "standalone-fallback" | "invalid-context";
+  readonly reason: import("./tmux-target").TmuxContextRefusalReason | null;
+  readonly bounded: true;
+  readonly ambientUnchanged: true;
+  readonly unrelatedUnchanged: true;
+}
+export type DoctorCheckEvidenceV1 =
+  DoctorTmuxProbeEvidenceV1 | DoctorTmuxTargetingEvidenceV1;
 
 export interface DoctorPassedCheckV2 {
   readonly id: DoctorCheckId;
   readonly status: "passed";
   readonly blocking: true;
+  readonly evidence?: DoctorCheckEvidenceV1;
 }
 export interface DoctorFailedCheckV2 {
   readonly id: DoctorCheckId;
@@ -181,8 +193,13 @@ export interface RpivMetadataV1 {
   readonly resultContract: string | null;
 }
 
-export function passedCheck(id: DoctorCheckId): DoctorPassedCheckV2 {
-  return { id, status: "passed", blocking: true };
+export function passedCheck(
+  id: DoctorCheckId,
+  evidence?: DoctorCheckEvidenceV1,
+): DoctorPassedCheckV2 {
+  return evidence === undefined
+    ? { id, status: "passed", blocking: true }
+    : { id, status: "passed", blocking: true, evidence };
 }
 export function failedCheck(
   id: DoctorCheckId,
@@ -271,7 +288,11 @@ function isDoctorCheckResult(value: unknown): boolean {
   )
     return false;
   if (value.status === "passed")
-    return hasExactKeys(value, ["id", "status", "blocking"]);
+    return (
+      hasExactKeys(value, ["id", "status", "blocking"]) ||
+      (hasExactKeys(value, ["id", "status", "blocking", "evidence"]) &&
+        isDoctorTmuxEvidence(value.evidence))
+    );
   if (value.status !== "failed") return false;
   const keys = Object.keys(value);
   const common =
@@ -291,11 +312,51 @@ function isDoctorCheckResult(value: unknown): boolean {
     typeof value.remediation === "string" &&
     value.remediation.trim() !== "";
   return (
-    common &&
-    (!("evidence" in value) || isDoctorTmuxProbeEvidence(value.evidence))
+    common && (!("evidence" in value) || isDoctorTmuxEvidence(value.evidence))
   );
 }
 
+function isDoctorTmuxEvidence(value: unknown): boolean {
+  return (
+    isDoctorTmuxProbeEvidence(value) || isDoctorTmuxTargetingEvidence(value)
+  );
+}
+function isDoctorTmuxTargetingEvidence(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      "schemaVersion",
+      "kind",
+      "mode",
+      "reason",
+      "bounded",
+      "ambientUnchanged",
+      "unrelatedUnchanged",
+    ])
+  )
+    return false;
+  const reasons = [
+    "partial-evidence",
+    "malformed-evidence",
+    "stale-server",
+    "contradictory-target",
+    "ambiguous-session",
+    "unavailable-proof",
+  ];
+  return (
+    value.schemaVersion === 1 &&
+    value.kind === "tmux-targeting" &&
+    ["invoking-valid", "standalone-fallback", "invalid-context"].includes(
+      String(value.mode),
+    ) &&
+    (value.reason === null ||
+      (typeof value.reason === "string" && reasons.includes(value.reason))) &&
+    value.bounded === true &&
+    value.ambientUnchanged === true &&
+    value.unrelatedUnchanged === true &&
+    (value.mode === "invalid-context") === (value.reason !== null)
+  );
+}
 function isDoctorTmuxProbeEvidence(value: unknown): boolean {
   if (
     !isRecord(value) ||
