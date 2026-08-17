@@ -1,0 +1,46 @@
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/plan/02-task-breakdown.md
+  s_dd01a8aeab123f::t_745538446353a1 67
+  s_dd01a8aeab123f::t_63534ebcbb2760 37,98
+src/live.ts
+  s_dd01a8aeab123f::t_745538446353a1 1009-1016,1018-1021
+  s_dd01a8aeab123f::t_db06df8cf6bb39 976-1008,1017,1022-1023
+src/doctor-service.ts
+  s_dd01a8aeab123f::t_ddd8e774980255 360-363
+  s_dd01a8aeab123f::t_05a0b0cd1d3c12 133-139,281,341-344,346-347,349-354,356,358,364-373
+  s_dd01a8aeab123f::t_99e60afd2e5770 28-32
+docs/phase-4-repository-doctor.md
+  s_dd01a8aeab123f::t_d5c132f746211b 196
+PRD.md
+  s_dd01a8aeab123f::t_d5c132f746211b 2319
+src/documentation.test.ts
+  s_dd01a8aeab123f::t_d5c132f746211b 1151-1157
+.harness/records/retro/2026-08-17/009-issue-36-rpiv-implementer-verify-return.md
+  s_dd01a8aeab123f::t_03d255da7c5be5 1-6,9,14-16,24,99-100,102
+  s_dd01a8aeab123f::t_b146293ea226fd 7-8,10-13,17-23,25-98,101,103
+README.md
+  s_dd01a8aeab123f::t_d5c132f746211b 184
+src/ports.ts
+  s_dd01a8aeab123f::t_db06df8cf6bb39 109-112
+src/tmux-context.test.ts
+  s_dd01a8aeab123f::t_322de4264dbf9b 7,352-397,403-404,406,408-444
+  s_dd01a8aeab123f::t_e128c431002f97 398-402,405,407
+  s_dd01a8aeab123f::t_220fc89758972d 445
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/implementation/00-implementation.md
+  s_dd01a8aeab123f::t_c7e63c0868d28f 1,5,9-12,14,16-20,24-39,43-47,51-54,58-59,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "62ae5fd19429b42b8b862dd29b663dbbc62449ac",
+  "prompts": {},
+  "sessions": {
+    "s_dd01a8aeab123f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_X1POtpruEqODlEGvTHTaVdgg",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
