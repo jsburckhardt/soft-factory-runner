@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-17/012-issue-36-rpiv-verifier-publication-blocker.md
+  s_23ec6d96fcaacc::t_348aefb4409054 6-8,10-13,17-23,25-28,31,33
+  s_23ec6d96fcaacc::t_d8a9e8e6880891 1-5,9,14-16,24,29-30,32
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/verify/summary.md
+  s_23ec6d96fcaacc::t_c147b910b33bc0 7,45-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "503b5ade08cb1402df2be7494cf15848705bd8c2",
+  "prompts": {},
+  "sessions": {
+    "s_23ec6d96fcaacc": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_kGvLrN2WkyVgnoPWx9NFErpR",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
