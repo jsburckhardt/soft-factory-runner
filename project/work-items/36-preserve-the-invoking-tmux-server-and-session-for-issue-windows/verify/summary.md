@@ -4,7 +4,7 @@
 - **Branch:** `feat/36-preserve-invoking-tmux-context`
 - **Implementation commit:** `62ae5fd19429b42b8b862dd29b663dbbc62449ac`
 - **Pull request:** https://github.com/jsburckhardt/soft-factory-runner/pull/37
-- **Outcome:** Accepted
+- **Outcome:** Acceptance passed; immutable AgentResultV1 publication blocked by missing injected binding
 
 ## Acceptance decisions
 
@@ -42,8 +42,12 @@ The complete diff against main was reviewed. ADR-260817, Decisions 131/134/172-1
 
 ## Friction and retro harvest
 
-- Generated verifier retros: `.harness/records/retro/2026-08-17/010-issue-36-rpiv-verifier.md` (six observations) and `.harness/records/retro/2026-08-17/011-issue-36-rpiv-verifier-final-binding.md` (one observation); both schema 1.2 records passed durable read-back before their buffers were cleared.
-- Harvest command returned exit 0/status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 11 records, 39 entries, four agents, zero malformed/unsupported records, and zero pending observations.
+- Generated verifier retros: `.harness/records/retro/2026-08-17/010-issue-36-rpiv-verifier.md` (six observations) and `.harness/records/retro/2026-08-17/011-issue-36-rpiv-verifier-final-binding.md` (one observation), and `.harness/records/retro/2026-08-17/012-issue-36-rpiv-verifier-publication-blocker.md` (one observation); all schema 1.2 records passed durable read-back before their buffers were cleared.
+- Harvest command returned exit 0/status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 12 records, 40 entries, four agents, zero malformed/unsupported records, and zero pending observations.
+
+## Publication blocker
+
+The verifier environment exposed no Issue 36 no-clobber publication helper or snapshotted required-final-validation binding. The existing `.soft-factory/agent-result.candidate.json` belongs to Issue 25 and was preserved byte-for-byte; no result was invented or published.
 
 ## GitHub state at PR creation
 
