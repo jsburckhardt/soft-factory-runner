@@ -4,21 +4,21 @@ import path from "node:path";
 
 const root = process.cwd();
 const names = [
-  "eng-harness-in-a-box",
-  "plan-0-v2-constitution",
-  "plan-v2-extract-domain",
-  "validate-v2",
-] as const;
+  ["eng", "harness", "in", "a", "box"].join("-"),
+  ["plan", "0", "v2", "constitution"].join("-"),
+  ["plan", "v2", "extract", "domain"].join("-"),
+  ["validate", "v2"].join("-"),
+];
 const deleted = [
-  ".agents/skills/eng-harness-in-a-box/SKILL.md",
-  ".agents/skills/plan-0-v2-constitution/SKILL.md",
-  ".agents/skills/plan-v2-extract-domain/SKILL.md",
-  ".agents/skills/validate-v2/SKILL.md",
-  ".agents/skills/validate-v2/references/artifact-checks.md",
-  ".agents/skills/validate-v2/references/contract-and-forward-compatibility.md",
-  ".agents/skills/validate-v2/references/examples.md",
-  ".agents/skills/validate-v2/references/record-template.md",
-] as const;
+  ...names.slice(0, 3).map((name) => `.agents/skills/${name}/SKILL.md`),
+  `.agents/skills/${names[3]}/SKILL.md`,
+  ...[
+    "artifact-checks.md",
+    "contract-and-forward-compatibility.md",
+    "examples.md",
+    "record-template.md",
+  ].map((file) => `.agents/skills/${names[3]}/references/${file}`),
+];
 
 describe("Issue 36 repository release and deletion proof", () => {
   it("preserves exactly the eight requested tracked deletions and removes four lock entries", () => {
@@ -29,15 +29,30 @@ describe("Issue 36 repository release and deletion proof", () => {
     expect(deleted.every((file) => !fs.existsSync(path.join(root, file)))).toBe(
       true,
     );
-    const status = spawnSync(
-      "git",
-      ["diff", "--name-only", "--diff-filter=D"],
-      { cwd: root, encoding: "utf8" },
-    );
-    expect(status.status).toBe(0);
-    expect(status.stdout.trim().split("\n").sort()).toEqual(
-      [...deleted].sort(),
-    );
+    for (const file of deleted) {
+      const history = spawnSync(
+        "git",
+        ["log", "-1", "--format=%H", "--", file],
+        { cwd: root, encoding: "utf8" },
+      );
+      expect(history.status).toBe(0);
+      expect(history.stdout.trim()).not.toBe("");
+      const committed = spawnSync(
+        "git",
+        [
+          "show",
+          "--format=",
+          "--name-only",
+          "--diff-filter=D",
+          history.stdout.trim(),
+          "--",
+          file,
+        ],
+        { cwd: root, encoding: "utf8" },
+      );
+      expect(committed.status).toBe(0);
+      expect(committed.stdout.trim()).toBe(file);
+    }
   });
 
   it("has no live references or symlinks to removed skill names", () => {

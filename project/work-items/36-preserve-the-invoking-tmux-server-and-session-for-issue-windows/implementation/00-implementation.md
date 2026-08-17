@@ -66,5 +66,6 @@ Implementation remains within ADR-260817 and CORE-COMPONENT-260817. No architect
 - `.harness/records/retro/2026-08-17/001-issue-36-rpiv-research.md`
 - `.harness/records/retro/2026-08-17/002-issue-36-rpiv-implementer.md`
 - `.harness/records/retro/2026-08-17/003-issue-36-rpiv-planner.md`
+- `.harness/records/retro/2026-08-17/004-issue-36-rpiv-implementer-postcommit.md`
 
-All pending coordinator, Research, Plan, and Implement buffers were listed. The three nonempty buffers were persisted with schema 1.2, read back, then cleared successfully; the coordinator buffer was empty. Final acceptance remains owned by Verify.
+All pending coordinator, Research, Plan, and Implement buffers were listed. The initial three nonempty buffers and one post-commit Implement observation were persisted with schema 1.2, read back, then cleared successfully; the coordinator buffer was empty. Final acceptance remains owned by Verify.
