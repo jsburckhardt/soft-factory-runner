@@ -1,0 +1,25 @@
+.harness/records/retro/2026-08-17/004-issue-36-rpiv-implementer-postcommit.md
+  s_1aded7cbc25310::t_13d71c883f658d 1-6,9,14-16,24,29-30,32
+  s_1aded7cbc25310::t_c4d0cda8342a49 7-8,10-13,17-23,25-28,31,33
+src/issue-36-repository.test.ts
+  s_1aded7cbc25310::t_71814e163437fc 7-11,13-21
+  s_1aded7cbc25310::t_d9c76da3fd2803 32-55
+project/work-items/36-preserve-the-invoking-tmux-server-and-session-for-issue-windows/implementation/00-implementation.md
+  s_1aded7cbc25310::t_071dbbb88b9b12 69,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "314e3d546c8c57fd1073d25078d4b921c27dc6fa",
+  "prompts": {},
+  "sessions": {
+    "s_1aded7cbc25310": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_HIQahXO6fiIsg8fGKaTe8dWp",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
