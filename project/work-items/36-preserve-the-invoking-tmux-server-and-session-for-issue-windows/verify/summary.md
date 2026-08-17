@@ -42,8 +42,8 @@ The complete diff against main was reviewed. ADR-260817, Decisions 131/134/172-1
 
 ## Friction and retro harvest
 
-- Generated verifier retro: `.harness/records/retro/2026-08-17/010-issue-36-rpiv-verifier.md` (schema 1.2, six observations, durable read-back succeeded before clearing six buffered entries).
-- Harvest command returned exit 0/status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 10 records, 38 entries, four agents, zero malformed/unsupported records, and zero pending observations.
+- Generated verifier retros: `.harness/records/retro/2026-08-17/010-issue-36-rpiv-verifier.md` (six observations) and `.harness/records/retro/2026-08-17/011-issue-36-rpiv-verifier-final-binding.md` (one observation); both schema 1.2 records passed durable read-back before their buffers were cleared.
+- Harvest command returned exit 0/status `ok`, schema `harness.retro-insights/v1`, exact plan scope, 11 records, 39 entries, four agents, zero malformed/unsupported records, and zero pending observations.
 
 ## GitHub state at PR creation
 
