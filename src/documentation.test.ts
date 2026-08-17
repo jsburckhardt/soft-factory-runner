@@ -1148,6 +1148,13 @@ describe("Issue 36 exact tmux ownership and 0.2.0 guidance", () => {
     expect(readme).toContain("Complete equality authorizes action");
     expect(operations).toContain("tmux -S <persisted-socket>");
     expect(doctorGuide).toContain("ordered 24 check IDs");
+    for (const phrase of [
+      "actual session, window, and pane records",
+      "explicit `-S` selectors",
+      "Directory entries are not inventory proof",
+      "65,536 bytes",
+    ])
+      expect(readme + doctorGuide + prd).toContain(phrase);
   });
 
   it("documents exact local 0.1.3-to-0.2.0 upgrade, reinstall, confirmation, and reconvergence", () => {

@@ -973,6 +973,54 @@ class LiveTmuxPort implements TmuxPort {
     };
   }
 
+  public async inventoryServerResources(input: {
+    readonly socketPath: string;
+    readonly cwd: string;
+  }): Promise<Uint8Array> {
+    let before: TmuxSocketIdentityV1;
+    try {
+      before = await this.socketIdentity(input.socketPath);
+    } catch (cause: unknown) {
+      if (nodeErrorCode(cause) === "ENOENT") return Buffer.from("absent\n");
+      throw tmuxContextRefusal("unavailable-proof");
+    }
+    const result = await this.commands.run(
+      "tmux",
+      [
+        "-S",
+        input.socketPath,
+        "list-panes",
+        "-a",
+        "-F",
+        "#{session_id}|#{session_name}|#{window_id}|#{window_name}|#{pane_id}|#{pane_current_path}",
+      ],
+      input.cwd,
+      2_000,
+    );
+    if (result.exitCode !== 0 || result.stdoutByteCount > 65_536)
+      throw tmuxContextRefusal("unavailable-proof");
+    let after: TmuxSocketIdentityV1;
+    try {
+      after = await this.socketIdentity(input.socketPath);
+    } catch {
+      return Buffer.from("absent\n");
+    }
+    if (!sameSocketIdentity(before, after)) return Buffer.from("replaced\n");
+    const resources = result.stdoutBuffer;
+    let recordCount = 0;
+    for (const byte of resources) {
+      if (byte === 0x0a) recordCount += 1;
+      if (byte === 0x00 || byte === 0x0d)
+        throw tmuxContextRefusal("unavailable-proof");
+    }
+    if (recordCount > 1_024 || resources.at(-1) !== 0x0a)
+      throw tmuxContextRefusal("unavailable-proof");
+    return Buffer.concat([
+      Buffer.from(JSON.stringify({ socket: before }) + "\n"),
+      resources,
+    ]);
+  }
+
   public async createIssueWindow(input: {
     readonly target: TmuxSessionTargetV1;
     readonly windowName: string;

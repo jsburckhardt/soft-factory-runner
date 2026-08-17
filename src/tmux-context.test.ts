@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { RepositoryIdentity } from "./domain";
+import type { TmuxPort } from "./ports";
 import { classifyDoctorTmuxTargeting } from "./doctor-service";
 import {
   createLivePorts,
@@ -347,6 +348,100 @@ describe("Issue 36 exact tmux context resolver", () => {
       ambientUnchanged: false,
       unrelatedUnchanged: true,
     });
+  });
+
+  it("detects actual server-resource changes that leave socket-directory entries unchanged", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-doctor-inventory-"),
+    );
+    const tmuxRoot = path.join(directory, "tmux-root");
+    const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+    const defaultSocket = path.join(tmuxRoot, `tmux-${uid}`, "default");
+    const customSocket = path.join(directory, "custom.sock");
+    const helper = ["node", "-e", "setInterval(() => {}, 1000)"];
+    const priorTmuxTmpdir = process.env.TMUX_TMPDIR;
+    process.env.TMUX_TMPDIR = tmuxRoot;
+    await fs.mkdir(path.dirname(defaultSocket), { recursive: true });
+    try {
+      for (const [socket, session] of [
+        [customSocket, "custom"],
+        [defaultSocket, "default"],
+      ] as const)
+        await execute("tmux", [
+          "-S",
+          socket,
+          "new-session",
+          "-d",
+          "-s",
+          session,
+          "-n",
+          "origin",
+          "-c",
+          directory,
+          ...helper,
+        ]);
+      const pane = (
+        await execute("tmux", [
+          "-S",
+          customSocket,
+          "display-message",
+          "-p",
+          "-t",
+          "custom:origin",
+          "#{pane_id}",
+        ])
+      ).stdout.trim();
+      const directoryEntriesBefore = await fs.readdir(tmuxRoot, {
+        recursive: true,
+      });
+      const liveTmux = createLivePorts().tmux;
+      const inventoryServerResources =
+        liveTmux.inventoryServerResources?.bind(liveTmux);
+      const selectTarget = liveTmux.selectTarget?.bind(liveTmux);
+      if (inventoryServerResources === undefined || selectTarget === undefined)
+        throw new Error("live tmux targeting inventory is unavailable");
+      const evidence = await classifyDoctorTmuxTargeting(
+        {
+          inventoryServerResources,
+          selectTarget: async (input) => {
+            const selected = await selectTarget(input);
+            await execute("tmux", [
+              "-S",
+              defaultSocket,
+              "new-window",
+              "-d",
+              "-n",
+              "changed-without-new-socket",
+              "-c",
+              directory,
+              ...helper,
+            ]);
+            return selected;
+          },
+        } as TmuxPort,
+        { tmux: `${customSocket},12345,0`, tmuxPane: pane },
+        repository.nameWithOwner,
+      );
+      expect(evidence).toMatchObject({
+        mode: "invoking-valid",
+        inventoryMeasured: true,
+        ambientUnchanged: true,
+        unrelatedUnchanged: false,
+      });
+      expect(await fs.readdir(tmuxRoot, { recursive: true })).toEqual(
+        directoryEntriesBefore,
+      );
+      expect(JSON.stringify(evidence)).not.toContain(customSocket);
+      expect(JSON.stringify(evidence)).not.toContain(defaultSocket);
+    } finally {
+      if (priorTmuxTmpdir === undefined) delete process.env.TMUX_TMPDIR;
+      else process.env.TMUX_TMPDIR = priorTmuxTmpdir;
+      for (const socket of [customSocket, defaultSocket])
+        await execute("tmux", ["-S", socket, "kill-server"]).catch(
+          () => undefined,
+        );
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 });
 

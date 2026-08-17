@@ -106,6 +106,10 @@ export interface TmuxPort {
     readonly evidence: InvokingTmuxEvidenceV1;
     readonly repository: RepositoryIdentity;
   }): Promise<TmuxSessionTargetV1>;
+  inventoryServerResources?(input: {
+    readonly socketPath: string;
+    readonly cwd: string;
+  }): Promise<Uint8Array>;
   createIssueWindow(input: {
     readonly target: TmuxSessionTargetV1;
     readonly windowName: string;

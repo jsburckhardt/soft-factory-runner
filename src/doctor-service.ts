@@ -1,4 +1,3 @@
-import * as fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -26,9 +25,11 @@ import { normalizeRepositoryName } from "./domain";
 import { isRunnerError } from "./errors";
 import { createLivePorts } from "./live";
 import type { TmuxPort } from "./ports";
-import type {
-  InvokingTmuxEvidenceV1,
-  TmuxContextRefusalReason,
+import {
+  deriveStandaloneTmuxTarget,
+  parseInvokingTmuxEvidence,
+  type InvokingTmuxEvidenceV1,
+  type TmuxContextRefusalReason,
 } from "./tmux-target";
 import { observeDoctorRuntime } from "./doctor-runtime";
 import type { DoctorClock, DoctorTmuxProbePort } from "./doctor-tmux";
@@ -129,7 +130,13 @@ export class DoctorService implements DoctorRunner {
       this.input.invokingEvidence ?? { tmux: null, tmuxPane: null },
       repository.githubIdentity.value ?? "unknown/unknown",
       this.input.tmuxInventory ??
-        (() => captureDoctorTmuxInventories(startPath)),
+        (() =>
+          captureDoctorTmuxInventories(
+            this.input.tmuxPort ?? createLivePorts().tmux,
+            this.input.invokingEvidence ?? { tmux: null, tmuxPane: null },
+            repository.githubIdentity.value ?? "unknown/unknown",
+            startPath,
+          )),
     );
     const probeObservation = await tmuxPromise;
     const tmux: DoctorObservation<unknown> =
@@ -271,7 +278,7 @@ export async function classifyDoctorTmuxTargeting(
   evidence: InvokingTmuxEvidenceV1,
   repository: string,
   inventory: () => Promise<DoctorTmuxInventories> = () =>
-    captureDoctorTmuxInventories(process.cwd()),
+    captureDoctorTmuxInventories(tmux, evidence, repository, process.cwd()),
 ): Promise<DoctorTmuxTargetingEvidenceV1> {
   const before = await inventory();
   try {
@@ -331,30 +338,37 @@ function targetingEvidence(
 }
 
 async function captureDoctorTmuxInventories(
-  startPath: string,
+  tmux: TmuxPort,
+  evidence: InvokingTmuxEvidenceV1,
+  repository: string,
+  cwd: string,
 ): Promise<DoctorTmuxInventories> {
+  if (tmux.inventoryServerResources === undefined)
+    throw new Error("tmux inventory adapter unavailable");
   const uid = typeof process.getuid === "function" ? process.getuid() : 0;
-  const ambientRoot =
-    process.env.TMUX_TMPDIR ?? path.join(os.tmpdir(), `tmux-${uid}`);
-  return {
-    ambient: Buffer.from(await boundedDirectoryInventory(ambientRoot)),
-    unrelated: Buffer.from(
-      await boundedDirectoryInventory(path.join(startPath, ".soft-factory")),
-    ),
-  };
-}
-
-async function boundedDirectoryInventory(directory: string): Promise<string> {
+  const defaultSocket = path.join(
+    process.env.TMUX_TMPDIR ?? os.tmpdir(),
+    `tmux-${uid}`,
+    "default",
+  );
+  let invokingSocket: string | null = null;
   try {
-    const entries = (await fs.readdir(directory, { withFileTypes: true }))
-      .slice(0, 1024)
-      .map(
-        (entry) =>
-          `${entry.name}|${entry.isDirectory() ? "d" : entry.isSymbolicLink() ? "l" : "f"}`,
-      )
-      .sort();
-    return JSON.stringify(entries);
+    invokingSocket = parseInvokingTmuxEvidence(evidence)?.socketPath ?? null;
   } catch {
-    return "[]";
+    // Invalid values are never rendered; a structurally unusable selector cannot be queried.
   }
+  const standaloneSocket = deriveStandaloneTmuxTarget({
+    nameWithOwner: repository,
+    normalizedName: normalizeRepositoryName(repository),
+  }).socketPath;
+  const ambientSocket = invokingSocket ?? defaultSocket;
+  const unrelatedSocket =
+    path.resolve(ambientSocket) === path.resolve(defaultSocket)
+      ? standaloneSocket
+      : defaultSocket;
+  const [ambient, unrelated] = await Promise.all([
+    tmux.inventoryServerResources({ socketPath: ambientSocket, cwd }),
+    tmux.inventoryServerResources({ socketPath: unrelatedSocket, cwd }),
+  ]);
+  return { ambient, unrelated };
 }

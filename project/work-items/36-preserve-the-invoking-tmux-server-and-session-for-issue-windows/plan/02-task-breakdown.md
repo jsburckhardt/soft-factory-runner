@@ -34,6 +34,7 @@ Keep `ADR-260817-invoking-tmux-context-targeting` and `CORE-COMPONENT-260817-exa
 - **Complexity:** Medium
 - **Dependencies:** T1
 - **Acceptance Criteria:** AC-2, AC-3, AC-4, AC-6, AC-8, AC-9, AC-11, AC-12, AC-13, AC-15, AC-16
+- **Verify-return correction:** Complete — README, PRD, Phase 4 Doctor guidance, and documentation assertions now describe actual explicit-selector tmux resource inventories rather than directory-entry evidence (AC-13, AC-15, AC-16).
 - **Related ADRs:** ADR-260817-invoking-tmux-context-targeting; ADR-260812-repository-doctor-readiness
 - **Related Core-Components:** CORE-COMPONENT-260817-exact-tmux-context-ownership; CORE-COMPONENT-260811-run-reconciliation-control; CORE-COMPONENT-260814-tmux-identity-diagnostics; CORE-COMPONENT-260815-package-semver-governance
 
@@ -63,6 +64,7 @@ Correct `README.md`, `PRD.md`, and `docs/phase-3-recovery-operations.md` where t
 - **Complexity:** Medium
 - **Dependencies:** T2
 - **Acceptance Criteria:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16
+- **Verify-return correction:** Complete — the live tmux adapter inventories socket identity and original-byte session/window/pane records through bounded explicit `-S` queries; a real custom/default-server regression changes a window while directory entries stay equal and is detected (AC-13, AC-16).
 - **Related ADRs:** ADR-260817-invoking-tmux-context-targeting; ADR-260814-tmux-identity-failure-recovery; ADR-260812-repository-doctor-readiness
 - **Related Core-Components:** CORE-COMPONENT-260817-exact-tmux-context-ownership; CORE-COMPONENT-260811-run-reconciliation-control; CORE-COMPONENT-260811-owned-resource-cleanup; CORE-COMPONENT-260812-repository-doctor-contract; CORE-COMPONENT-260806-agent-executable-acceptance-criteria
 
@@ -93,6 +95,7 @@ Use existing product tests as regression proof because the research found implem
 - **Complexity:** Low
 - **Dependencies:** T3
 - **Acceptance Criteria:** AC-16
+- **Verify-return correction:** Complete — implementation evidence and required focused/full validation were refreshed for the AC-13/AC-15 return.
 - **Related ADRs:** ADR-260817-invoking-tmux-context-targeting; ADR-260812-official-asset-distribution-installation
 - **Related Core-Components:** CORE-COMPONENT-260815-package-semver-governance; CORE-COMPONENT-260812-official-asset-installation-contract; CORE-COMPONENT-260806-project-command-interface; CORE-COMPONENT-260806-rpiv-stage-contract
 
