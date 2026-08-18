@@ -4,7 +4,7 @@
 - **Branch:** `fix/42-clean-exact-owned-dead-pane-window`
 - **Implementation commit:** `0bf6b4b83e7055783bddb3daf6e75e918eac40d8`
 - **Pull request:** https://github.com/jsburckhardt/soft-factory-runner/pull/43
-- **Outcome:** Accepted
+- **Outcome:** Acceptance passed and PR created; immutable AgentResultV1 publication blocked by missing Runner binding
 
 ## Acceptance decisions
 
@@ -38,5 +38,10 @@ Application documentation passed: README, PRD, docs index, Phase 1, Phase 3, Pha
 Verifier records:
 - `.harness/records/retro/2026-08-18/018-issue-42-rpiv-verifier.md`
 - `.harness/records/retro/2026-08-18/019-issue-42-rpiv-verifier-closeout.md`
+- `.harness/records/retro/2026-08-18/020-issue-42-rpiv-verifier-publication.md`
 
-Final `harness retro insights --plan 42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane --json` returned status ok with schema `harness.retro-insights/v1`, exact plan scope, 7 records, 33 entries, 4 agents, 29 open and 4 encoded lifecycle entries, no malformed records, and no pending observation buffer entries.
+Final `harness retro insights --plan 42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane --json` returned status ok with schema `harness.retro-insights/v1`, exact plan scope, 8 records, 34 entries, 4 agents, 30 open and 4 encoded lifecycle entries, no malformed records, and no pending observation buffer entries.
+
+## Closeout publication
+
+The strict candidate was bound to PR #43 and the observed final head, but the local no-clobber helper returned `STATE_NOT_FOUND` because no Issue 42 Runner snapshot/injected helper exists in this worktree. The pre-existing Issue 25 candidate was preserved unchanged. Result publication and read-back therefore did not pass.
