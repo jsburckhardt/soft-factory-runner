@@ -9,7 +9,7 @@ plan_id: "44-complete-live-cleanup-retries-after-exact-tmux-target-removal"
 schema_version: "1.2"
 retro_id: "2026-08-18T12:33:42Z-rpiv-verifier-9d762921fe1f"
 started_at: "2026-08-18T11:37:26.989Z"
-ended_at: "2026-08-18T12:35:25.732Z"
+ended_at: "2026-08-18T12:45:41.002Z"
 summary: "Verification first returned incomplete acceptance proof to Implement, then independently reverified the corrected exact handoff, full gates, documentation, offline package, and prior gaps. Optional tooling limitations caused bounded inspection retries without changing the authoritative validation interface."
 entries:
   - id: DL-001
@@ -62,6 +62,15 @@ entries:
     fp: "10939ee045f3"
     disposition: kept
     system: { compound: { status: open, source: agent-self, first_seen_at: "2026-08-18T12:35:25.732Z" } }
+  - id: COORD-001
+    kind: coordination
+    description: "Immutable result publication could not complete because no bound Runner snapshot or injected helper exists for Issue 44 in this verification workspace."
+    target: infra
+    workaround: "Preserved the existing Issue 25 candidate and returned publication failure rather than writing an unbound artifact."
+    suggested_encoding: "Always inject the run-bound no-clobber publish and validate commands into verifier sessions."
+    fp: "c6536e3a01c3"
+    disposition: kept
+    system: { compound: { status: open, source: agent-self, first_seen_at: "2026-08-18T12:45:41.002Z" } }
 ---
 
 # Retro — Issue 44 RPIV verification

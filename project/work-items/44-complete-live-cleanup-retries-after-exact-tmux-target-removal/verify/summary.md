@@ -4,7 +4,7 @@
 - **Branch:** `fix/44-complete-live-cleanup-retries-after-tmux-removal`
 - **Implementation commit:** `8e28ac1e08bc625a0a88f234692ea0046bb9c40a`
 - **Pull request:** https://github.com/jsburckhardt/soft-factory-runner/pull/45
-- **Outcome:** Accepted
+- **Outcome:** Acceptance passed and PR created; immutable AgentResultV1 publication blocked because no Issue 44 Runner binding was injected
 
 ## Acceptance Decisions
 
@@ -37,4 +37,8 @@ The complete 44-file branch diff was reviewed and is within Issue 44 scope. Upda
 ## RPIV Retro
 
 - Generated verifier record: `.harness/records/retro/2026-08-18/027-issue-44-rpiv-verifier.md`.
-- Harvest: `harness.retro-insights/v1`, status `ok`, scoped to this exact work-item ID; 7 records, 22 entries, 4 agents, 0 malformed records, and 0 pending buffer entries.
+- Harvest: `harness.retro-insights/v1`, status `ok`, scoped to this exact work-item ID; 7 records, 23 entries, 4 agents, 0 malformed records, and 0 pending buffer entries.
+
+## Publication Status
+
+The final no-clobber helper invocation returned `STATE_NOT_FOUND` because this workspace has no bound Issue 44 Runner snapshot or injected helper. The pre-existing Issue 25 candidate was preserved unchanged; no unbound result artifact was published.
