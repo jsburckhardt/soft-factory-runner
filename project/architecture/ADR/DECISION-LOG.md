@@ -235,3 +235,5 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 180 | Treat absent targeting-inventory sockets as empty without invoking or creating tmux servers | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
 | 181 | Fail only command.tmux on genuine inventory-proof failures while preserving completed observations | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
 | 182 | Drain targeting inventory streams with 65536-byte and 1024-record acceptance limits | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 183 | Classify only exact bounded no-server targeting results as stable stale-socket absence | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |
+| 184 | Preserve stale socket identity and reject every other inventory uncertainty | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |

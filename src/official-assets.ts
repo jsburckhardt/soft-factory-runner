@@ -1,6 +1,6 @@
 import { DOCTOR_PROTOCOL_VERSION } from "./doctor";
 
-export const OFFICIAL_ASSET_VERSION = "0.2.1-beta.0" as const;
+export const OFFICIAL_ASSET_VERSION = "0.2.1-beta.1" as const;
 export const OFFICIAL_MANIFEST_PATH = ".agents/manifest.json" as const;
 export const CURRENT_AGENT_DESTINATION =
   ".github/agents/soft-factory.agent.md" as const;

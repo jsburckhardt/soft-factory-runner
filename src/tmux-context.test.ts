@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -381,92 +381,150 @@ describe("Issue 36 exact tmux context resolver", () => {
     });
   });
 
-  it("repeats against one real custom server while the unrelated default remains absent", async () => {
-    const directory = await fs.mkdtemp(
-      path.join(os.tmpdir(), "sf-issue-38-live-"),
-    );
-    const tmuxRoot = path.join(directory, "tmux-root");
-    const uid = typeof process.getuid === "function" ? process.getuid() : 0;
-    const defaultSocket = path.join(tmuxRoot, `tmux-${uid}`, "default");
-    const customSocket = path.join(directory, "custom.sock");
-    const priorTmuxTmpdir = process.env.TMUX_TMPDIR;
-    process.env.TMUX_TMPDIR = tmuxRoot;
-    try {
-      await execute("tmux", [
-        "-S",
-        customSocket,
-        "new-session",
-        "-d",
-        "-s",
-        "custom",
-        "-n",
-        "origin",
-        "-c",
-        directory,
-        "node",
-        "-e",
-        "setInterval(() => {}, 1000)",
-      ]);
-      const pane = (
+  it("repeats a real custom server with a stale default socket and cleans every owned resource", async () => {
+    const projections: unknown[] = [];
+    for (let repetition = 0; repetition < 2; repetition += 1) {
+      const directory = await fs.mkdtemp(
+        path.join(os.tmpdir(), "sf-issue-40-live-"),
+      );
+      const tmuxRoot = path.join(directory, "tmux-root");
+      const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+      const defaultSocket = path.join(tmuxRoot, `tmux-${uid}`, "default");
+      const customSocket = path.join(directory, "custom.sock");
+      const priorTmuxTmpdir = process.env.TMUX_TMPDIR;
+      process.env.TMUX_TMPDIR = tmuxRoot;
+      try {
+        await fs.mkdir(path.dirname(defaultSocket), { recursive: true });
         await execute("tmux", [
           "-S",
           customSocket,
-          "display-message",
-          "-p",
-          "-t",
-          "custom:origin",
-          "#{pane_id}",
-        ])
-      ).stdout.trim();
-      await expect(fs.stat(defaultSocket)).rejects.toMatchObject({
-        code: "ENOENT",
-      });
-      const commands = new RecordingExecutor();
-      const liveTmux = createLivePorts(commands).tmux;
-      const inventory = liveTmux.inventoryServerResources?.bind(liveTmux);
-      if (inventory === undefined) throw new Error("inventory unavailable");
-      const before = await inventory({
-        socketPath: customSocket,
-        cwd: directory,
-      });
-      const evidenceInput = { tmux: `${customSocket},12345,0`, tmuxPane: pane };
-      const first = await classifyDoctorTmuxTargeting(
-        liveTmux,
-        evidenceInput,
-        repository.nameWithOwner,
-      );
-      const second = await classifyDoctorTmuxTargeting(
-        liveTmux,
-        evidenceInput,
-        repository.nameWithOwner,
-      );
-      const after = await inventory({
-        socketPath: customSocket,
-        cwd: directory,
-      });
-      expect(first).toEqual(second);
-      expect(first).toMatchObject({
-        mode: "invoking-valid",
-        ambientUnchanged: true,
-        unrelatedUnchanged: true,
-      });
-      expect(after).toEqual(before);
-      expect(
-        commands.calls.filter(
-          (args) => args[0] === "-S" && args[1] === defaultSocket,
-        ),
-      ).toEqual([]);
-      await expect(fs.stat(defaultSocket)).rejects.toMatchObject({
-        code: "ENOENT",
-      });
-    } finally {
-      if (priorTmuxTmpdir === undefined) delete process.env.TMUX_TMPDIR;
-      else process.env.TMUX_TMPDIR = priorTmuxTmpdir;
-      await execute("tmux", ["-S", customSocket, "kill-server"]).catch(
-        () => undefined,
-      );
-      await fs.rm(directory, { recursive: true, force: true });
+          "new-session",
+          "-d",
+          "-s",
+          "custom",
+          "-n",
+          "origin",
+          "-c",
+          directory,
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+        const pane = (
+          await execute("tmux", [
+            "-S",
+            customSocket,
+            "display-message",
+            "-p",
+            "-t",
+            "custom:origin",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const staleOwner = spawn(
+          process.execPath,
+          [
+            "-e",
+            'const net=require("node:net");const server=net.createServer();server.listen(process.argv[1],()=>process.send("ready"));setInterval(()=>{},1000);',
+            defaultSocket,
+          ],
+          { stdio: ["ignore", "ignore", "ignore", "ipc"] },
+        );
+        await new Promise<void>((resolve, reject) => {
+          staleOwner.once("message", () => resolve());
+          staleOwner.once("error", reject);
+          staleOwner.once("exit", (code) =>
+            reject(new Error(`stale owner exited before readiness: ${code}`)),
+          );
+        });
+        staleOwner.kill("SIGKILL");
+        await new Promise<void>((resolve) =>
+          staleOwner.once("close", () => resolve()),
+        );
+        const staleBefore = await fs.stat(defaultSocket);
+        expect(staleBefore.isSocket()).toBe(true);
+
+        const direct = new CommandExecutor();
+        const customQuery = await direct.run(
+          "tmux",
+          ["-S", customSocket, "list-panes", "-a"],
+          directory,
+          2_000,
+          false,
+          65_536,
+        );
+        expect(customQuery.exitCode).toBe(0);
+        const staleQuery = await direct.run(
+          "tmux",
+          ["-S", defaultSocket, "list-panes", "-a"],
+          directory,
+          2_000,
+          false,
+          65_536,
+        );
+        expect(staleQuery).toMatchObject({
+          exitCode: 1,
+          stdoutByteCount: 0,
+          stderrByteCount: Buffer.byteLength(
+            `no server running on ${defaultSocket}\n`,
+          ),
+        });
+        expect(staleQuery.stderrBuffer).toEqual(
+          Buffer.from(`no server running on ${defaultSocket}\n`),
+        );
+
+        const commands = new RecordingExecutor();
+        const liveTmux = createLivePorts(commands).tmux;
+        const inventory = liveTmux.inventoryServerResources?.bind(liveTmux);
+        if (inventory === undefined) throw new Error("inventory unavailable");
+        const customBefore = await inventory({
+          socketPath: customSocket,
+          cwd: directory,
+        });
+        const evidence = await classifyDoctorTmuxTargeting(
+          liveTmux,
+          { tmux: `${customSocket},12345,0`, tmuxPane: pane },
+          repository.nameWithOwner,
+        );
+        const customAfter = await inventory({
+          socketPath: customSocket,
+          cwd: directory,
+        });
+        const staleAfter = await fs.stat(defaultSocket);
+        expect(evidence).toEqual({
+          schemaVersion: 1,
+          kind: "tmux-targeting",
+          mode: "invoking-valid",
+          reason: null,
+          bounded: true,
+          inventoryMeasured: true,
+          ambientUnchanged: true,
+          unrelatedUnchanged: true,
+        });
+        expect(customAfter).toEqual(customBefore);
+        expect({ device: staleAfter.dev, inode: staleAfter.ino }).toEqual({
+          device: staleBefore.dev,
+          inode: staleBefore.ino,
+        });
+        expect(
+          commands.calls.every((args) =>
+            ["display-message", "list-panes"].includes(args[2] ?? ""),
+          ),
+        ).toBe(true);
+        projections.push(evidence);
+      } finally {
+        if (priorTmuxTmpdir === undefined) delete process.env.TMUX_TMPDIR;
+        else process.env.TMUX_TMPDIR = priorTmuxTmpdir;
+        await execute("tmux", ["-S", customSocket, "kill-server"]).catch(
+          () => undefined,
+        );
+        await fs.rm(directory, { recursive: true, force: true });
+        await expect(fs.stat(directory)).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      }
     }
+    expect(projections[1]).toEqual(projections[0]);
   });
 
   it("detects actual server-resource changes that leave socket-directory entries unchanged", async () => {

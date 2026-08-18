@@ -88,7 +88,9 @@ export class CommandExecutor implements CommandRunner {
       const stdout: Buffer[] = [];
       const stderr: Buffer[] = [];
       let stdoutByteCount = 0;
+      let stderrByteCount = 0;
       let retainedStdoutBytes = 0;
+      let retainedStderrBytes = 0;
       child.stdout.on("data", (chunk: Buffer) => {
         stdoutByteCount += chunk.byteLength;
         const remaining = Math.max(
@@ -101,7 +103,18 @@ export class CommandExecutor implements CommandRunner {
           retainedStdoutBytes += retained.byteLength;
         }
       });
-      child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderrByteCount += chunk.byteLength;
+        const remaining = Math.max(
+          0,
+          stdoutRetentionBytes - retainedStderrBytes,
+        );
+        if (remaining > 0) {
+          const retained = chunk.subarray(0, remaining);
+          stderr.push(retained);
+          retainedStderrBytes += retained.byteLength;
+        }
+      });
       let timedOut = false;
       let escalation: NodeJS.Timeout | null = null;
       const timer = setTimeout(() => {
@@ -145,7 +158,7 @@ export class CommandExecutor implements CommandRunner {
           stdoutBuffer,
           stderrBuffer,
           stdoutByteCount,
-          stderrByteCount: stderrBuffer.byteLength,
+          stderrByteCount,
         });
       });
     });
@@ -1031,7 +1044,7 @@ class LiveTmuxPort implements TmuxPort {
     } catch {
       throw tmuxContextRefusal("unavailable-proof");
     }
-    if (result.exitCode !== 0 || result.stdoutByteCount > 65_536)
+    if (result.stdoutByteCount > 65_536 || result.stderrByteCount > 65_536)
       throw tmuxContextRefusal("unavailable-proof");
     let after: TmuxSocketIdentityV1;
     try {
@@ -1040,6 +1053,22 @@ class LiveTmuxPort implements TmuxPort {
       throw tmuxContextRefusal("unavailable-proof");
     }
     if (!sameSocketIdentity(before, after))
+      throw tmuxContextRefusal("unavailable-proof");
+    if (result.exitCode !== 0) {
+      const expected = Buffer.from(
+        `no server running on ${input.socketPath}\n`,
+        "utf8",
+      );
+      if (
+        result.stdoutByteCount === 0 &&
+        result.stdoutBuffer.byteLength === 0 &&
+        result.stderrByteCount === expected.byteLength &&
+        result.stderrBuffer.equals(expected)
+      )
+        return Buffer.from(JSON.stringify({ socket: before }) + "\n");
+      throw tmuxContextRefusal("unavailable-proof");
+    }
+    if (result.stderrByteCount !== 0)
       throw tmuxContextRefusal("unavailable-proof");
     const resources = result.stdoutBuffer;
     let recordCount = 0;

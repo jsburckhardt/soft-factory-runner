@@ -47,7 +47,7 @@ const success: AssetInstallationResultV1 = {
     {
       type: "agent",
       name: "soft-factory",
-      version: "0.2.1-beta.0",
+      version: "0.2.1-beta.1",
       runnerProtocol: 1,
       destination: ".github/agents/soft-factory.agent.md",
       sha256: "a".repeat(64),
@@ -205,8 +205,8 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
       filename: string;
       version: string;
     };
-    expect(packEntry.version).toBe("0.2.1-beta.0");
-    expect(packEntry.filename).toBe("soft-factory-runner-0.2.1-beta.0.tgz");
+    expect(packEntry.version).toBe("0.2.1-beta.1");
+    expect(packEntry.filename).toBe("soft-factory-runner-0.2.1-beta.1.tgz");
     tarball = path.join(temp, packEntry.filename);
     const prefix = path.join(temp, "prefix");
     const installed = spawnSync(
@@ -228,7 +228,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
     const installedMetadata = JSON.parse(
       await fsp.readFile(path.join(packageRoot, "package.json"), "utf8"),
     ) as { version: string };
-    expect(installedMetadata.version).toBe("0.2.1-beta.0");
+    expect(installedMetadata.version).toBe("0.2.1-beta.1");
     const tarMetadata = spawnSync(
       "tar",
       ["-xOf", tarball, "package/package.json"],
@@ -237,7 +237,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
     expect(tarMetadata.status).toBe(0);
     expect(
       (JSON.parse(tarMetadata.stdout) as { version: string }).version,
-    ).toBe("0.2.1-beta.0");
+    ).toBe("0.2.1-beta.1");
   });
 
   afterAll(async () => {
@@ -279,7 +279,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
         ),
       ) as { assets: Array<{ version: string }> };
       expect(generated.assets).toHaveLength(1);
-      expect(generated.assets[0]?.version).toBe("0.2.1-beta.0");
+      expect(generated.assets[0]?.version).toBe("0.2.1-beta.1");
       inventories.push(await tree(roots[index]));
     }
     expect(inventories[1]).toEqual(inventories[0]);
@@ -287,7 +287,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
       await fsp.rm(repository, { recursive: true, force: true });
   });
 
-  it("reconverges a proved 0.1.0 current manifest to 0.2.1-beta.0 and repeats", async () => {
+  it("reconverges a proved 0.1.0 current manifest to 0.2.1-beta.1 and repeats", async () => {
     const repository = await fsp.mkdtemp(
       path.join(os.tmpdir(), "asset-packed-version-upgrade-"),
     );
@@ -325,7 +325,7 @@ describe("V3 and V11 packed built-CLI installation smoke", () => {
       ),
     ) as { assets: Array<{ version: string }> };
     expect(manifest.assets.map((entry) => entry.version)).toEqual([
-      "0.2.1-beta.0",
+      "0.2.1-beta.1",
     ]);
     const repeat = invoke(packageRoot, repository, [
       "install",

@@ -63,8 +63,8 @@ describe("V1 sole catalog, source, and npm package contract", () => {
       filename: string;
       files: { path: string }[];
     };
-    expect(packEntry.version).toBe("0.2.1-beta.0");
-    expect(packEntry.filename).toBe("soft-factory-runner-0.2.1-beta.0.tgz");
+    expect(packEntry.version).toBe("0.2.1-beta.1");
+    expect(packEntry.filename).toBe("soft-factory-runner-0.2.1-beta.1.tgz");
     const files = packEntry.files.map((entry) => entry.path);
     expect(files.filter((file) => file.startsWith("assets/official/"))).toEqual(
       ["assets/official/soft-factory.agent.md"],
@@ -104,10 +104,10 @@ describe("Issue 5 exact package version inventory", () => {
       lockPackage: lock.packages[""]?.version,
       officialAsset: OFFICIAL_ASSET_VERSION,
     }).toEqual({
-      package: "0.2.1-beta.0",
-      lockRoot: "0.2.1-beta.0",
-      lockPackage: "0.2.1-beta.0",
-      officialAsset: "0.2.1-beta.0",
+      package: "0.2.1-beta.1",
+      lockRoot: "0.2.1-beta.1",
+      lockPackage: "0.2.1-beta.1",
+      officialAsset: "0.2.1-beta.1",
     });
     expect(lock.packages["node_modules/get-package-type"]?.version).toBe(
       "0.1.0",

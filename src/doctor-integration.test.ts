@@ -20,6 +20,7 @@ import { renderDoctor } from "./doctor-render";
 import type { DoctorTmuxProbePort } from "./doctor-tmux";
 import { runCli } from "./index";
 import type { RunnerPorts, TmuxPort } from "./ports";
+import type { InvokingTmuxEvidenceV1 } from "./tmux-target";
 
 const projectRoot = path.resolve(__dirname, "..");
 const manifests = path.join(projectRoot, "fixtures", "doctor");
@@ -426,6 +427,7 @@ async function actualDoctorFixture(
   targeting: {
     readonly tmuxPort?: TmuxPort;
     readonly tmuxInventory?: () => Promise<DoctorTmuxInventories>;
+    readonly invokingEvidence?: InvokingTmuxEvidenceV1;
   } = {},
 ): Promise<{
   root: string;
@@ -813,6 +815,118 @@ describe("Issue 38 Doctor targeting containment", () => {
           evidence: { mode: "invalid-context", reason: "unavailable-proof" },
         });
         expect(JSON.stringify(result)).not.toContain("sentinel");
+      } finally {
+        await fs.rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+  );
+});
+
+describe("Issue 40 stale no-server Doctor matrix", () => {
+  const invokingEvidence = {
+    tmux: "/sentinel/invoking.sock,12345,0",
+    tmuxPane: "%1",
+  } as const;
+  const stableInventory = {
+    ambient: Buffer.from('{"socket":{"device":"1","inode":"2"}}\n'),
+    unrelated: Buffer.from('{"socket":{"device":"3","inode":"4"}}\n'),
+  };
+  const validTmux = {
+    selectTarget: async () => ({
+      selectionMode: "invoking" as const,
+      socketPath: "/sentinel/invoking.sock",
+      socketIdentity: { device: "1", inode: "2" },
+      sessionId: "$1",
+      sessionName: "session-sentinel",
+      repository: "owner/repo",
+    }),
+  } as TmuxPort;
+
+  it.each([
+    ["stale-no-server", true],
+    ["live-generic-nonzero", false],
+    ["invalid-utf8", false],
+    ["nul", false],
+    ["carriage-return", false],
+    ["missing-terminal-lf", false],
+    ["stdout-65537", false],
+    ["records-1025", false],
+    ["identity-replacement", false],
+    ["timeout", false],
+    ["eacces", false],
+    ["additional-stderr", false],
+    ["stderr-overflow", false],
+    ["post-query-loss", false],
+  ] as const)(
+    "preserves the full contract twice for %s",
+    async (name, succeeds) => {
+      const fixture = await actualDoctorFixture(null, {
+        invokingEvidence,
+        tmuxPort: validTmux,
+        tmuxInventory: succeeds
+          ? async () => stableInventory
+          : async () => {
+              throw new Error(`private-${name}-sentinel`);
+            },
+      });
+      try {
+        const first = await fixture.doctor.run(fixture.root);
+        const second = await fixture.doctor.run(fixture.root);
+        expect(first).toEqual(second);
+        expect(first.repository).toEqual({
+          github: "owner/repo",
+          defaultBranch: "main",
+        });
+        expect(first.checks.map((check) => check.id)).toEqual(DOCTOR_CHECK_IDS);
+        expect(new Set(first.checks.map((check) => check.id)).size).toBe(24);
+        const tmux = first.checks.find((check) => check.id === "command.tmux");
+        expect(tmux).toMatchObject(
+          succeeds
+            ? {
+                status: "passed",
+                evidence: {
+                  mode: "invoking-valid",
+                  reason: null,
+                  ambientUnchanged: true,
+                  unrelatedUnchanged: true,
+                },
+              }
+            : {
+                status: "failed",
+                evidence: {
+                  mode: "invalid-context",
+                  reason: "unavailable-proof",
+                  ambientUnchanged: false,
+                  unrelatedUnchanged: false,
+                },
+              },
+        );
+        for (const id of [
+          "command.git",
+          "command.gh",
+          "command.node",
+          "command.copilot",
+          "authentication.github-cli",
+          "authentication.copilot-cli",
+        ] as const)
+          expect(first.checks.find((check) => check.id === id)?.status).toBe(
+            "passed",
+          );
+        const human = renderDoctor(first, false);
+        const json = renderDoctor(first, true);
+        expect(normalizeHuman(human)).toEqual(first);
+        expect(JSON.parse(json)).toEqual(first);
+        for (const prohibited of [
+          "/sentinel/invoking.sock",
+          "/sentinel/unrelated.sock",
+          "session-sentinel",
+          "private-",
+          "$1",
+          "%1",
+        ]) {
+          expect(human).not.toContain(prohibited);
+          expect(json).not.toContain(prohibited);
+        }
       } finally {
         await fs.rm(fixture.root, { recursive: true, force: true });
       }
