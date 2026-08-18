@@ -1,5 +1,6 @@
 import type { CommandResult, CommandRunner } from "./live";
 import { createLivePorts } from "./live";
+import { RunnerError } from "./errors";
 import type { TmuxTargetV2 } from "./tmux-target";
 
 const target: TmuxTargetV2 = {
@@ -34,7 +35,7 @@ class ObservationRunner implements CommandRunner {
     readonly cwd: string;
     readonly timeoutMs: number;
   }> = [];
-  public constructor(private readonly response: CommandResult) {}
+  public constructor(private readonly response: CommandResult | Error) {}
   public async run(
     _executable: string,
     args: readonly string[],
@@ -42,6 +43,7 @@ class ObservationRunner implements CommandRunner {
     timeoutMs: number,
   ): Promise<CommandResult> {
     this.calls.push({ args, cwd, timeoutMs });
+    if (this.response instanceof Error) throw this.response;
     return this.response;
   }
   public runInherited(): Promise<CommandResult> {
@@ -50,18 +52,21 @@ class ObservationRunner implements CommandRunner {
 }
 
 function live(
-  response: CommandResult,
-  identities = [
+  response: CommandResult | Error,
+  identities: readonly (
+    { readonly device: string; readonly inode: string } | Error
+  )[] = [
     { device: "7", inode: "11" },
     { device: "7", inode: "11" },
   ],
 ) {
   const runner = new ObservationRunner(response);
   let index = 0;
-  const tmux = createLivePorts(
-    runner,
-    async () => identities[Math.min(index++, identities.length - 1)],
-  ).tmux;
+  const tmux = createLivePorts(runner, async () => {
+    const identity = identities[Math.min(index++, identities.length - 1)];
+    if (identity instanceof Error) throw identity;
+    return identity;
+  }).tmux;
   return { runner, tmux };
 }
 
@@ -165,4 +170,70 @@ describe("Issue 44 bounded live cleanup observation", () => {
       details: { reason: "socket_identity_changed" },
     });
   });
+
+  it.each([
+    [
+      "socket identity unavailable before observation",
+      result(Buffer.from("can't find pane: %5\n")),
+      [new Error("private socket unavailable")],
+      "socket_identity_unavailable",
+    ],
+    [
+      "socket identity unavailable after observation",
+      result(Buffer.from("can't find pane: %5\n")),
+      [{ device: "7", inode: "11" }, new Error("private socket disappeared")],
+      "socket_identity_unavailable",
+    ],
+    [
+      "command spawn failure",
+      new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        "private spawn sentinel",
+        "retry",
+      ),
+      [
+        { device: "7", inode: "11" },
+        { device: "7", inode: "11" },
+      ],
+      "command_unavailable",
+    ],
+    [
+      "command timeout",
+      new RunnerError(
+        "EXTERNAL_COMMAND_FAILED",
+        "private timeout sentinel",
+        "retry",
+      ),
+      [
+        { device: "7", inode: "11" },
+        { device: "7", inode: "11" },
+      ],
+      "command_unavailable",
+    ],
+  ] as const)(
+    "refuses %s as value-free adapter evidence",
+    async (_name, response, identities, reason) => {
+      const fixture = live(response, identities);
+      await expect(
+        fixture.tmux.observe(target, process.cwd()),
+      ).rejects.toMatchObject({
+        code: "TMUX_TARGET_OBSERVATION_REFUSED",
+        details: { reason },
+      });
+      try {
+        await fixture.tmux.observe(target, process.cwd());
+      } catch (cause) {
+        const serialized = JSON.stringify(cause);
+        for (const forbidden of [
+          target.socketPath,
+          target.paneId,
+          "private socket unavailable",
+          "private socket disappeared",
+          "private spawn sentinel",
+          "private timeout sentinel",
+        ])
+          expect(serialized).not.toContain(forbidden);
+      }
+    },
+  );
 });

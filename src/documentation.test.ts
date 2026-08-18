@@ -1197,6 +1197,12 @@ describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
     ])
       expect(combined).toContain(phrase);
     expect(docsIndex).toContain("Explicit cleanup refuses a live match");
+    expect(operations).toContain(
+      "The sole absence exception is a retry after the same-owner/run exact tmux started or completed checkpoint",
+    );
+    expect(operations).not.toContain(
+      "proved-absent tmux, or malformed tmux never authorizes cleanup",
+    );
   });
 
   it("documents exact local 0.2.1-beta.2-to-0.2.1-beta.3 upgrade, reinstall, confirmation, and reconvergence", () => {

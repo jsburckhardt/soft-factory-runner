@@ -13,6 +13,23 @@ Implementation tasks T-1 through T-6 are complete. This record provides implemen
 - [x] T-5 — Synchronized current release and operator surfaces at `0.2.1-beta.3`.
 - [x] T-6 — Ran direct and harness focused/full gates plus offline dry-run, pack/install, and dependency comparison.
 
+
+## Verify-return Corrections
+
+- **AC-1:** The accepted pane/window/session matrix remains exact and unchanged-socket gated; the real partial-state fixture observes the live-adapter `missing_pane` category only after persisted exact checkpoint proof.
+- **AC-2:** The added real fixture begins with persisted tmux/worktree completion, releases only lease then lock, returns `CLEANUP_COMPLETED`, and repeats as mutation-free `CLEANUP_ALREADY_COMPLETED`.
+- **AC-3:** The real partial fixture retains the captured terminal marker and durable evidence while the existing retention inventory remains byte-stable.
+- **AC-4:** `src/recovery-control.test.ts` now parses complete human/JSON cleanup semantics for success, partial, idempotent, and refusal rows, compares outcome, exit meaning, eligibility, completed/remaining categories, refusal, and remediation, and scans both forms for private sentinels.
+- **AC-5:** Package dry-run and local offline pack/install still report `0.2.1-beta.3` with 73 files; dependency declarations and non-root lock metadata remain equal to issue-start main.
+- **AC-6:** The direct `clean` pre-checkpoint absence row byte-compares complete owned and unrelated file/tmux/worktree/lease/lock/run/evidence inventories and records zero destructive mutation.
+- **AC-7:** Adapter rows now explicitly cover socket identity unavailable before and after observation, spawn failure, and timeout. The direct refusal matrix covers changed/unavailable identity, replacement, mismatch, malformed/truncated output, nonaccepted nonzero, spawn, and timeout with byte-identical inventories.
+- **AC-8:** The controlled cleanup/retry overlap pauses after exact lease deletion, allows retry to complete lock release, settles the stale caller truthfully, and proves one compare-delete per remaining resource before idempotent repeat.
+- **AC-9:** Cleanup/retry now joins existing cleanup/status and cleanup/reconcile bounded overlap coverage and preserves unrelated inventories.
+- **AC-10:** A repository-local real tmux fixture captures a remain-on-exit marker, removes the exact window, persists tmux/worktree-complete partial state, retries remaining lease/lock through `IssueRunService` plus `LiveTmuxPort`, repeats idempotently, preserves unrelated tmux bytes, and tears down fixture sockets.
+- **AC-11:** Direct focused/full gates and harness focused/full JSON delegates pass 29 suites and 670 tests; full coverage is 89.60% statements, 85.57% branches, 95.88% functions, and 91.26% lines. Package and dependency gates also pass.
+
+Documentation correction: `docs/phase-3-recovery-operations.md` now replaces the stale blanket proved-absence refusal with the sole same-owner/run exact-checkpoint, unchanged-socket exception for resuming remaining guarded cleanup. No README, API, configuration, migration, architecture, deployment, or other operations documentation changed because this return adds missing proof for already documented behavior rather than changing behavior or contracts.
+
 ## Acceptance Evidence
 
 - **AC-1:** `src/issue-44-live-cleanup.test.ts` accepts only exact selector-bound `missing_pane`, `missing_window`, and `missing_session` records after unchanged socket identity; `src/reconciliation.ts` converts typed missing evidence to `TMUX_ABSENT` only through `hasExactTmuxCleanupCheckpoint`.
@@ -25,7 +42,7 @@ Implementation tasks T-1 through T-6 are complete. This record provides implemen
 - **AC-8:** Existing per-step snapshot/event interruption matrices plus started-checkpoint removal-return matrices cover lease and lock failures, safe retries, replacement refusal, final-state convergence, and one destructive operation per resource.
 - **AC-9:** Barrier-controlled cleanup/status and cleanup/reconcile tests, publication concurrency tests, and the real isolated fixture complete under their bounded deadlines and preserve unrelated inventories.
 - **AC-10:** The real tmux fixture in `src/recovery-control.test.ts` uses private owned/unrelated sockets and remain-on-exit terminal evidence; live post-removal observation now returns exact `missing_pane`, retry uses a stable existing cwd, cleanup retains evidence, repeats idempotently, and teardown kills only fixture-owned servers. The adapter matrix separately proves refusal/confidentiality rows.
-- **AC-11:** Direct `just verify-focused` passed 29 suites/659 tests. Direct `just verify` passed lint, formatting, types, 29 suites/659 tests, coverage (89.54% statements, 85.43% branches, 95.88% functions, 91.19% lines), and build. Harness focused/full envelopes were `status: ok`, delegated to the corresponding root recipes, and exited 0.
+- **AC-11:** Direct `just verify-focused` passed 29 suites/670 tests. Direct `just verify` passed lint, formatting, types, 29 suites/670 tests, coverage (89.60% statements, 85.57% branches, 95.88% functions, 91.26% lines), and build. Harness focused/full envelopes were `status: ok`, delegated to the corresponding root recipes, and exited 0.
 
 ## Documentation Evidence
 
@@ -40,9 +57,9 @@ Implementation tasks T-1 through T-6 are complete. This record provides implemen
 ## Validation Evidence
 
 - `harness boot --json`: `status: ok`; application exit 0; exact bootstrap signal observed; composed checks exit 0.
-- `just verify-focused`: pass; 29 suites, 659 tests.
+- `just verify-focused`: pass; 29 suites, 670 tests.
 - `harness checks --focused --json`: `status: ok`, scope `focused`, delegated `just verify-focused`, exit 0.
-- `just verify`: pass; lint, format, typecheck, 29 suites/659 tests, coverage above 80%, build, diff check.
+- `just verify`: pass; lint, format, typecheck, 29 suites/670 tests, coverage above 80%, build, diff check.
 - `harness checks --json`: `status: ok`, scope `full`, delegated `just verify`, exit 0.
 - `npm pack --dry-run --json`: beta.3 tarball metadata, 73 files.
 - Offline local pack/install: `soft-factory-runner-0.2.1-beta.3.tgz`; packed and installed metadata both beta.3; temporary prefix removed.
@@ -55,5 +72,6 @@ Implementation tasks T-1 through T-6 are complete. This record provides implemen
 - `.harness/records/retro/2026-08-18/023-issue-44-rpiv-planner.md`
 - `.harness/records/retro/2026-08-18/024-issue-44-rpiv-implementer-socket-fixture.md`
 - `.harness/records/retro/2026-08-18/025-issue-44-rpiv-implementer-full-gate.md`
+- `.harness/records/retro/2026-08-18/026-issue-44-rpiv-implementer-verify-return.md`
 
 All nonempty coordinator, Research, Plan, and Implement buffers were handled under the read-back-before-clear rule; the coordinator buffer was empty.
