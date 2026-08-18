@@ -192,3 +192,9 @@ Run direct root just verify-focused and just verify from a clean implementation 
 - **T-4 / AC-3, AC-6, AC-8, AC-10:** Completed — refusal and success rows assert no mutation, exact transitions, and byte-identical enumerated unrelated inventories.
 - **T-5 / AC-2, AC-8, AC-9, AC-10:** Completed — replaced the direct tmux-adapter fixture with full `IssueRunService` explicit cleanup over a real isolated remain-on-exit window, owned clean worktree, lock, lease, snapshots, events, and retained logs; two runs compare normalized outcomes and inventories.
 - **T-6 / AC-5, AC-10:** Completed — release history now scopes beta.0 to absent-server Doctor collapse, beta.1 to exact stale-socket handling, and beta.2 only to exact-owned dead-pane cleanup.
+
+## Documentation-gate correction (2026-08-18)
+
+- **T-6 / AC-4, AC-5, AC-10:** Completed — corrected every current user-facing contract to describe one categorical redacted public view, the expanded internal exact-target observation with socket/session/window/pane selectors plus `pane_dead` and cwd, and scoped the older two-ID observation grammar to its historical diagnostic contract.
+- **T-3 / AC-2, AC-4, AC-6, AC-7:** Completed — recovery guidance now states exact-dead-only cleanup ordering, transcript-first retention, present/checkpoint/mutate/absence semantics, replacement refusal, at-most-once retry, completed-cleanup idempotence, and automatic tmux retention explicitly.
+- **T-7 / AC-10:** Completed — documentation contract tests, package/release smoke, and direct plus harness focused/full gates pass after the documentation correction.

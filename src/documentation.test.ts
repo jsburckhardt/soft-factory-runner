@@ -179,11 +179,13 @@ describe("V-11 Phase 3 operator documentation", () => {
       expect(operations).toContain(`just run ${command}`);
     for (const phrase of [
       "Human and JSON",
-      "observation states/codes/facts",
-      "shared reconciliation report",
+      "categorical public view",
+      "raw observation facts",
+      "socket/session/window/pane selectors",
       "persisted state",
-      "outcome code",
+      "decision/outcome",
       "safe actions",
+      "cleanup-category progress",
       "remediation",
       "exit 2",
       "exit 3",
@@ -350,7 +352,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
         "UTF-8 and non-UTF8",
         "@<digits>|%<digits><LF>",
         "terminal LF",
-        "first two",
+        "first seven",
         "malformed or ambiguous",
       ])
         expect(document).toContain(phrase);
@@ -367,7 +369,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "clears only after valid create/observe identity proof",
       "Malformed zero-exit observation is unknown",
       "nonzero observation remains absence",
-      "only one observation",
+      "only one whole-target observation",
     ])
       expect(operations + issueRun).toContain(phrase);
     for (const phrase of [
@@ -1108,9 +1110,15 @@ describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
     }
     for (const document of [readme, issueRun, operations, doctorGuide, prd])
       expect(document).toContain("vertical bar");
-    expect(issueRun + operations + prd).toContain(
-      "@<digits>|%<digits>|<cwd><LF>",
-    );
+    const exactTargetRecord =
+      "<socket-path>|<session-id>|<session-name>|<window-id>|<window-name>|<pane-id>|<pane-dead>|<cwd><LF>";
+    for (const document of [readme, issueRun, operations, prd]) {
+      expect(document).toContain(exactTargetRecord);
+      expect(document).toContain("historical diagnostic grammar");
+      expect(document).not.toContain(
+        "observation accepts only `@<digits>|%<digits>|<cwd><LF>`",
+      );
+    }
     expect(readme + issueRun + operations + doctorGuide).toContain(
       "exactly one terminal LF",
     );
@@ -1121,6 +1129,23 @@ describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
       expect(document).toContain("value-free");
       expect(document).toMatch(/raw (?:output|stdout\/stderr|bytes)/i);
     }
+  });
+
+  it("documents categorical public views and exact dead-pane cleanup semantics", () => {
+    for (const document of [readme, issueRun, operations]) {
+      expect(document).toContain("categorical public view");
+      expect(document).toContain("raw observation facts");
+      expect(document).toContain("socket/session/window/pane selectors");
+    }
+    for (const phrase of [
+      "refuses a live `TMUX_MATCH`",
+      "final transcript",
+      "same-owner/run started checkpoint",
+      "never repeats a proved removal",
+      "Already-completed exact cleanup is idempotently successful",
+      "Automatic mode never removes tmux, including a dead pane",
+    ])
+      expect(operations).toContain(phrase);
   });
 
   it("documents invoking selection, v6 lifecycle isolation, refusal, confidentiality, and Doctor classification", () => {
