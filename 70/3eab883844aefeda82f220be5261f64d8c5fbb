@@ -1,0 +1,25 @@
+.harness/records/retro/2026-08-18/011-issue-40-rpiv-verifier.md
+  s_106f3e496eb85a::t_ee413a5de5d9e1 1-6,9,14-16,24,70-71,73
+  s_106f3e496eb85a::t_91673744c26b82 7-8,10-13,17-23,25-69,72,74
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/verify/summary.md
+  s_106f3e496eb85a::t_9b1f00dc02f29e 1-47
+.harness/records/retro/2026-08-18/012-issue-40-rpiv-verifier-closeout.md
+  s_106f3e496eb85a::t_6b57245d085298 6-8,10-13,17-23,25-28,31,33
+  s_106f3e496eb85a::t_2b32d7e55674bf 1-5,9,14-16,24,29-30,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "703eab883844aefeda82f220be5261f64d8c5fbb",
+  "prompts": {},
+  "sessions": {
+    "s_106f3e496eb85a": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_o7j6K8VTGkUGImc5poQVCidJ",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
