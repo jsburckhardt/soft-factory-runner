@@ -1,0 +1,150 @@
+project/architecture/core-components/CORE-COMPONENT-260811-run-reconciliation-control.md
+  s_83cf932c6f4e12::t_a062835604373a 20,31
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/plan/02-task-breakdown.md
+  s_83cf932c6f4e12::t_67ec2fd22a9fe0 1-4,6-29,31-56,58-86,88-113,115-139,141-165,167-186
+  s_24638d308ef6c0::t_074def42fd0e6f 5,30,57,87,114,140,166
+src/tmux-target.ts
+  s_24638d308ef6c0::t_a2ab97f18099fa 38-41,48,140-193,195
+  s_24638d308ef6c0::t_107173a9fb04b3 49
+  s_24638d308ef6c0::t_c9b20c90c849af 194
+src/domain.ts
+  s_24638d308ef6c0::t_2916a96c38470f 172-175,182
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/plan/01-action-plan.md
+  s_83cf932c6f4e12::t_8de9abe18aa964 1-55
+src/integration.test.ts
+  s_24638d308ef6c0::t_82ca4e27a67fca 257-258
+src/documentation.test.ts
+  s_24638d308ef6c0::t_ae475c82c8c5f0 1068,1163,1175,1177,1180
+project/architecture/core-components/CORE-COMPONENT-260815-package-semver-governance.md
+  s_83cf932c6f4e12::t_a062835604373a 31
+src/official-assets.test.ts
+  s_24638d308ef6c0::t_ae475c82c8c5f0 66-67,107-110
+src/official-assets.ts
+  s_24638d308ef6c0::t_ae475c82c8c5f0 3
+docs/phase-4-repository-doctor.md
+  s_24638d308ef6c0::t_ae475c82c8c5f0 196
+project/architecture/ADR/ADR-260817-invoking-tmux-context-targeting.md
+  s_83cf932c6f4e12::t_a062835604373a 27-30,33-34,68
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/plan/03-test-plan.md
+  s_83cf932c6f4e12::t_41f9a9ee1b4695 1-213
+src/orchestrator.ts
+  s_24638d308ef6c0::t_fd9c088c651b1b 1530,1562-1570,1572,1574,1590-1614,1623,1643,1653,2269-2288
+  s_24638d308ef6c0::t_ce00863218543b 1571
+src/issue-42-repository.test.ts
+  s_24638d308ef6c0::t_fd6cc035324113 62-65
+  s_24638d308ef6c0::t_99282172be28df 1-55,59-61,66-79
+  s_24638d308ef6c0::t_ce00863218543b 56-58
+src/issue-36-repository.test.ts
+  s_24638d308ef6c0::t_ae475c82c8c5f0 93,109-111,113
+project/architecture/core-components/CORE-COMPONENT-260817-exact-tmux-context-ownership.md
+  s_83cf932c6f4e12::t_a062835604373a 25-26,29
+src/persistence.ts
+  s_24638d308ef6c0::t_df3ed4d2511030 937-945
+docs/phase-5-official-assets.md
+  s_24638d308ef6c0::t_e3ca9808757729 36
+  s_24638d308ef6c0::t_ae475c82c8c5f0 34,40-41,43,47,56,69
+.harness/records/retro/2026-08-18/015-issue-42-rpiv-implementer.md
+  s_24638d308ef6c0::t_387ff1eda3eb51 7-8,10-13,15-27,29-111,113-124,127,129
+  s_24638d308ef6c0::t_0948ea721174f5 1-6,9,14,28,112,125-126,128
+src/live.ts
+  s_24638d308ef6c0::t_56df94c346ce3c 20,24,30,1197-1199,1210,1216,1219-1231
+docs/README.md
+  s_24638d308ef6c0::t_ae475c82c8c5f0 40
+  s_24638d308ef6c0::t_a7a8ea7aaecf6d 5
+docs/phase-3-recovery-operations.md
+  s_24638d308ef6c0::t_a7a8ea7aaecf6d 137
+  s_24638d308ef6c0::t_a80ed4aa867d80 135,185-186,190-192
+  s_24638d308ef6c0::t_a5bd10234d4ddc 193
+.harness/records/retro/2026-08-18/013-issue-42-rpiv-planner.md
+  s_24638d308ef6c0::t_0948ea721174f5 1-6,9,14-16,24,71-72,74
+  s_24638d308ef6c0::t_387ff1eda3eb51 7-8,10-13,17-23,25-70,73,75
+src/tmux-context.test.ts
+  s_24638d308ef6c0::t_de439383232eba 1156,1160-1164
+  s_24638d308ef6c0::t_ce00863218543b 1105-1107,1127-1133,1138-1141,1143-1144,1150-1153,1172-1174,1182-1184
+  s_24638d308ef6c0::t_c7183ad67ad87e 752-755,990
+  s_24638d308ef6c0::t_987f1b208775e7 17,22-50
+  s_24638d308ef6c0::t_e1593bc9fb4f04 1102-1104,1108-1126,1134-1137,1142,1145-1149,1154-1155,1157-1159,1165-1171,1175-1181,1185-1190
+  s_24638d308ef6c0::t_2574e31f929dda 51
+src/reconciliation.ts
+  s_24638d308ef6c0::t_a0284793b306d2 368,533,555,558,697-701,707-710,715,721-722,725-726,730-731,749-768,855,857-862
+  s_24638d308ef6c0::t_ce00863218543b 591-592,702-705
+src/ports.ts
+  s_24638d308ef6c0::t_56df94c346ce3c 16,126
+package.json
+  s_24638d308ef6c0::t_ae475c82c8c5f0 3
+src/tmux-identity.test.ts
+  s_24638d308ef6c0::t_c7183ad67ad87e 209,231-234
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/research/00-research.md
+  s_d2496cb5603be3::t_2d98b806cb557a 16-21,23-31,48
+  s_d2496cb5603be3::t_9c611b0e977c3d 1-15,22,32-47,49-88
+src/recovery-control.test.ts
+  s_24638d308ef6c0::t_5b41258d9c79a3 351,392-394,1731-1753,1755-1757,1762-1763
+  s_24638d308ef6c0::t_fa2a884809c456 1754
+  s_24638d308ef6c0::t_ce00863218543b 1758-1761,1770-1774,2038-2041,2048-2053,2265
+  s_24638d308ef6c0::t_09e68fca9fa416 1765-1769,1775-1802,2064-2065
+  s_24638d308ef6c0::t_07951deb260be5 1413
+  s_24638d308ef6c0::t_a43aa4f63575ec 152,214-221,237,298-305,361,410-417,2017-2037,2042-2047,2054-2063
+  s_24638d308ef6c0::t_c6d06330d28a2b 1059-1061,1407-1408,1410,2200-2201,2238-2242,2256
+  s_24638d308ef6c0::t_398d52b7631f1c 1764,2066
+src/render.ts
+  s_24638d308ef6c0::t_fd6cc035324113 164-168,217
+  s_24638d308ef6c0::t_bd6abb66b14cb6 228-239
+  s_24638d308ef6c0::t_5d36baf3485de4 14-16,34
+  s_24638d308ef6c0::t_ce00863218543b 11-13,29,42-45,47-55,70-75,122-123,128,130,132,134-136,138-139,141,143-144,146,148,150,152,194,198,200-202,204-209,211,243-250
+  s_24638d308ef6c0::t_5101e5b040741b 2,17-23,25-28,30-33,35-41,46,56,60-68,76-111,118-120,142,157-163,169-178,180-192,218,222-227,240-242
+  s_24638d308ef6c0::t_be1f02a4bf8014 69
+src/asset-cli.test.ts
+  s_24638d308ef6c0::t_ae475c82c8c5f0 50,208-209,231,240,282,290,328
+src/orchestration.test.ts
+  s_24638d308ef6c0::t_82ca4e27a67fca 334-335
+  s_24638d308ef6c0::t_ce00863218543b 336-338,1284,1339
+  s_24638d308ef6c0::t_c6d06330d28a2b 639,641,643-644,1259,1261-1266,1311,1313-1315
+  s_24638d308ef6c0::t_07951deb260be5 662-663,665
+  s_24638d308ef6c0::t_7ba303090c782e 671-672
+README.md
+  s_24638d308ef6c0::t_ae475c82c8c5f0 23,29-30,32,36,43,68,79
+  s_24638d308ef6c0::t_a80ed4aa867d80 25,178,182
+project/architecture/ADR/DECISION-LOG.md
+  s_83cf932c6f4e12::t_001bb960ddd264 240-252
+.harness/records/retro/2026-08-18/014-issue-42-rpiv-research.md
+  s_24638d308ef6c0::t_0948ea721174f5 1-6,9,14-16,24,98-99,101
+  s_24638d308ef6c0::t_387ff1eda3eb51 7-8,10-13,17-23,25-97,100,102
+project/architecture/core-components/CORE-COMPONENT-260811-owned-resource-cleanup.md
+  s_83cf932c6f4e12::t_a062835604373a 24-25,27
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/implementation/00-implementation.md
+  s_24638d308ef6c0::t_074def42fd0e6f 1-46
+package-lock.json
+  s_24638d308ef6c0::t_2af6111eed7b22 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9c9c63e2cb491cc174150f6a7301640acd22792b",
+  "prompts": {},
+  "sessions": {
+    "s_24638d308ef6c0": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_ixv3pYPKslgsFzGhUFbBXYMn",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_83cf932c6f4e12": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_5oFwyKEq2Z9lx63PpT5IGDRY",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_d2496cb5603be3": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_2aAbx4eJjCSsZJD5YFtx5hDa",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
