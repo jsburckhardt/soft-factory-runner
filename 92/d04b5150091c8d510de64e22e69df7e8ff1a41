@@ -1,0 +1,104 @@
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/plan/01-action-plan.md
+  s_76041e84232da8::t_2bfefa07db5362 1-52
+README.md
+  s_65331c09421556::t_a2cf74f18f960b 23,25,29-30,32,36,43,68,79,178,184
+src/issue-36-repository.test.ts
+  s_65331c09421556::t_a2cf74f18f960b 93,109-111,113
+src/official-assets.test.ts
+  s_65331c09421556::t_a2cf74f18f960b 66-67,107-110
+src/asset-cli.test.ts
+  s_65331c09421556::t_a2cf74f18f960b 50,208-209,231,240,282,290,328
+.harness/records/retro/2026-08-18/008-issue-40-rpiv.md
+  s_65331c09421556::t_d3b1d247438cd2 2-13,17-23,25-28,31
+  s_65331c09421556::t_f1ebd4c88e8fc8 1,14-16,24,29-30
+src/issue-38-tmux-inventory.test.ts
+  s_65331c09421556::t_6cd19a0453c634 16-17,23,25,27,75-95,115,122,147,150-154,215,222-225,233-234
+  s_65331c09421556::t_8ff8935ffadd1c 97-114,116-121,123-146
+  s_65331c09421556::t_2894c868ff4bde 96
+.harness/records/retro/2026-08-18/009-issue-40-rpiv-research.md
+  s_65331c09421556::t_f64e8c1390875b 1,14-16,24,43-44
+  s_65331c09421556::t_d3b1d247438cd2 2-13,17-23,25-42,45
+project/architecture/ADR/DECISION-LOG.md
+  s_76041e84232da8::t_9fb1e0c4f17d3e 238-239
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/implementation/00-implementation.md
+  s_65331c09421556::t_9af66b06a36a60 1-49
+src/documentation.test.ts
+  s_65331c09421556::t_a2cf74f18f960b 1068,1163,1175,1177,1180
+.harness/records/retro/2026-08-18/007-issue-40-plan.md
+  s_65331c09421556::t_d3b1d247438cd2 8
+  s_76041e84232da8::t_8cc07f1dcb499f 1,14,28,57,65,70-71,73
+  s_76041e84232da8::t_82e99ead5bff64 2-7,9-13,15-27,29-56,58-64,66-69,72,74
+project/architecture/ADR/ADR-260817-invoking-tmux-context-targeting.md
+  s_76041e84232da8::t_9fb1e0c4f17d3e 25-26,61
+src/doctor-integration.test.ts
+  s_65331c09421556::t_db631ab99e64d8 23,430,820-859,871,902-903
+  s_65331c09421556::t_8ff8935ffadd1c 860-870,872-901,904-931
+src/live.ts
+  s_65331c09421556::t_8ff8935ffadd1c 1047
+  s_65331c09421556::t_6cd19a0453c634 91,93,106-117,161,1057-1072
+.harness/records/retro/2026-08-18/010-issue-40-rpiv-implementer.md
+  s_65331c09421556::t_5e922c5c779511 1,14-16,24,84-85
+  s_65331c09421556::t_d3b1d247438cd2 2-13,17-23,25-83,86
+project/architecture/core-components/CORE-COMPONENT-260817-exact-tmux-context-ownership.md
+  s_76041e84232da8::t_6ee9686ecca49f 34
+  s_76041e84232da8::t_9fb1e0c4f17d3e 32-33,52
+src/official-assets.ts
+  s_65331c09421556::t_a2cf74f18f960b 3
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/research/00-research.md
+  s_d8f15880ac687d::t_ee85d8dce765ca 1-76
+docs/phase-4-repository-doctor.md
+  s_65331c09421556::t_a2cf74f18f960b 196
+docs/phase-5-official-assets.md
+  s_65331c09421556::t_a2cf74f18f960b 34,36,40-41,43,47,56,69
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/plan/02-task-breakdown.md
+  s_76041e84232da8::t_23f29dd5fdb168 1-4,6-26,28-51,53-73,75-95,97-116
+  s_65331c09421556::t_db631ab99e64d8 5
+  s_65331c09421556::t_a2cf74f18f960b 52
+  s_65331c09421556::t_9af66b06a36a60 96
+  s_65331c09421556::t_7b1cd7c422c979 74
+  s_65331c09421556::t_eb9163cad6f8b8 27
+project/work-items/40-treat-stale-no-server-tmux-sockets-as-absent-doctor-inventory/plan/03-test-plan.md
+  s_76041e84232da8::t_481867e835ca5b 1-191
+docs/README.md
+  s_65331c09421556::t_d52b14fde94186 5
+  s_65331c09421556::t_a2cf74f18f960b 40
+src/tmux-context.test.ts
+  s_65331c09421556::t_8ff8935ffadd1c 441-443,522-524
+  s_65331c09421556::t_eb9163cad6f8b8 1,384-397,401-440,444-521,525,527
+package.json
+  s_65331c09421556::t_a2cf74f18f960b 3
+package-lock.json
+  s_65331c09421556::t_d0a61cc3ce971d 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "92d04b5150091c8d510de64e22e69df7e8ff1a41",
+  "prompts": {},
+  "sessions": {
+    "s_65331c09421556": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_3z8pUGfm9hFWCDTBOsIqQnkI",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_76041e84232da8": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_VjeBffmFg37De0spnsYaTp3b",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    },
+    "s_d8f15880ac687d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_kSZmORUpT7yYG0LVc6aYVkGF",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
