@@ -13,16 +13,18 @@ function result(
   bytes: Buffer = Buffer.from("$1|session|@1|window|%1|/tmp\n"),
   exitCode = 0,
   totalBytes = bytes.byteLength,
+  stderrBytes: Buffer = Buffer.alloc(0),
+  stderrTotalBytes = stderrBytes.byteLength,
 ): CommandResult {
   return {
     exitCode,
     signal: null,
     stdout: bytes.toString("utf8"),
-    stderr: "",
+    stderr: stderrBytes.toString("utf8"),
     stdoutBuffer: bytes,
-    stderrBuffer: Buffer.alloc(0),
+    stderrBuffer: stderrBytes,
     stdoutByteCount: totalBytes,
-    stderrByteCount: 0,
+    stderrByteCount: stderrTotalBytes,
   };
 }
 class InventoryRunner implements CommandRunner {
@@ -70,9 +72,86 @@ describe("Issue 38 bounded targeting inventory", () => {
     expect(runner.calls).toEqual([]);
   });
 
+  it("classifies only the exact bounded no-server response with stable identity", async () => {
+    const socketPath = "/sentinel/stale.sock";
+    const runner = new InventoryRunner(
+      result(
+        Buffer.alloc(0),
+        1,
+        0,
+        Buffer.from(`no server running on ${socketPath}\n`),
+      ),
+    );
+    const tmux = createLivePorts(runner, async () => identity).tmux;
+    const inventory = tmux.inventoryServerResources?.bind(tmux);
+    const first = await inventory?.({ socketPath, cwd: "/tmp" });
+    const second = await inventory?.({ socketPath, cwd: "/tmp" });
+    expect(first).toEqual(second);
+    expect(first).toEqual(
+      Buffer.from(JSON.stringify({ socket: identity }) + "\n"),
+    );
+    expect(runner.calls).toHaveLength(2);
+  });
+
+  it.each([
+    [
+      "spoofed path",
+      Buffer.alloc(0),
+      Buffer.from("no server running on /spoofed.sock\n"),
+      0,
+    ],
+    [
+      "additional record",
+      Buffer.alloc(0),
+      Buffer.from("no server running on /sentinel/stale.sock\nextra\n"),
+      0,
+    ],
+    [
+      "missing LF",
+      Buffer.alloc(0),
+      Buffer.from("no server running on /sentinel/stale.sock"),
+      0,
+    ],
+    ["invalid UTF-8", Buffer.alloc(0), Buffer.from([0xff, 0x0a]), 0],
+    [
+      "nonempty stdout",
+      Buffer.from("x"),
+      Buffer.from("no server running on /sentinel/stale.sock\n"),
+      0,
+    ],
+    ["stderr overflow", Buffer.alloc(0), Buffer.alloc(65_536, 0x61), 1],
+  ] as const)(
+    "rejects no-server near miss: %s",
+    async (_name, stdout, stderr, stderrExtra) => {
+      const runner = new InventoryRunner(
+        result(
+          stdout,
+          1,
+          stdout.byteLength,
+          stderr,
+          stderr.byteLength + stderrExtra,
+        ),
+      );
+      const tmux = createLivePorts(runner, async () => identity).tmux;
+      await expect(
+        tmux.inventoryServerResources?.({
+          socketPath: "/sentinel/stale.sock",
+          cwd: "/tmp",
+        }),
+      ).rejects.toMatchObject({
+        code: "TMUX_CONTEXT_REFUSED",
+        details: { reason: "unavailable-proof" },
+      });
+    },
+  );
+
   it.each([
     ["timeout", new Error("2001ms timeout"), [identity, identity]],
-    ["nonzero", result(Buffer.alloc(0), 1), [identity, identity]],
+    [
+      "nonzero",
+      result(Buffer.alloc(0), 1, 0, Buffer.from("server exited\n")),
+      [identity, identity],
+    ],
     ["malformed", result(Buffer.from([0xff, 0x0a])), [identity, identity]],
     [
       "65537 bytes",
@@ -133,14 +212,17 @@ describe("Issue 38 bounded targeting inventory", () => {
     },
   );
 
-  it("drains and counts overflow while retaining at most 65536 stdout bytes", async () => {
+  it("drains and counts overflow while retaining at most 65536 bytes per stream", async () => {
     const directory = await fs.mkdtemp(
       path.join(os.tmpdir(), "sf-inventory-cap-"),
     );
     try {
       const execution = await new CommandExecutor().run(
         process.execPath,
-        ["-e", "process.stdout.write(Buffer.alloc(65537, 97))"],
+        [
+          "-e",
+          "process.stdout.write(Buffer.alloc(65537, 97)); process.stderr.write(Buffer.alloc(65538, 98))",
+        ],
         directory,
         2_000,
         false,
@@ -148,6 +230,8 @@ describe("Issue 38 bounded targeting inventory", () => {
       );
       expect(execution.stdoutByteCount).toBe(65_537);
       expect(execution.stdoutBuffer.byteLength).toBe(65_536);
+      expect(execution.stderrByteCount).toBe(65_538);
+      expect(execution.stderrBuffer.byteLength).toBe(65_536);
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }

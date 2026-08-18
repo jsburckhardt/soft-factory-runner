@@ -31,20 +31,20 @@ The current catalog and recommended set contain only `agent:soft-factory`. Catal
 
 Runner reads the package-local source and verifies protocol and SHA-256 before mutation. `ASSET_PROTOCOL_INCOMPATIBLE`, `ASSET_INTEGRITY_INVALID`, and `ASSET_CATALOG_INVALID` refuse with `No files changed`. Reinstall a compatible trusted package before retrying; there is no remote fallback.
 
-### Upgrade or reinstall 0.1.3 as 0.2.1-beta.0
+### Upgrade or reinstall 0.1.3 as 0.2.1-beta.1
 
-The current package and official-asset catalog version is **0.2.1-beta.0**, a backward-compatible PATCH correction. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the 0.2.1-beta.0 checkout, build and pack, then install that exact tarball over a 0.1.3 prefix:
+The current package and official-asset catalog version is **0.2.1-beta.1**, a backward-compatible PATCH correction. It accepts only exact bounded `no server running` evidence from an unchanged stale socket as empty Doctor inventory; arbitrary live-server inventory failures remain unavailable proof. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the 0.2.1-beta.1 checkout, build and pack, then install that exact tarball over a 0.1.3 prefix:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.2.1-beta.0
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1-beta.0
+mkdir -p /tmp/soft-factory-runner-0.2.1-beta.1
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1-beta.1
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1-beta.0/soft-factory-runner-0.2.1-beta.0.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1-beta.1/soft-factory-runner-0.2.1-beta.1.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The final command must print `0.2.1-beta.0`. To force a clean reinstall in the same dedicated prefix, first run `npm uninstall --prefix "$PREFIX" soft-factory-runner`, then repeat the local-tarball install. Do not use or document a nonexistent `--version` command.
+The final command must print `0.2.1-beta.1`. To force a clean reinstall in the same dedicated prefix, first run `npm uninstall --prefix "$PREFIX" soft-factory-runner`, then repeat the local-tarball install. Do not use or document a nonexistent `--version` command.
 
 After the package is installed, run the installed CLI from each target repository and inspect package-coupled ownership metadata:
 
@@ -53,7 +53,7 @@ After the package is installed, run the installed CLI from each target repositor
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The generated manifest must contain one current `0.2.1-beta.0` entry. An exact schema-v1 manifest still naming 0.1.0 is historical ownership input only: digest-proved current bytes reconverge its metadata to 0.2.1-beta.0, and a repeat returns `ASSETS_UP_TO_DATE`.
+The generated manifest must contain one current `0.2.1-beta.1` entry. An exact schema-v1 manifest still naming 0.1.0 is historical ownership input only: digest-proved current bytes reconverge its metadata to 0.2.1-beta.1, and a repeat returns `ASSETS_UP_TO_DATE`.
 
 ## Strict manifest schema version 1
 
@@ -66,7 +66,7 @@ The final manifest is always one current entry:
     {
       "type": "agent",
       "name": "soft-factory",
-      "version": "0.2.1-beta.0",
+      "version": "0.2.1-beta.1",
       "runnerProtocol": 1,
       "destination": ".github/agents/soft-factory.agent.md",
       "sha256": "<lowercase-64-character-sha256>"

@@ -22,6 +22,8 @@ Prefix every normal runtime tmux operation with `-S <persisted-socket>` and targ
 
 Keep Doctor ordered 24 check IDs and private functional probe. Extend `command.tmux` with a bounded, value-free targeting classification that uses the same resolver: `invoking-valid`, `standalone-fallback`, or a closed invalid-context reason. Invoking checks are read-only through only the evidenced socket; fallback checks derive but do not create the standalone target. Doctor and repository-local isolated-socket fixtures compare before/after inventories and fail if any ambient or unrelated resource changes.
 
+For Doctor targeting inventory only, treat one existing queried socket as stable absence when its single shell-free, explicit-`-S` `list-panes` query completes nonzero with zero stdout and one exact LF-terminated original-byte stderr record `no server running on <queried-socket>`. Require valid UTF-8, complete bounded stderr, and equal socket type/device/inode before and after that query; retain the unchanged socket identity in the ephemeral inventory so later deletion or replacement cannot compare equal. Do not broaden this classification to substring matches, alternate text, additional records or bytes, malformed output, timeout, stdout or stderr overflow, inaccessible identity, post-query identity loss, or replacement. Those outcomes remain typed unavailable proof. Never persist or render the matched record or queried path.
+
 Classify this delivery as backward-compatible functionality under project policy and release it as `0.2.0` from `0.1.3`.
 
 ## Alternatives
@@ -56,6 +58,7 @@ Classify this delivery as backward-compatible functionality under project policy
 ## Related Issues
 
 - [#36](https://github.com/jsburckhardt/soft-factory-runner/issues/36)
+- [#40](https://github.com/jsburckhardt/soft-factory-runner/issues/40)
 
 ## References
 
