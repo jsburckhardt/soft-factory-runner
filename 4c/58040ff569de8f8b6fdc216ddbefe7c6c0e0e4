@@ -1,0 +1,26 @@
+.harness/records/retro/2026-08-18/018-issue-42-rpiv-verifier.md
+  s_b9240014e505df::t_25614b27e7d47f 130,136
+  s_b9240014e505df::t_ec4e00703b8851 1-6,9,14-16,137-138,140
+  s_b9240014e505df::t_6f1de3e8909ff1 7-8,10-13,17-129,131-135,139,141
+.harness/records/retro/2026-08-18/019-issue-42-rpiv-verifier-closeout.md
+  s_b9240014e505df::t_b84e68fd453580 6-8,10-13,17-23,25-28,31,33
+  s_b9240014e505df::t_7911c2cd4efeba 1-5,9,14-16,24,29-30,32
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/verify/summary.md
+  s_b9240014e505df::t_d59802d53a2aee 1-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4c58040ff569de8f8b6fdc216ddbefe7c6c0e0e4",
+  "prompts": {},
+  "sessions": {
+    "s_b9240014e505df": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_WZOQ24JL4oED9qTORwPsD2mr",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
