@@ -350,10 +350,10 @@ describe("V-2 full reconciliation matrix", () => {
         persistedState: "completed",
         activity: "inactive",
         decisionCode: "MERGE_PENDING",
-        safeActions: ["attach", "explicit_clean"],
+        safeActions: ["attach"],
         diagnostics: [],
         remediation:
-          "Wait for the expected pull request to merge or use explicit cleanup only when all ownership facts remain exact.",
+          "Wait for the expected pull request to merge or use explicit cleanup only after an exact dead-pane observation and all ownership facts agree.",
       });
       expect(report.observations.progress).toMatchObject({
         state: progressState,
@@ -362,6 +362,37 @@ describe("V-2 full reconciliation matrix", () => {
       });
     },
   );
+
+  it("refuses a live tmux match and permits only the exact-dead cleanup matrix row", () => {
+    const terminal = {
+      ...snapshot,
+      state: "interrupted" as const,
+      admission: null,
+      rpivProcess: null,
+    };
+    const live = matchingObservations();
+    const inactive = {
+      ...live,
+      lease: observation("not_applicable", null, "LEASE_NOT_HELD"),
+      rpivProcess: observation("absent", null, "RPIV_PROCESS_ABSENT"),
+      result: observation("absent", null, "RESULT_ABSENT"),
+    };
+    const liveReport = buildReconciliationReport(terminal, inactive);
+    expect(liveReport).toMatchObject({
+      decisionCode: "RUN_INTERRUPTED",
+      safeActions: ["resume", "attach"],
+    });
+    expect(liveReport.safeActions).not.toContain("explicit_clean");
+
+    const deadReport = buildReconciliationReport(terminal, {
+      ...inactive,
+      tmux: observation("match", snapshot.tmux, "TMUX_EXACT_DEAD"),
+    });
+    expect(deadReport).toMatchObject({
+      decisionCode: "TERMINAL_INTERRUPTED",
+      safeActions: ["explicit_clean"],
+    });
+  });
 
   it("treats equal PID with a changed start token as an identity mismatch", () => {
     const observations = matchingObservations();

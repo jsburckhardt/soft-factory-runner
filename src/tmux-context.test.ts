@@ -14,9 +14,40 @@ import {
 } from "./live";
 import {
   deriveStandaloneTmuxTarget,
+  parseExactTargetRecord,
   parseInvokingTmuxEvidence,
   tmuxContextRefusal,
 } from "./tmux-target";
+
+describe("Issue 42 strict exact dead-pane records", () => {
+  const live = "/tmp/owned.sock|$1|owned|@2|42|%3|0|/repo/.trees/42\n";
+  const dead = "/tmp/owned.sock|$1|owned|@2|42|%3|1|\n";
+
+  it("parses one complete live or dead record without process authority", () => {
+    expect(parseExactTargetRecord(Buffer.from(live))).toMatchObject({
+      paneDead: false,
+      cwd: "/repo/.trees/42",
+    });
+    expect(parseExactTargetRecord(Buffer.from(dead))).toMatchObject({
+      paneDead: true,
+      cwd: "",
+    });
+  });
+
+  it.each([
+    dead + dead,
+    dead.trimEnd(),
+    dead.replace("|1|\n", "|true|\n"),
+    dead.replace("|1|\n", "|1|/stale\n"),
+    live.replace("|0|/repo", "|0|").replace("/.trees/42", ""),
+    live.replace("%3", "%other"),
+    Buffer.concat([Buffer.from(dead.slice(0, -1)), Buffer.from([0xff, 0x0a])]),
+  ])("refuses malformed or contradictory exact records %#", (row) => {
+    expect(() =>
+      parseExactTargetRecord(Buffer.isBuffer(row) ? row : Buffer.from(row)),
+    ).toThrow();
+  });
+});
 
 const execute = promisify(execFile);
 function commandResult(stdout: string, exitCode = 0): CommandResult {
@@ -718,7 +749,10 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       ).toEqual([
         `${created.sessionId}|${created.windowId}|36|${created.paneId}`,
       ]);
-      expect(await tmux.observe(created)).toEqual(created);
+      expect(await tmux.observe(created)).toEqual({
+        state: "live",
+        target: created,
+      });
       await tmux.removeWindow(created);
       expect(await tmux.observe(created)).toBeNull();
       const afterDefault = (
@@ -953,7 +987,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       expect(await inventory(sockets[1] as string)).toBe(secondBefore);
       expect(
         await tmux.observe(targets[1] as NonNullable<(typeof targets)[number]>),
-      ).toEqual(targets[1]);
+      ).toEqual({ state: "live", target: targets[1] });
     } finally {
       for (const socket of sockets)
         await execute("tmux", ["-S", socket, "kill-server"]).catch(

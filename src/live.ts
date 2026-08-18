@@ -17,14 +17,17 @@ import type {
 import { normalizeRepositoryName } from "./domain";
 import {
   deriveStandaloneTmuxTarget,
+  parseExactTargetRecord,
   parseInvokingContextRecord,
   parseInvokingTmuxEvidence,
   sameSocketIdentity,
+  TMUX_EXACT_TARGET_FORMAT,
   TMUX_INVOKING_CONTEXT_FORMAT,
   tmuxContextRefusal,
   type InvokingTmuxEvidenceV1,
   type TmuxSessionTargetV1,
   type TmuxSocketIdentityV1,
+  type TmuxTargetObservationV1,
   type TmuxTargetV2,
 } from "./tmux-target";
 import { RunnerError } from "./errors";
@@ -1191,7 +1194,9 @@ class LiveTmuxPort implements TmuxPort {
     return existing.stdout.split(/\r?\n/).includes(input.windowName);
   }
 
-  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null> {
+  public async observe(
+    target: TmuxTargetV2,
+  ): Promise<TmuxTargetObservationV1 | null> {
     await this.assertSocket(target.socketPath, target.socketIdentity);
     const result = await this.commands.run(
       "tmux",
@@ -1202,25 +1207,28 @@ class LiveTmuxPort implements TmuxPort {
         "-t",
         target.paneId,
         "-F",
-        TMUX_INVOKING_CONTEXT_FORMAT,
+        TMUX_EXACT_TARGET_FORMAT,
       ],
       target.cwd,
       15_000,
     );
     if (result.exitCode !== 0) return null;
-    const parsed = parseInvokingContextRecord(result.stdoutBuffer);
+    const parsed = parseExactTargetRecord(result.stdoutBuffer);
     const canonical = await fs.realpath(parsed.socketPath);
     return {
-      schemaVersion: 2,
-      selectionMode: target.selectionMode,
-      socketPath: canonical,
-      socketIdentity: await this.socketIdentity(canonical),
-      sessionId: parsed.sessionId,
-      sessionName: parsed.sessionName,
-      windowName: parsed.windowName,
-      windowId: parsed.windowId,
-      paneId: parsed.paneId,
-      cwd: parsed.cwd,
+      state: parsed.paneDead ? "dead" : "live",
+      target: {
+        schemaVersion: 2,
+        selectionMode: target.selectionMode,
+        socketPath: canonical,
+        socketIdentity: await this.socketIdentity(canonical),
+        sessionId: parsed.sessionId,
+        sessionName: parsed.sessionName,
+        windowName: parsed.windowName,
+        windowId: parsed.windowId,
+        paneId: parsed.paneId,
+        cwd: parsed.paneDead ? target.cwd : parsed.cwd,
+      },
     };
   }
 

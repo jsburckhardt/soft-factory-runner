@@ -1527,6 +1527,7 @@ export class IssueRunService {
           ? snapshot.cleanup.intentAt
           : this.ports.clock.now(),
       completedSteps: previous,
+      startedCheckpoints: snapshot.cleanup?.startedCheckpoints ?? [],
       remainingSteps: allSteps.filter((step) => !previous.includes(step)),
       blockedCode: null,
       updatedAt: this.ports.clock.now(),
@@ -1558,16 +1559,19 @@ export class IssueRunService {
           { details: { step, decisionCode: currentReport.decisionCode } },
         );
       const exactOwner = currentReport.observations.lock.facts;
-      snapshot = await this.persistTransition(
-        store,
-        snapshot,
-        { cleanup: { ...cleanup, updatedAt: this.ports.clock.now() } },
-        "cleanup-" + step + "-started",
-      );
-      if (step === "tmux" && snapshot.tmux !== null) {
-        const target = snapshot.tmux;
+      const alreadyAbsent =
+        (step === "tmux" &&
+          currentReport.observations.tmux.state === "absent") ||
+        (step === "worktree" &&
+          currentReport.observations.filesystem.state === "absent" &&
+          currentReport.observations.git.state === "absent") ||
+        (step === "lease" &&
+          (snapshot.admission === null ||
+            currentReport.observations.lease.state === "absent")) ||
+        (step === "lock" && currentReport.observations.lock.state === "absent");
+      if (!alreadyAbsent && step === "tmux" && snapshot.tmux !== null) {
         const capture = await this.ports.tmux.capturePane(
-          target,
+          snapshot.tmux,
           MAX_LOG_BYTES,
         );
         const log = await this.retainLog(
@@ -1583,6 +1587,31 @@ export class IssueRunService {
           { logs: mergeLog(snapshot.logs, log) },
           "cleanup-terminal-log-retained",
         );
+      }
+      if (!alreadyAbsent) {
+        const checkpoint = {
+          step,
+          resourceIdentity: cleanupResourceIdentity(snapshot, step),
+        };
+        cleanup = {
+          ...cleanup,
+          startedCheckpoints: [
+            ...(cleanup.startedCheckpoints ?? []).filter(
+              (entry) => entry.step !== step,
+            ),
+            checkpoint,
+          ],
+          updatedAt: this.ports.clock.now(),
+        };
+        snapshot = await this.persistTransition(
+          store,
+          snapshot,
+          { cleanup },
+          "cleanup-" + step + "-started",
+        );
+      }
+      if (!alreadyAbsent && step === "tmux" && snapshot.tmux !== null) {
+        const target = snapshot.tmux;
         await this.ports.tmux.removeWindow(target);
         if ((await this.ports.tmux.observe(target)) !== null)
           throw new RunnerError(
@@ -1591,7 +1620,7 @@ export class IssueRunService {
             "Preserve the window and retry only after exact absence can be observed.",
           );
       }
-      if (step === "worktree") {
+      if (!alreadyAbsent && step === "worktree") {
         await this.ports.git.removeWorktree(
           repository.root,
           snapshot.worktreePath,
@@ -1611,7 +1640,7 @@ export class IssueRunService {
             "Preserve the path and registration; retry only after exact absence can be observed.",
           );
       }
-      if (step === "lease" && snapshot.admission !== null) {
+      if (!alreadyAbsent && step === "lease" && snapshot.admission !== null) {
         const expectedLease = snapshot.admission;
         const released = await store.releaseLease(expectedLease);
         if (!released || (await store.readLease(expectedLease.slot)) !== null)
@@ -1621,7 +1650,7 @@ export class IssueRunService {
             "Preserve the replacement lease and reconcile ownership.",
           );
       }
-      if (step === "lock") {
+      if (!alreadyAbsent && step === "lock") {
         if (
           exactOwner === null ||
           exactOwner.ownerId !== snapshot.ownerId ||
@@ -2237,6 +2266,26 @@ function refused(
     remediation,
   };
 }
+function cleanupResourceIdentity(
+  snapshot: RunSnapshotV6,
+  step: CleanupStep,
+): string {
+  if (step === "tmux") return JSON.stringify(snapshot.tmux);
+  if (step === "worktree")
+    return JSON.stringify({
+      path: snapshot.worktreePath,
+      branch: snapshot.branch,
+      head: snapshot.finalization?.result?.headSha ?? null,
+    });
+  if (step === "lease") return JSON.stringify(snapshot.admission);
+  return JSON.stringify({
+    issueNumber: snapshot.issueNumber,
+    repository: snapshot.repository,
+    ownerId: snapshot.ownerId,
+    runId: snapshot.runId,
+  });
+}
+
 function mergeLog(
   logs: readonly RetainedLogV1[],
   log: RetainedLogV1,

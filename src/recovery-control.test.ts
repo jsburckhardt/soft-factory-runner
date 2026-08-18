@@ -1,4 +1,8 @@
+import { execFile } from "node:child_process";
+import * as fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import type {
   AgentResultV1,
   CleanupStep,
@@ -8,7 +12,6 @@ import type {
   LegacyAgentResultV1,
   MergedPullRequestFactsV1,
   ProcessIdentityV1,
-  ReconciliationReportV2,
   RepositoryFacts,
   RunSnapshotV2,
   RunSnapshotV3,
@@ -22,6 +25,7 @@ import {
   REQUIRED_VALIDATIONS,
 } from "./domain";
 import { RunnerError } from "./errors";
+import { createLivePorts } from "./live";
 import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
@@ -38,6 +42,7 @@ import type {
   TmuxPort,
 } from "./ports";
 
+const execute = promisify(execFile);
 const root = "/repo";
 const worktree = "/repo/.trees/5";
 const branch = "feat/5-recovery";
@@ -150,6 +155,7 @@ class ControlFiles implements FilePort {
   public readonly values = new Map<string, string>();
   public readonly compareAndDeleteTrace: string[] = [];
   public failSnapshotAfterStep: CleanupStep | null = null;
+  public failDeleteAfterPath: string | null = null;
   private failureInjected = false;
   public async readText(filePath: string) {
     return this.values.get(filePath) ?? null;
@@ -211,6 +217,14 @@ class ControlFiles implements FilePort {
     this.compareAndDeleteTrace.push(filePath);
     if (this.values.get(filePath) !== expected) return false;
     this.values.delete(filePath);
+    if (this.failDeleteAfterPath === filePath) {
+      this.failDeleteAfterPath = null;
+      throw new RunnerError(
+        "CLEANUP_PARTIAL",
+        "Injected interruption after exact ownership release.",
+        "Retry from the exact started checkpoint.",
+      );
+    }
     return true;
   }
 }
@@ -226,6 +240,7 @@ class ControlGit implements GitPort {
   public staged = false;
   public unstaged = false;
   public untracked = false;
+  public failAfterRemoval = false;
   public remoteSha: string | null = null;
   public constructor(private readonly files: ControlFiles) {}
   public async discover(): Promise<RepositoryFacts> {
@@ -286,6 +301,14 @@ class ControlGit implements GitPort {
     this.observedBranch = null;
     this.observedHead = null;
     this.files.values.delete(worktreePath);
+    if (this.failAfterRemoval) {
+      this.failAfterRemoval = false;
+      throw new RunnerError(
+        "CLEANUP_PARTIAL",
+        "Injected interruption after worktree removal.",
+        "Retry from the exact started checkpoint.",
+      );
+    }
   }
 }
 
@@ -331,6 +354,7 @@ class ControlGitHub implements GitHubPort {
 class ControlTmux implements TmuxPort {
   public readonly trace: string[] = [];
   public present = true;
+  public dead = false;
   public namePresent = false;
   public nameResults: boolean[] = [];
   public createFailure: TmuxIdentityOutputError | null = null;
@@ -340,6 +364,7 @@ class ControlTmux implements TmuxPort {
   public createCalls = 0;
   public createdWindows = 0;
   public captureContent = "token=[REDACTED] pane evidence";
+  public failAfterRemoval = false;
   public async selectTarget(input: {
     readonly repository: import("./domain").RepositoryIdentity;
   }) {
@@ -370,7 +395,9 @@ class ControlTmux implements TmuxPort {
   public async observe(target: TmuxTargetV2) {
     this.identityObservations += 1;
     if (this.observationFailure !== null) throw this.observationFailure;
-    return this.present ? target : null;
+    return this.present
+      ? { state: this.dead ? ("dead" as const) : ("live" as const), target }
+      : null;
   }
   public async panePid() {
     return 500;
@@ -386,6 +413,14 @@ class ControlTmux implements TmuxPort {
   public async removeWindow(): Promise<void> {
     this.trace.push("remove-window");
     this.present = false;
+    if (this.failAfterRemoval) {
+      this.failAfterRemoval = false;
+      throw new RunnerError(
+        "CLEANUP_PARTIAL",
+        "Injected interruption after tmux removal.",
+        "Retry from the exact started checkpoint.",
+      );
+    }
   }
   public async attach(): Promise<void> {
     this.trace.push("attach");
@@ -1027,11 +1062,9 @@ describe("V-13 through V-16 recovery candidate incident", () => {
     const f = await candidateFixture();
     const json = await runCli(["status", "5", "--json"], root, f.ports);
     expect(JSON.parse(json.stdout)).toMatchObject({
-      reconciliation: {
-        decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
-        resultAuthority: "recovery_candidate",
-        safeActions: ["retry_finalization"],
-      },
+      decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+      resultAuthority: "recovery_candidate",
+      safeActions: ["retry_finalization"],
     });
     const human = await runCli(["status", "5"], root, f.ports);
     expect(human.stdout).toContain("Result authority: recovery_candidate");
@@ -1377,16 +1410,13 @@ describe("Issue 29 preparation identity recovery", () => {
     });
     const jsonStatus = await runCli(["status", "5", "--json"], root, f.ports);
     expect(JSON.parse(jsonStatus.stdout)).toMatchObject({
-      schemaVersion: 5,
-      persisted: { schemaVersion: 6, tmuxIdentityDiagnostic: tmuxDiagnostic },
-      reconciliation: {
-        schemaVersion: 3,
-        tmuxIdentityDiagnostic: tmuxDiagnostic,
-      },
+      schemaVersion: 1,
+      tmuxIdentityEvidence: "malformed_or_ambiguous",
     });
+    expect(jsonStatus.stdout).not.toContain(tmux.socketPath);
     const humanStatus = await runCli(["status", "5"], root, f.ports);
     expect(humanStatus.stdout).toContain(
-      "Tmux identity evidence: malformed or ambiguous",
+      "Tmux identity evidence: malformed_or_ambiguous",
     );
     expect(humanStatus.stdout).not.toContain("Upgrade tmux");
   });
@@ -1691,6 +1721,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     await service.status(5, root);
     const worktreeCalls = [...f.git.trace];
     const deleteCalls = [...f.files.compareAndDeleteTrace];
+    f.tmux.dead = true;
 
     await expect(service.clean(5, root)).resolves.toMatchObject({
       code: "CLEANUP_COMPLETED",
@@ -1702,6 +1733,337 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     expect(f.tmux.trace).toEqual(["capture", "remove-window"]);
     expect(f.git.trace).toEqual(worktreeCalls);
     expect(f.files.compareAndDeleteTrace).toEqual(deleteCalls);
+  });
+
+  it("refuses a live exact pane with zero cleanup mutation", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
+    );
+    f.processes.observed = null;
+    const before = JSON.stringify({
+      tmux: f.tmux.present,
+      worktree: f.files.values.get(worktree),
+      lease: await f.store.readLease(lease.slot),
+      lock: await f.store.readOwner(5),
+      snapshot: f.files.values.get(f.store.snapshotPath(5)),
+      events: f.files.values.get(f.store.eventsPath(5)),
+    });
+    const service = new IssueRunService(f.ports);
+    expect((await service.reconcile(5, root)).safeActions).toEqual([
+      "resume",
+      "attach",
+    ]);
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_OWNERSHIP_UNPROVED",
+      exitCode: 4,
+    });
+    expect(f.tmux.trace).toEqual([]);
+    expect(f.git.trace).toEqual([]);
+    expect(f.files.compareAndDeleteTrace).toEqual([]);
+    expect(
+      JSON.stringify({
+        tmux: f.tmux.present,
+        worktree: f.files.values.get(worktree),
+        lease: await f.store.readLease(lease.slot),
+        lock: await f.store.readOwner(5),
+        snapshot: f.files.values.get(f.store.snapshotPath(5)),
+        events: f.files.values.get(f.store.eventsPath(5)),
+      }),
+    ).toBe(before);
+  });
+
+  it("permits exact dead-pane cleanup only with every independent inactive ownership fact", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
+    );
+    f.processes.observed = null;
+    f.tmux.dead = true;
+    const service = new IssueRunService(f.ports);
+    const report = await service.reconcile(5, root);
+    expect(report).toMatchObject({
+      activity: "inactive",
+      observations: { tmux: { state: "match", code: "TMUX_EXACT_DEAD" } },
+      safeActions: ["explicit_clean"],
+    });
+    expect(report.safeActions).not.toContain("attach");
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_COMPLETED",
+      exitCode: 0,
+    });
+    expect(f.tmux.trace).toEqual(["capture", "remove-window"]);
+    expect(f.tmux.captureContent).toContain("pane evidence");
+  });
+
+  it("never lets dead-pane state override an active recorded process", async () => {
+    const f = await fixture(snapshot({ state: "interrupted" }));
+    f.tmux.dead = true;
+    const before = [...f.tmux.trace, ...f.git.trace];
+    const cleaned = await new IssueRunService(f.ports).clean(5, root);
+    expect(cleaned).toMatchObject({
+      code: "CLEANUP_OWNERSHIP_UNPROVED",
+      exitCode: 4,
+    });
+    expect([...f.tmux.trace, ...f.git.trace]).toEqual(before);
+  });
+
+  it.each([false, true])(
+    "keeps dead-pane status, reconcile, and cleanup output categorical and confidential (json=%s)",
+    async (json) => {
+      for (const command of ["status", "reconcile", "clean"] as const) {
+        const f = await fixture(
+          snapshot({
+            state: "interrupted",
+            rpivProcess: null,
+            admission: lease,
+          }),
+        );
+        f.processes.observed = null;
+        f.tmux.dead = true;
+        const response = await runCli(
+          [command, "5", ...(json ? ["--json"] : [])],
+          root,
+          f.ports,
+        );
+        expect(response.exitCode).toBe(0);
+        expect(response.stdout).toContain(
+          command === "clean" ? "CLEANUP_COMPLETED" : "TERMINAL_INTERRUPTED",
+        );
+        for (const forbidden of [
+          tmux.socketPath,
+          tmux.sessionId,
+          tmux.windowId,
+          tmux.paneId,
+          tmux.cwd,
+          worktree,
+          "owner-5",
+          "run-5",
+          "501",
+        ])
+          expect(response.stdout).not.toContain(forbidden);
+      }
+    },
+  );
+
+  it("drives the actual exact dead window through full Runner cleanup twice with finite inventories", async () => {
+    const normalized: unknown[] = [];
+    for (let run = 0; run < 2; run += 1) {
+      const directory = await fs.mkdtemp(
+        path.join(os.tmpdir(), "sf-runner-dead-clean-"),
+      );
+      const ownedSocket = path.join(directory, "owned.sock");
+      const unrelatedSocket = path.join(directory, "unrelated.sock");
+      try {
+        for (const [socket, session, window] of [
+          [ownedSocket, "owned", "anchor"],
+          [unrelatedSocket, "unrelated", "42"],
+        ] as const)
+          await execute("tmux", [
+            "-S",
+            socket,
+            "new-session",
+            "-d",
+            "-s",
+            session,
+            "-n",
+            window,
+            "-c",
+            directory,
+            "node",
+            "-e",
+            "setInterval(() => {}, 1000)",
+          ]);
+        const invokingPane = (
+          await execute("tmux", [
+            "-S",
+            ownedSocket,
+            "display-message",
+            "-p",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const liveTmux = createLivePorts().tmux;
+        const selected = await liveTmux.selectTarget?.({
+          evidence: {
+            tmux: `${ownedSocket},1,0`,
+            tmuxPane: invokingPane,
+          },
+          repository: {
+            nameWithOwner: "owner/repo",
+            normalizedName: "owner-repo",
+          },
+        });
+        if (selected === undefined) throw new Error("selection unavailable");
+        const target = await liveTmux.createIssueWindow({
+          target: selected,
+          windowName: "issue-5",
+          cwd: directory,
+          executable: "node",
+          args: [
+            "-e",
+            'console.log("retained-dead-marker"); setTimeout(() => {}, 500)',
+          ],
+        });
+        await liveTmux.setRemainOnExit(target);
+        const deadline = Date.now() + 3_000;
+        let targetObservation: Awaited<ReturnType<typeof liveTmux.observe>> =
+          null;
+        while (targetObservation?.state !== "dead" && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          try {
+            targetObservation = await liveTmux.observe(target);
+          } catch {
+            targetObservation = null;
+          }
+        }
+        expect(targetObservation).toEqual({ state: "dead", target });
+
+        const initial = snapshot({
+          state: "interrupted",
+          rpivProcess: null,
+          admission: lease,
+          worktreePath: directory,
+          tmux: target,
+          tmuxSelection: {
+            selectionMode: target.selectionMode,
+            socketPath: target.socketPath,
+            socketIdentity: target.socketIdentity,
+            sessionId: target.sessionId,
+            sessionName: target.sessionName,
+            repository: "owner/repo",
+          },
+        });
+        const f = await fixture(initial);
+        f.files.values.delete(worktree);
+        f.files.values.set(directory, "owned-clean-worktree");
+        const unrelatedPaths = {
+          worktree: "/repo/.trees/unrelated",
+          lock: f.store.lockPath(99),
+          lease: f.store.leasePath(2),
+          run: f.store.snapshotPath(99),
+          event: f.store.eventsPath(99),
+          log: "/repo/.soft-factory/logs/99/1.log",
+        };
+        for (const [kind, filePath] of Object.entries(unrelatedPaths))
+          f.files.values.set(filePath, `${kind}-sentinel-bytes\n`);
+
+        const unrelatedInventory = async () =>
+          JSON.stringify({
+            sessions: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-sessions",
+                "-F",
+                "#{session_id}|#{session_name}",
+              ])
+            ).stdout,
+            windows: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-windows",
+                "-a",
+                "-F",
+                "#{session_id}|#{window_id}|#{window_name}",
+              ])
+            ).stdout,
+            panes: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-panes",
+                "-a",
+                "-F",
+                "#{session_id}|#{window_id}|#{pane_id}|#{pane_current_path}",
+              ])
+            ).stdout,
+            worktrees: f.files.values.get(unrelatedPaths.worktree),
+            locks: f.files.values.get(unrelatedPaths.lock),
+            leases: f.files.values.get(unrelatedPaths.lease),
+            runs: f.files.values.get(unrelatedPaths.run),
+            evidence: [
+              f.files.values.get(unrelatedPaths.event),
+              f.files.values.get(unrelatedPaths.log),
+            ],
+          });
+        const unrelatedBefore = await unrelatedInventory();
+        const exactBefore = {
+          tmux: (await liveTmux.observe(target))?.state,
+          worktree: f.files.values.has(directory),
+          lease: (await f.store.readLease(lease.slot)) !== null,
+          lock: (await f.store.readOwner(5)) !== null,
+        };
+        const ownedEvidencePaths = {
+          branch: await f.git.branchExists(root, branch),
+          snapshot: f.files.values.has(f.store.snapshotPath(5)),
+          events: f.files.values.has(f.store.eventsPath(5)),
+        };
+        const ports: RunnerPorts = { ...f.ports, tmux: liveTmux };
+        const service = new IssueRunService(ports);
+        expect((await service.reconcile(5, root)).safeActions).toEqual([
+          "explicit_clean",
+        ]);
+        const cleaned = await service.clean(5, root);
+        expect(cleaned).toMatchObject({
+          code: "CLEANUP_COMPLETED",
+          exitCode: 0,
+          facts: {
+            completedSteps: ["tmux", "worktree", "lease", "lock"],
+            retained: ["branch", "snapshot", "events", "logs"],
+          },
+        });
+        const logs = await service.logs(5, root);
+        expect(logs).toMatchObject({ code: "LOGS_READY", exitCode: 0 });
+        expect(JSON.stringify(logs.facts)).toContain("retained-dead-marker");
+        const exactAfter = {
+          tmux: await liveTmux.observe(target),
+          worktree: f.files.values.has(directory),
+          lease: await f.store.readLease(lease.slot),
+          lock: await f.store.readOwner(5),
+        };
+        expect(exactBefore).toEqual({
+          tmux: "dead",
+          worktree: true,
+          lease: true,
+          lock: true,
+        });
+        expect(exactAfter).toEqual({
+          tmux: null,
+          worktree: false,
+          lease: null,
+          lock: null,
+        });
+        expect(await unrelatedInventory()).toBe(unrelatedBefore);
+        expect({
+          branch: await f.git.branchExists(root, branch),
+          snapshot: f.files.values.has(f.store.snapshotPath(5)),
+          events: f.files.values.has(f.store.eventsPath(5)),
+        }).toEqual(ownedEvidencePaths);
+        expect(
+          [...f.files.values.keys()].some((entry) =>
+            entry.endsWith("/.soft-factory/logs/5/1.log"),
+          ),
+        ).toBe(true);
+        normalized.push({
+          code: cleaned.code,
+          transitions: {
+            tmux: ["dead", "absent"],
+            worktree: ["present", "absent"],
+            lease: ["present", "absent"],
+            lock: ["present", "absent"],
+          },
+          retainedTranscript: true,
+          unrelatedInventory: unrelatedBefore.replaceAll(directory, "<cwd>"),
+        });
+      } finally {
+        for (const socket of [ownedSocket, unrelatedSocket])
+          await execute("tmux", ["-S", socket, "kill-server"]).catch(
+            () => undefined,
+          );
+        await fs.rm(directory, { recursive: true, force: true });
+      }
+    }
+    expect(normalized[1]).toEqual(normalized[0]);
   });
 
   it("bounds cleanup/status overlap at the complete pre-target", async () => {
@@ -1723,6 +2085,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
       await release;
       await originalRemove();
     };
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     const cleanup = service.clean(5, root);
     await Promise.race([
@@ -1767,6 +2130,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
       removedResolve?.();
       await release;
     };
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     const cleanup = service.clean(5, root);
     await Promise.race([
@@ -1795,6 +2159,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
     );
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     await expect(service.clean(5, root)).resolves.toMatchObject({
       code: "CLEANUP_COMPLETED",
@@ -1886,6 +2251,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         }),
       );
       f.processes.observed = null;
+      f.tmux.dead = true;
       f.files.failSnapshotAfterStep = failedStep;
       const service = new IssueRunService(f.ports);
       const partial = await service.clean(5, root);
@@ -1918,11 +2284,63 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     },
   );
 
+  it.each(["tmux", "worktree", "lease", "lock"] as const)(
+    "resumes from the exact started checkpoint after %s removal returned",
+    async (failedStep) => {
+      const f = await fixture(
+        snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
+      );
+      f.processes.observed = null;
+      f.tmux.dead = true;
+      if (failedStep === "tmux") f.tmux.failAfterRemoval = true;
+      if (failedStep === "worktree") f.git.failAfterRemoval = true;
+      if (failedStep === "lease")
+        f.files.failDeleteAfterPath = f.store.leasePath(lease.slot);
+      if (failedStep === "lock")
+        f.files.failDeleteAfterPath = f.store.lockPath(5);
+      const service = new IssueRunService(f.ports);
+      await expect(service.clean(5, root)).resolves.toMatchObject({
+        code: "CLEANUP_PARTIAL",
+        exitCode: 4,
+      });
+      const interrupted = await f.store.load(5);
+      expect(interrupted.cleanup?.startedCheckpoints).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            step: failedStep,
+            resourceIdentity: expect.any(String),
+          }),
+        ]),
+      );
+      await expect(service.clean(5, root)).resolves.toMatchObject({
+        code: "CLEANUP_COMPLETED",
+        exitCode: 0,
+      });
+      expect(
+        f.tmux.trace.filter((entry) => entry === "remove-window"),
+      ).toHaveLength(1);
+      expect(
+        f.git.trace.filter((entry) => entry === "remove-worktree-no-force"),
+      ).toHaveLength(1);
+      expect(
+        f.files.compareAndDeleteTrace.filter(
+          (entry) => entry === f.store.leasePath(lease.slot),
+        ),
+      ).toHaveLength(1);
+      expect(
+        f.files.compareAndDeleteTrace.filter(
+          (entry) => entry === f.store.lockPath(5),
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
   it("refuses an unrelated worktree replacement after recorded partial cleanup", async () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
     );
     f.processes.observed = null;
+    f.tmux.dead = true;
     f.files.failSnapshotAfterStep = "worktree";
     const service = new IssueRunService(f.ports);
     const partial = await service.clean(5, root);
@@ -2051,8 +2469,8 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
     );
     const facts: unknown = JSON.parse(json.stdout);
     expect(facts).toMatchObject({
-      persisted: { state: "running_rpiv" },
-      reconciliation: { decisionCode: "active_preserved" },
+      state: "running_rpiv",
+      decisionCode: "active_preserved",
     });
 
     const attachFixture = await fixture(snapshot());
@@ -2068,6 +2486,7 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
     const cleanFixture = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
     );
+    cleanFixture.tmux.dead = true;
     const cleaned = await runCli(
       ["clean", "5", "--json"],
       root,
@@ -2089,7 +2508,11 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
       code: string;
       facts: unknown;
       remediation: string | null;
-      report: ReconciliationReportV2;
+      report: {
+        state: string;
+        safeActions: readonly string[];
+        observations: Record<string, { state: string; code: string }>;
+      };
     };
     const humanFixture = await fixture(snapshot());
     const humanResponse = await runCli(
@@ -2103,7 +2526,7 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
       "Facts: " + JSON.stringify(structured.facts),
     );
     expect(humanResponse.stdout).toContain(
-      "Persisted state: " + structured.report.persisted.state,
+      "Persisted state: " + structured.report.state,
     );
     expect(humanResponse.stdout).toContain(
       "Safe actions: " + structured.report.safeActions.join(", "),
@@ -2112,13 +2535,7 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
       structured.report.observations,
     ))
       expect(humanResponse.stdout).toContain(
-        boundary +
-          "=" +
-          observation.state +
-          ":" +
-          observation.code +
-          ":" +
-          JSON.stringify(observation.facts),
+        boundary + "=" + observation.state + ":" + observation.code,
       );
     expect(humanResponse.stdout).toContain("Remediation: none");
 

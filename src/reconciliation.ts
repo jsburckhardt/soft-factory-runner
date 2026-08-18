@@ -365,7 +365,7 @@ export function buildReconciliationReport(
       diagnostics,
       "Preserve every same-name tmux window; a name, cwd, identity, or process command never proves ownership.",
     );
-  const tmuxMatches = observations.tmux.state === "match";
+  const tmuxMatches = observations.tmux.code === "TMUX_MATCH";
   const rpivMatches = observations.rpivProcess.state === "match";
   const workerReconciled =
     observations.workerProcess.state === "match" ||
@@ -530,7 +530,7 @@ export function buildReconciliationReport(
     observations.lock.state === "match" &&
     observations.filesystem.state === "match" &&
     observations.git.state === "match" &&
-    observations.tmux.state === "match" &&
+    observations.tmux.code === "TMUX_MATCH" &&
     observations.rpivProcess.state === "absent" &&
     (observations.workerProcess.state === "absent" ||
       observations.workerProcess.state === "not_applicable")
@@ -540,7 +540,7 @@ export function buildReconciliationReport(
       observations,
       "interrupted",
       "RUN_INTERRUPTED",
-      ["resume", "attach", "explicit_clean"],
+      ["resume", "attach"],
       [],
       null,
     );
@@ -552,10 +552,10 @@ export function buildReconciliationReport(
     "inactive",
     "TERMINAL_" + persisted.state.toUpperCase(),
     canClean
-      ? observations.tmux.state === "match"
+      ? observations.tmux.code === "TMUX_MATCH"
         ? ["attach", "explicit_clean"]
         : ["explicit_clean"]
-      : observations.tmux.state === "match"
+      : observations.tmux.code === "TMUX_MATCH"
         ? ["attach"]
         : [],
     [],
@@ -577,6 +577,7 @@ function buildCompletedReport(
       (observation.state === "unknown" || observation.state === "mismatch"),
   );
   const explicitReady = canExplicitCleanup(persisted, observations);
+  const automaticReady = canAutomaticCleanup(persisted, observations);
   const automaticCleanupCompleted = cleanupStepsCompleted(persisted, [
     "worktree",
     "lease",
@@ -588,7 +589,8 @@ function buildCompletedReport(
     "lease",
     "lock",
   ]);
-  const attach = observations.tmux.state === "match" ? ["attach" as const] : [];
+  const attach =
+    observations.tmux.code === "TMUX_MATCH" ? ["attach" as const] : [];
   const explicit =
     explicitReady && !explicitCleanupCompleted
       ? ["explicit_clean" as const]
@@ -604,7 +606,7 @@ function buildCompletedReport(
       "Preserve the completed run and restore every unknown or mismatched ownership fact before cleanup.",
     );
 
-  if (!explicitReady)
+  if (!explicitReady && !automaticReady)
     return report(
       persisted,
       observations,
@@ -633,7 +635,7 @@ function buildCompletedReport(
     merge.complete &&
     merge.state === "MERGED" &&
     merge.mergedAt !== null;
-  if (mergeProved && explicitReady)
+  if (mergeProved && automaticReady)
     return report(
       persisted,
       observations,
@@ -656,7 +658,7 @@ function buildCompletedReport(
       "MERGE_PENDING",
       [...attach, ...explicit],
       [],
-      "Wait for the expected pull request to merge or use explicit cleanup only when all ownership facts remain exact.",
+      "Wait for the expected pull request to merge or use explicit cleanup only after an exact dead-pane observation and all ownership facts agree.",
     );
   return report(
     persisted,
@@ -686,6 +688,21 @@ function canExplicitCleanup(
   persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
   observations: ReconciliationObservationsV1,
 ): boolean {
+  return canCleanup(persisted, observations, false);
+}
+
+function canAutomaticCleanup(
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
+  observations: ReconciliationObservationsV1,
+): boolean {
+  return canCleanup(persisted, observations, true);
+}
+
+function canCleanup(
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
+  observations: ReconciliationObservationsV1,
+  allowLiveTmux: boolean,
+): boolean {
   const progress = persisted.cleanup;
   const progressOwned =
     progress !== null &&
@@ -693,27 +710,41 @@ function canExplicitCleanup(
     progress.runId === persisted.runId;
   const completed = (step: CleanupStep): boolean =>
     progressOwned && (progress?.completedSteps.includes(step) ?? false);
+  const started = (step: CleanupStep): boolean =>
+    progressOwned &&
+    (progress?.startedCheckpoints?.some(
+      (checkpoint) =>
+        checkpoint.step === step &&
+        checkpoint.resourceIdentity ===
+          cleanupResourceIdentity(persisted, step),
+    ) ??
+      false);
   const tmuxReconciled =
-    observations.tmux.state === "match" ||
-    (completed("tmux") && observations.tmux.state === "absent");
+    observations.tmux.code === "TMUX_EXACT_DEAD" ||
+    (allowLiveTmux && observations.tmux.code === "TMUX_MATCH") ||
+    ((completed("tmux") || started("tmux")) &&
+      observations.tmux.state === "absent");
   const worktreeReconciled =
     (observations.filesystem.state === "match" &&
       observations.git.state === "match" &&
       isClean(observations.git.facts)) ||
-    (completed("worktree") &&
+    ((completed("worktree") || started("worktree")) &&
       observations.filesystem.state === "absent" &&
       observations.git.state === "absent");
   const leaseReconciled =
     persisted.admission === null
       ? observations.lease.state === "not_applicable" || completed("lease")
-      : observations.lease.state === "match";
+      : observations.lease.state === "match" ||
+        (started("lease") && observations.lease.state === "absent");
   const lockReconciled =
     observations.lock.state === "match" ||
-    (completed("lock") && observations.lock.state === "absent");
+    ((completed("lock") || started("lock")) &&
+      observations.lock.state === "absent");
   const resultReconciled =
     persisted.state === "completed"
       ? observations.result.state === "match" ||
-        (completed("worktree") && observations.result.state === "absent")
+        ((completed("worktree") || started("worktree")) &&
+          observations.result.state === "absent")
       : observations.result.state === "match" ||
         observations.result.state === "absent" ||
         observations.result.state === "not_applicable";
@@ -729,6 +760,26 @@ function canExplicitCleanup(
     resultReconciled &&
     processesInactive
   );
+}
+
+function cleanupResourceIdentity(
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
+  step: CleanupStep,
+): string {
+  if (step === "tmux") return JSON.stringify(persisted.tmux);
+  if (step === "worktree")
+    return JSON.stringify({
+      path: persisted.worktreePath,
+      branch: persisted.branch,
+      head: persisted.finalization?.result?.headSha ?? null,
+    });
+  if (step === "lease") return JSON.stringify(persisted.admission);
+  return JSON.stringify({
+    issueNumber: persisted.issueNumber,
+    repository: persisted.repository,
+    ownerId: persisted.ownerId,
+    runId: persisted.runId,
+  });
 }
 
 function report(
@@ -817,10 +868,14 @@ async function collectTmuxObservation(
         disposition: "preserve",
         diagnostic: null,
       };
+    const exact = same(actual.target, persisted.tmux);
     return {
-      observation: same(actual, persisted.tmux)
-        ? match(actual, "TMUX_MATCH")
-        : mismatch(actual, "TMUX_MISMATCH"),
+      observation: exact
+        ? match(
+            actual.target,
+            actual.state === "dead" ? "TMUX_EXACT_DEAD" : "TMUX_MATCH",
+          )
+        : mismatch(actual.target, "TMUX_MISMATCH"),
       disposition: "clear",
       diagnostic: null,
     };

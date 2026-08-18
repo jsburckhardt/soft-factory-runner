@@ -28,6 +28,7 @@ This component applies to Runner code and npm package deliveries, `package.json`
 - Document how an existing user upgrades or reinstalls the exact delivered package version, confirms the installed package version, and reconverges package-coupled official asset metadata.
 - Keep `AGENTS.md` instructions APS-compliant: use one absolute `You MUST` command per line, state major/minor/patch assignment explicitly, preserve unrelated content and order, and omit workflow or control-flow prose.
 - Classify the locale-compatible tmux identity correction as a backward-compatible defect fix and release it as `0.1.1`.
+- Classify `0.2.1-beta.2` as the prerelease PATCH delivery for the backward-compatible exact owned dead-pane cleanup correction. Keep authoritative package, root lock, official-asset, fixture, packed, installed, current-release, and user-guidance surfaces synchronized at that exact value with no dependency churn or registry-publication claim.
 
 ### Interfaces
 
