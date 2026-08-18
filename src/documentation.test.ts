@@ -1065,7 +1065,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issue 36 exact tmux ownership and 0.2.1-beta.2 guidance", () => {
+describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1157,19 +1157,20 @@ describe("Issue 36 exact tmux ownership and 0.2.1-beta.2 guidance", () => {
       expect(readme + doctorGuide + prd).toContain(phrase);
   });
 
-  it("documents the Issue 38 absence correction and value-free failure guidance", () => {
+  it("keeps beta.0 collapse, beta.1 stale-socket, and beta.2 dead-pane history separate", () => {
     const combined = [readme, doctorGuide, docsIndex, assetGuide].join("\n");
     for (const phrase of [
+      "0.2.1-beta.0",
+      "Doctor collapse",
+      "0.2.1-beta.1",
+      "stale socket",
       "0.2.1-beta.2",
-      "backward-compatible PATCH correction",
-      "absent unrelated/default",
-      "does not fail Doctor",
-      "never created or targeted",
+      "only for guarded",
+      "dead-pane cleanup",
       "unavailable-proof",
-      "value-free",
-      "invalid invoking contexts",
     ])
       expect(combined).toContain(phrase);
+    expect(docsIndex).toContain("Explicit cleanup refuses a live match");
   });
 
   it("documents exact local 0.2.1-beta.1-to-0.2.1-beta.2 upgrade, reinstall, confirmation, and reconvergence", () => {

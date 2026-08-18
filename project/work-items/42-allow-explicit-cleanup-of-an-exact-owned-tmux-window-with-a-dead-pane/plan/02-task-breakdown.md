@@ -184,3 +184,11 @@ Run direct root just verify-focused and just verify from a clean implementation 
 ### Expected Evidence
 - Exit-zero focused and full gate logs with test names tied to AC-1 through AC-10.
 - A clearly deferred, non-gating Sparkta checklist covering beta.2 install confirmation, Issue 7 status/logs/clean, retained evidence, exact category absence, and refusal escalation.
+
+
+## Verify-return correction (2026-08-18)
+
+- **T-2 / AC-1, AC-3, AC-6:** Completed — `canExplicitCleanup` now refuses live `TMUX_MATCH`; the finite matrix proves live refusal and exact-dead authorization with the full independent conjunction.
+- **T-4 / AC-3, AC-6, AC-8, AC-10:** Completed — refusal and success rows assert no mutation, exact transitions, and byte-identical enumerated unrelated inventories.
+- **T-5 / AC-2, AC-8, AC-9, AC-10:** Completed — replaced the direct tmux-adapter fixture with full `IssueRunService` explicit cleanup over a real isolated remain-on-exit window, owned clean worktree, lock, lease, snapshots, events, and retained logs; two runs compare normalized outcomes and inventories.
+- **T-6 / AC-5, AC-10:** Completed — release history now scopes beta.0 to absent-server Doctor collapse, beta.1 to exact stale-socket handling, and beta.2 only to exact-owned dead-pane cleanup.

@@ -33,7 +33,7 @@ Runner reads the package-local source and verifies protocol and SHA-256 before m
 
 ### Upgrade or reinstall 0.2.1-beta.1 as 0.2.1-beta.2
 
-The current package and official-asset catalog version is **0.2.1-beta.2**, a backward-compatible prerelease PATCH correction for guarded exact-owned dead-pane cleanup. Strict dead state is non-authorizing and public control output remains categorical and confidential. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the 0.2.1-beta.2 checkout, build and pack, then install that exact tarball over a 0.2.1-beta.1 prefix:
+The current package and official-asset catalog version is **0.2.1-beta.2**, a backward-compatible prerelease PATCH correction only for guarded exact-owned dead-pane cleanup. Strict dead state is non-authorizing and public control output remains categorical and confidential. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the 0.2.1-beta.2 checkout, build and pack, then install that exact tarball over a 0.2.1-beta.1 prefix:
 
 ```text
 just build

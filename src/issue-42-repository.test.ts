@@ -42,6 +42,23 @@ describe("Issue 42 beta.2 finite repository evidence", () => {
       expect(fs.readFileSync(path.join(root, file), "utf8")).toContain(VERSION);
   });
 
+  it("keeps beta.0, beta.1, and beta.2 release history scoped to their corrections", () => {
+    const history = [
+      fs.readFileSync(path.join(root, "README.md"), "utf8"),
+      fs.readFileSync(path.join(root, "docs/README.md"), "utf8"),
+      fs.readFileSync(
+        path.join(root, "docs/phase-4-repository-doctor.md"),
+        "utf8",
+      ),
+    ].join("\n");
+    expect(history).toContain("beta.0 prevents Doctor collapse");
+    expect(history).toContain(
+      "beta.1 recognizes only an unchanged stale socket",
+    );
+    expect(history).toContain("beta.2 adds only guarded dead-pane cleanup");
+    expect(history).toContain("Explicit cleanup refuses a live match");
+  });
+
   it("keeps third-party dependency ranges and lock package metadata equal to merge base", () => {
     const mergeBase = git(["merge-base", "HEAD", "origin/main"]).trim();
     const basePackage = JSON.parse(git(["show", mergeBase + ":package.json"]));

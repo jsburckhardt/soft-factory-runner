@@ -1261,7 +1261,7 @@ describe("Issue 19 corrected helper integration", () => {
       state: "completed",
       activity: "inactive",
       decisionCode: "MERGE_PENDING",
-      safeActions: ["attach", "explicit_clean"],
+      safeActions: ["attach"],
       observations: {
         progress: { state: "mismatch", code: "PROGRESS_REPEATED" },
       },

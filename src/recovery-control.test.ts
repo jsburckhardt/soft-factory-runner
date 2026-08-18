@@ -1,4 +1,8 @@
+import { execFile } from "node:child_process";
+import * as fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import type {
   AgentResultV1,
   CleanupStep,
@@ -21,6 +25,7 @@ import {
   REQUIRED_VALIDATIONS,
 } from "./domain";
 import { RunnerError } from "./errors";
+import { createLivePorts } from "./live";
 import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
@@ -37,6 +42,7 @@ import type {
   TmuxPort,
 } from "./ports";
 
+const execute = promisify(execFile);
 const root = "/repo";
 const worktree = "/repo/.trees/5";
 const branch = "feat/5-recovery";
@@ -1715,6 +1721,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     await service.status(5, root);
     const worktreeCalls = [...f.git.trace];
     const deleteCalls = [...f.files.compareAndDeleteTrace];
+    f.tmux.dead = true;
 
     await expect(service.clean(5, root)).resolves.toMatchObject({
       code: "CLEANUP_COMPLETED",
@@ -1726,6 +1733,43 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     expect(f.tmux.trace).toEqual(["capture", "remove-window"]);
     expect(f.git.trace).toEqual(worktreeCalls);
     expect(f.files.compareAndDeleteTrace).toEqual(deleteCalls);
+  });
+
+  it("refuses a live exact pane with zero cleanup mutation", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
+    );
+    f.processes.observed = null;
+    const before = JSON.stringify({
+      tmux: f.tmux.present,
+      worktree: f.files.values.get(worktree),
+      lease: await f.store.readLease(lease.slot),
+      lock: await f.store.readOwner(5),
+      snapshot: f.files.values.get(f.store.snapshotPath(5)),
+      events: f.files.values.get(f.store.eventsPath(5)),
+    });
+    const service = new IssueRunService(f.ports);
+    expect((await service.reconcile(5, root)).safeActions).toEqual([
+      "resume",
+      "attach",
+    ]);
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_OWNERSHIP_UNPROVED",
+      exitCode: 4,
+    });
+    expect(f.tmux.trace).toEqual([]);
+    expect(f.git.trace).toEqual([]);
+    expect(f.files.compareAndDeleteTrace).toEqual([]);
+    expect(
+      JSON.stringify({
+        tmux: f.tmux.present,
+        worktree: f.files.values.get(worktree),
+        lease: await f.store.readLease(lease.slot),
+        lock: await f.store.readOwner(5),
+        snapshot: f.files.values.get(f.store.snapshotPath(5)),
+        events: f.files.values.get(f.store.eventsPath(5)),
+      }),
+    ).toBe(before);
   });
 
   it("permits exact dead-pane cleanup only with every independent inactive ownership fact", async () => {
@@ -1800,6 +1844,228 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     },
   );
 
+  it("drives the actual exact dead window through full Runner cleanup twice with finite inventories", async () => {
+    const normalized: unknown[] = [];
+    for (let run = 0; run < 2; run += 1) {
+      const directory = await fs.mkdtemp(
+        path.join(os.tmpdir(), "sf-runner-dead-clean-"),
+      );
+      const ownedSocket = path.join(directory, "owned.sock");
+      const unrelatedSocket = path.join(directory, "unrelated.sock");
+      try {
+        for (const [socket, session, window] of [
+          [ownedSocket, "owned", "anchor"],
+          [unrelatedSocket, "unrelated", "42"],
+        ] as const)
+          await execute("tmux", [
+            "-S",
+            socket,
+            "new-session",
+            "-d",
+            "-s",
+            session,
+            "-n",
+            window,
+            "-c",
+            directory,
+            "node",
+            "-e",
+            "setInterval(() => {}, 1000)",
+          ]);
+        const invokingPane = (
+          await execute("tmux", [
+            "-S",
+            ownedSocket,
+            "display-message",
+            "-p",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const liveTmux = createLivePorts().tmux;
+        const selected = await liveTmux.selectTarget?.({
+          evidence: {
+            tmux: `${ownedSocket},1,0`,
+            tmuxPane: invokingPane,
+          },
+          repository: {
+            nameWithOwner: "owner/repo",
+            normalizedName: "owner-repo",
+          },
+        });
+        if (selected === undefined) throw new Error("selection unavailable");
+        const target = await liveTmux.createIssueWindow({
+          target: selected,
+          windowName: "issue-5",
+          cwd: directory,
+          executable: "node",
+          args: [
+            "-e",
+            'console.log("retained-dead-marker"); setTimeout(() => {}, 500)',
+          ],
+        });
+        await liveTmux.setRemainOnExit(target);
+        const deadline = Date.now() + 3_000;
+        let targetObservation: Awaited<ReturnType<typeof liveTmux.observe>> =
+          null;
+        while (targetObservation?.state !== "dead" && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          try {
+            targetObservation = await liveTmux.observe(target);
+          } catch {
+            targetObservation = null;
+          }
+        }
+        expect(targetObservation).toEqual({ state: "dead", target });
+
+        const initial = snapshot({
+          state: "interrupted",
+          rpivProcess: null,
+          admission: lease,
+          worktreePath: directory,
+          tmux: target,
+          tmuxSelection: {
+            selectionMode: target.selectionMode,
+            socketPath: target.socketPath,
+            socketIdentity: target.socketIdentity,
+            sessionId: target.sessionId,
+            sessionName: target.sessionName,
+            repository: "owner/repo",
+          },
+        });
+        const f = await fixture(initial);
+        f.files.values.delete(worktree);
+        f.files.values.set(directory, "owned-clean-worktree");
+        const unrelatedPaths = {
+          worktree: "/repo/.trees/unrelated",
+          lock: f.store.lockPath(99),
+          lease: f.store.leasePath(2),
+          run: f.store.snapshotPath(99),
+          event: f.store.eventsPath(99),
+          log: "/repo/.soft-factory/logs/99/1.log",
+        };
+        for (const [kind, filePath] of Object.entries(unrelatedPaths))
+          f.files.values.set(filePath, `${kind}-sentinel-bytes\n`);
+
+        const unrelatedInventory = async () =>
+          JSON.stringify({
+            sessions: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-sessions",
+                "-F",
+                "#{session_id}|#{session_name}",
+              ])
+            ).stdout,
+            windows: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-windows",
+                "-a",
+                "-F",
+                "#{session_id}|#{window_id}|#{window_name}",
+              ])
+            ).stdout,
+            panes: (
+              await execute("tmux", [
+                "-S",
+                unrelatedSocket,
+                "list-panes",
+                "-a",
+                "-F",
+                "#{session_id}|#{window_id}|#{pane_id}|#{pane_current_path}",
+              ])
+            ).stdout,
+            worktrees: f.files.values.get(unrelatedPaths.worktree),
+            locks: f.files.values.get(unrelatedPaths.lock),
+            leases: f.files.values.get(unrelatedPaths.lease),
+            runs: f.files.values.get(unrelatedPaths.run),
+            evidence: [
+              f.files.values.get(unrelatedPaths.event),
+              f.files.values.get(unrelatedPaths.log),
+            ],
+          });
+        const unrelatedBefore = await unrelatedInventory();
+        const exactBefore = {
+          tmux: (await liveTmux.observe(target))?.state,
+          worktree: f.files.values.has(directory),
+          lease: (await f.store.readLease(lease.slot)) !== null,
+          lock: (await f.store.readOwner(5)) !== null,
+        };
+        const ownedEvidencePaths = {
+          branch: await f.git.branchExists(root, branch),
+          snapshot: f.files.values.has(f.store.snapshotPath(5)),
+          events: f.files.values.has(f.store.eventsPath(5)),
+        };
+        const ports: RunnerPorts = { ...f.ports, tmux: liveTmux };
+        const service = new IssueRunService(ports);
+        expect((await service.reconcile(5, root)).safeActions).toEqual([
+          "explicit_clean",
+        ]);
+        const cleaned = await service.clean(5, root);
+        expect(cleaned).toMatchObject({
+          code: "CLEANUP_COMPLETED",
+          exitCode: 0,
+          facts: {
+            completedSteps: ["tmux", "worktree", "lease", "lock"],
+            retained: ["branch", "snapshot", "events", "logs"],
+          },
+        });
+        const logs = await service.logs(5, root);
+        expect(logs).toMatchObject({ code: "LOGS_READY", exitCode: 0 });
+        expect(JSON.stringify(logs.facts)).toContain("retained-dead-marker");
+        const exactAfter = {
+          tmux: await liveTmux.observe(target),
+          worktree: f.files.values.has(directory),
+          lease: await f.store.readLease(lease.slot),
+          lock: await f.store.readOwner(5),
+        };
+        expect(exactBefore).toEqual({
+          tmux: "dead",
+          worktree: true,
+          lease: true,
+          lock: true,
+        });
+        expect(exactAfter).toEqual({
+          tmux: null,
+          worktree: false,
+          lease: null,
+          lock: null,
+        });
+        expect(await unrelatedInventory()).toBe(unrelatedBefore);
+        expect({
+          branch: await f.git.branchExists(root, branch),
+          snapshot: f.files.values.has(f.store.snapshotPath(5)),
+          events: f.files.values.has(f.store.eventsPath(5)),
+        }).toEqual(ownedEvidencePaths);
+        expect(
+          [...f.files.values.keys()].some((entry) =>
+            entry.endsWith("/.soft-factory/logs/5/1.log"),
+          ),
+        ).toBe(true);
+        normalized.push({
+          code: cleaned.code,
+          transitions: {
+            tmux: ["dead", "absent"],
+            worktree: ["present", "absent"],
+            lease: ["present", "absent"],
+            lock: ["present", "absent"],
+          },
+          retainedTranscript: true,
+          unrelatedInventory: unrelatedBefore.replaceAll(directory, "<cwd>"),
+        });
+      } finally {
+        for (const socket of [ownedSocket, unrelatedSocket])
+          await execute("tmux", ["-S", socket, "kill-server"]).catch(
+            () => undefined,
+          );
+        await fs.rm(directory, { recursive: true, force: true });
+      }
+    }
+    expect(normalized[1]).toEqual(normalized[0]);
+  });
+
   it("bounds cleanup/status overlap at the complete pre-target", async () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
@@ -1819,6 +2085,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
       await release;
       await originalRemove();
     };
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     const cleanup = service.clean(5, root);
     await Promise.race([
@@ -1863,6 +2130,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
       removedResolve?.();
       await release;
     };
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     const cleanup = service.clean(5, root);
     await Promise.race([
@@ -1891,6 +2159,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     const f = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
     );
+    f.tmux.dead = true;
     const service = new IssueRunService(f.ports);
     await expect(service.clean(5, root)).resolves.toMatchObject({
       code: "CLEANUP_COMPLETED",
@@ -1982,6 +2251,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         }),
       );
       f.processes.observed = null;
+      f.tmux.dead = true;
       f.files.failSnapshotAfterStep = failedStep;
       const service = new IssueRunService(f.ports);
       const partial = await service.clean(5, root);
@@ -2021,6 +2291,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
       );
       f.processes.observed = null;
+      f.tmux.dead = true;
       if (failedStep === "tmux") f.tmux.failAfterRemoval = true;
       if (failedStep === "worktree") f.git.failAfterRemoval = true;
       if (failedStep === "lease")
@@ -2069,6 +2340,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
       snapshot({ state: "interrupted", rpivProcess: null, admission: lease }),
     );
     f.processes.observed = null;
+    f.tmux.dead = true;
     f.files.failSnapshotAfterStep = "worktree";
     const service = new IssueRunService(f.ports);
     const partial = await service.clean(5, root);
@@ -2214,6 +2486,7 @@ describe("V-4 deterministic recovery and control CLI dispatch", () => {
     const cleanFixture = await fixture(
       snapshot({ state: "interrupted", rpivProcess: null }),
     );
+    cleanFixture.tmux.dead = true;
     const cleaned = await runCli(
       ["clean", "5", "--json"],
       root,

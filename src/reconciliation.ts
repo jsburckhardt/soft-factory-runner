@@ -540,7 +540,7 @@ export function buildReconciliationReport(
       observations,
       "interrupted",
       "RUN_INTERRUPTED",
-      ["resume", "attach", "explicit_clean"],
+      ["resume", "attach"],
       [],
       null,
     );
@@ -577,6 +577,7 @@ function buildCompletedReport(
       (observation.state === "unknown" || observation.state === "mismatch"),
   );
   const explicitReady = canExplicitCleanup(persisted, observations);
+  const automaticReady = canAutomaticCleanup(persisted, observations);
   const automaticCleanupCompleted = cleanupStepsCompleted(persisted, [
     "worktree",
     "lease",
@@ -605,7 +606,7 @@ function buildCompletedReport(
       "Preserve the completed run and restore every unknown or mismatched ownership fact before cleanup.",
     );
 
-  if (!explicitReady)
+  if (!explicitReady && !automaticReady)
     return report(
       persisted,
       observations,
@@ -634,7 +635,7 @@ function buildCompletedReport(
     merge.complete &&
     merge.state === "MERGED" &&
     merge.mergedAt !== null;
-  if (mergeProved && explicitReady)
+  if (mergeProved && automaticReady)
     return report(
       persisted,
       observations,
@@ -657,7 +658,7 @@ function buildCompletedReport(
       "MERGE_PENDING",
       [...attach, ...explicit],
       [],
-      "Wait for the expected pull request to merge or use explicit cleanup only when all ownership facts remain exact.",
+      "Wait for the expected pull request to merge or use explicit cleanup only after an exact dead-pane observation and all ownership facts agree.",
     );
   return report(
     persisted,
@@ -687,6 +688,21 @@ function canExplicitCleanup(
   persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
   observations: ReconciliationObservationsV1,
 ): boolean {
+  return canCleanup(persisted, observations, false);
+}
+
+function canAutomaticCleanup(
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
+  observations: ReconciliationObservationsV1,
+): boolean {
+  return canCleanup(persisted, observations, true);
+}
+
+function canCleanup(
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
+  observations: ReconciliationObservationsV1,
+  allowLiveTmux: boolean,
+): boolean {
   const progress = persisted.cleanup;
   const progressOwned =
     progress !== null &&
@@ -704,8 +720,8 @@ function canExplicitCleanup(
     ) ??
       false);
   const tmuxReconciled =
-    observations.tmux.code === "TMUX_MATCH" ||
     observations.tmux.code === "TMUX_EXACT_DEAD" ||
+    (allowLiveTmux && observations.tmux.code === "TMUX_MATCH") ||
     ((completed("tmux") || started("tmux")) &&
       observations.tmux.state === "absent");
   const worktreeReconciled =

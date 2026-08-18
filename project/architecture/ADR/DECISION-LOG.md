@@ -250,3 +250,4 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 195 | Exclude persisted resource and process identities from all public output | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
 | 196 | Release exact owned dead-pane cleanup as prerelease 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
 | 197 | Preserve dependencies and use local package proof for 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
+| 198 | Refuse explicit cleanup for live tmux matches and require exact dead corroboration | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
