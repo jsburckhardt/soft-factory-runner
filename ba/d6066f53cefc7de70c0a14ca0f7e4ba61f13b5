@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-18/006-issue-38-rpiv-verifier.md
+  s_c085db7548d32c::t_975550f85c3403 1-6,9,14-16,24,43-44,46
+  s_c085db7548d32c::t_efab24f379c5c1 7-8,10-13,17-23,25-42,45,47
+project/work-items/38-prevent-doctor-collapse-when-an-unrelated-tmux-server-is-absent/verify/summary.md
+  s_c085db7548d32c::t_1e60a9aab437fd 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "bad6066f53cefc7de70c0a14ca0f7e4ba61f13b5",
+  "prompts": {},
+  "sessions": {
+    "s_c085db7548d32c": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_c2VEXHYwydSmGtcPGnanBMwO",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
