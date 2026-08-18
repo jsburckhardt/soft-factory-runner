@@ -232,3 +232,6 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 177 | Require complete target equality before attach, logs, stop, resume, or cleanup | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
 | 178 | Keep raw invoking tuples and tmux server process identifiers ephemeral and unrendered | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
 | 179 | Preserve Doctor 24 IDs while adding read-only targeting classification evidence | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-17 |
+| 180 | Treat absent targeting-inventory sockets as empty without invoking or creating tmux servers | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 181 | Fail only command.tmux on genuine inventory-proof failures while preserving completed observations | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 182 | Drain targeting inventory streams with 65536-byte and 1024-record acceptance limits | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |

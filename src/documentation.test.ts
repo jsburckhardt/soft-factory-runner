@@ -1065,7 +1065,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issue 36 exact tmux ownership and 0.2.0 guidance", () => {
+describe("Issue 36 exact tmux ownership and 0.2.1-beta.0 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1157,12 +1157,27 @@ describe("Issue 36 exact tmux ownership and 0.2.0 guidance", () => {
       expect(readme + doctorGuide + prd).toContain(phrase);
   });
 
-  it("documents exact local 0.1.3-to-0.2.0 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents the Issue 38 absence correction and value-free failure guidance", () => {
+    const combined = [readme, doctorGuide, docsIndex, assetGuide].join("\n");
+    for (const phrase of [
+      "0.2.1-beta.0",
+      "backward-compatible PATCH correction",
+      "absent unrelated/default",
+      "does not fail Doctor",
+      "never created or targeted",
+      "unavailable-proof",
+      "value-free",
+      "invalid invoking contexts",
+    ])
+      expect(combined).toContain(phrase);
+  });
+
+  it("documents exact local 0.1.3-to-0.2.1-beta.0 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.2.0",
+      "0.2.1-beta.0",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
-      expect(document).toContain("0.2.0");
+      expect(document).toContain("0.2.1-beta.0");
       expect(document).toContain("0.1.3");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");

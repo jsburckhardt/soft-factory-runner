@@ -7,6 +7,7 @@ import type { RepositoryIdentity } from "./domain";
 import type { TmuxPort } from "./ports";
 import { classifyDoctorTmuxTargeting } from "./doctor-service";
 import {
+  CommandExecutor,
   createLivePorts,
   type CommandResult,
   type CommandRunner,
@@ -45,6 +46,36 @@ class ResolverRunner implements CommandRunner {
     throw new Error("not used");
   }
 }
+class RecordingExecutor implements CommandRunner {
+  public readonly calls: readonly string[][] = [];
+  private readonly delegate = new CommandExecutor();
+  public run(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+    timeoutMs: number,
+    shell?: false,
+    stdoutRetentionBytes?: number,
+  ): Promise<CommandResult> {
+    (this.calls as string[][]).push([...args]);
+    return this.delegate.run(
+      executable,
+      args,
+      cwd,
+      timeoutMs,
+      shell,
+      stdoutRetentionBytes,
+    );
+  }
+  public runInherited(
+    executable: string,
+    args: readonly string[],
+    cwd: string,
+  ): Promise<CommandResult> {
+    return this.delegate.runInherited(executable, args, cwd);
+  }
+}
+
 class AttachProbeRunner implements CommandRunner {
   public selectedAtAttachment: string | null = null;
   public async run(
@@ -348,6 +379,94 @@ describe("Issue 36 exact tmux context resolver", () => {
       ambientUnchanged: false,
       unrelatedUnchanged: true,
     });
+  });
+
+  it("repeats against one real custom server while the unrelated default remains absent", async () => {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-issue-38-live-"),
+    );
+    const tmuxRoot = path.join(directory, "tmux-root");
+    const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+    const defaultSocket = path.join(tmuxRoot, `tmux-${uid}`, "default");
+    const customSocket = path.join(directory, "custom.sock");
+    const priorTmuxTmpdir = process.env.TMUX_TMPDIR;
+    process.env.TMUX_TMPDIR = tmuxRoot;
+    try {
+      await execute("tmux", [
+        "-S",
+        customSocket,
+        "new-session",
+        "-d",
+        "-s",
+        "custom",
+        "-n",
+        "origin",
+        "-c",
+        directory,
+        "node",
+        "-e",
+        "setInterval(() => {}, 1000)",
+      ]);
+      const pane = (
+        await execute("tmux", [
+          "-S",
+          customSocket,
+          "display-message",
+          "-p",
+          "-t",
+          "custom:origin",
+          "#{pane_id}",
+        ])
+      ).stdout.trim();
+      await expect(fs.stat(defaultSocket)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      const commands = new RecordingExecutor();
+      const liveTmux = createLivePorts(commands).tmux;
+      const inventory = liveTmux.inventoryServerResources?.bind(liveTmux);
+      if (inventory === undefined) throw new Error("inventory unavailable");
+      const before = await inventory({
+        socketPath: customSocket,
+        cwd: directory,
+      });
+      const evidenceInput = { tmux: `${customSocket},12345,0`, tmuxPane: pane };
+      const first = await classifyDoctorTmuxTargeting(
+        liveTmux,
+        evidenceInput,
+        repository.nameWithOwner,
+      );
+      const second = await classifyDoctorTmuxTargeting(
+        liveTmux,
+        evidenceInput,
+        repository.nameWithOwner,
+      );
+      const after = await inventory({
+        socketPath: customSocket,
+        cwd: directory,
+      });
+      expect(first).toEqual(second);
+      expect(first).toMatchObject({
+        mode: "invoking-valid",
+        ambientUnchanged: true,
+        unrelatedUnchanged: true,
+      });
+      expect(after).toEqual(before);
+      expect(
+        commands.calls.filter(
+          (args) => args[0] === "-S" && args[1] === defaultSocket,
+        ),
+      ).toEqual([]);
+      await expect(fs.stat(defaultSocket)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      if (priorTmuxTmpdir === undefined) delete process.env.TMUX_TMPDIR;
+      else process.env.TMUX_TMPDIR = priorTmuxTmpdir;
+      await execute("tmux", ["-S", customSocket, "kill-server"]).catch(
+        () => undefined,
+      );
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("detects actual server-resource changes that leave socket-directory entries unchanged", async () => {

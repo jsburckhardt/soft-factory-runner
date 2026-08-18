@@ -280,7 +280,15 @@ export async function classifyDoctorTmuxTargeting(
   inventory: () => Promise<DoctorTmuxInventories> = () =>
     captureDoctorTmuxInventories(tmux, evidence, repository, process.cwd()),
 ): Promise<DoctorTmuxTargetingEvidenceV1> {
-  const before = await inventory();
+  let before: DoctorTmuxInventories;
+  try {
+    before = await inventory();
+  } catch {
+    return unavailableTargetingEvidence();
+  }
+
+  let mode: "invoking-valid" | "standalone-fallback" | "invalid-context";
+  let reason: TmuxContextRefusalReason | null = null;
   try {
     const target =
       tmux.selectTarget === undefined
@@ -292,7 +300,7 @@ export async function classifyDoctorTmuxTargeting(
               normalizedName: normalizeRepositoryName(repository),
             },
           });
-    const mode =
+    mode =
       evidence.tmux === null && evidence.tmuxPane === null
         ? "standalone-fallback"
         : "invoking-valid";
@@ -301,18 +309,35 @@ export async function classifyDoctorTmuxTargeting(
       (mode === "invoking-valid") !== (target.selectionMode === "invoking")
     )
       throw new Error("target mode mismatch");
-    const after = await inventory();
-    return targetingEvidence(mode, null, before, after);
   } catch (cause: unknown) {
-    const reason =
+    mode = "invalid-context";
+    reason =
       isRunnerError(cause) &&
       cause.code === "TMUX_CONTEXT_REFUSED" &&
       typeof cause.details.reason === "string"
         ? (cause.details.reason as TmuxContextRefusalReason)
         : "unavailable-proof";
-    const after = await inventory();
-    return targetingEvidence("invalid-context", reason, before, after);
   }
+
+  try {
+    const after = await inventory();
+    return targetingEvidence(mode, reason, before, after);
+  } catch {
+    return unavailableTargetingEvidence();
+  }
+}
+
+function unavailableTargetingEvidence(): DoctorTmuxTargetingEvidenceV1 {
+  return {
+    schemaVersion: 1,
+    kind: "tmux-targeting",
+    mode: "invalid-context",
+    reason: "unavailable-proof",
+    bounded: true,
+    inventoryMeasured: true,
+    ambientUnchanged: false,
+    unrelatedUnchanged: false,
+  };
 }
 
 function targetingEvidence(

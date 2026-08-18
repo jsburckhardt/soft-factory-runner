@@ -60,6 +60,7 @@ export interface CommandRunner {
     cwd: string,
     timeoutMs: number,
     shell?: false,
+    stdoutRetentionBytes?: number,
   ): Promise<CommandResult>;
   runInherited(
     executable: string,
@@ -68,13 +69,14 @@ export interface CommandRunner {
   ): Promise<CommandResult>;
 }
 
-class CommandExecutor implements CommandRunner {
+export class CommandExecutor implements CommandRunner {
   public run(
     executable: string,
     args: readonly string[],
     cwd: string,
     timeoutMs: number,
     shell: false = false,
+    stdoutRetentionBytes = Number.POSITIVE_INFINITY,
   ): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(executable, args, {
@@ -85,7 +87,20 @@ class CommandExecutor implements CommandRunner {
       });
       const stdout: Buffer[] = [];
       const stderr: Buffer[] = [];
-      child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+      let stdoutByteCount = 0;
+      let retainedStdoutBytes = 0;
+      child.stdout.on("data", (chunk: Buffer) => {
+        stdoutByteCount += chunk.byteLength;
+        const remaining = Math.max(
+          0,
+          stdoutRetentionBytes - retainedStdoutBytes,
+        );
+        if (remaining > 0) {
+          const retained = chunk.subarray(0, remaining);
+          stdout.push(retained);
+          retainedStdoutBytes += retained.byteLength;
+        }
+      });
       child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
       let timedOut = false;
       let escalation: NodeJS.Timeout | null = null;
@@ -129,7 +144,7 @@ class CommandExecutor implements CommandRunner {
           stderr: stderrBuffer.toString("utf8"),
           stdoutBuffer,
           stderrBuffer,
-          stdoutByteCount: stdoutBuffer.byteLength,
+          stdoutByteCount,
           stderrByteCount: stderrBuffer.byteLength,
         });
       });
@@ -920,8 +935,20 @@ class LiveGitHubPort implements GitHubPort {
   }
 }
 
+type TmuxSocketIdentityReader = (
+  socketPath: string,
+) => Promise<TmuxSocketIdentityV1>;
+
 class LiveTmuxPort implements TmuxPort {
-  public constructor(private readonly commands: CommandRunner) {}
+  public constructor(
+    private readonly commands: CommandRunner,
+    private readonly readSocketIdentity: TmuxSocketIdentityReader = async (
+      socketPath,
+    ) => {
+      const stat = await fs.stat(socketPath);
+      return { device: String(stat.dev), inode: String(stat.ino) };
+    },
+  ) {}
 
   public async selectTarget(input: {
     readonly evidence: InvokingTmuxEvidenceV1;
@@ -981,31 +1008,39 @@ class LiveTmuxPort implements TmuxPort {
     try {
       before = await this.socketIdentity(input.socketPath);
     } catch (cause: unknown) {
-      if (nodeErrorCode(cause) === "ENOENT") return Buffer.from("absent\n");
+      if (nodeErrorCode(cause) === "ENOENT") return Buffer.alloc(0);
       throw tmuxContextRefusal("unavailable-proof");
     }
-    const result = await this.commands.run(
-      "tmux",
-      [
-        "-S",
-        input.socketPath,
-        "list-panes",
-        "-a",
-        "-F",
-        "#{session_id}|#{session_name}|#{window_id}|#{window_name}|#{pane_id}|#{pane_current_path}",
-      ],
-      input.cwd,
-      2_000,
-    );
+    let result: CommandResult;
+    try {
+      result = await this.commands.run(
+        "tmux",
+        [
+          "-S",
+          input.socketPath,
+          "list-panes",
+          "-a",
+          "-F",
+          "#{session_id}|#{session_name}|#{window_id}|#{window_name}|#{pane_id}|#{pane_current_path}",
+        ],
+        input.cwd,
+        2_000,
+        false,
+        65_536,
+      );
+    } catch {
+      throw tmuxContextRefusal("unavailable-proof");
+    }
     if (result.exitCode !== 0 || result.stdoutByteCount > 65_536)
       throw tmuxContextRefusal("unavailable-proof");
     let after: TmuxSocketIdentityV1;
     try {
       after = await this.socketIdentity(input.socketPath);
     } catch {
-      return Buffer.from("absent\n");
+      throw tmuxContextRefusal("unavailable-proof");
     }
-    if (!sameSocketIdentity(before, after)) return Buffer.from("replaced\n");
+    if (!sameSocketIdentity(before, after))
+      throw tmuxContextRefusal("unavailable-proof");
     const resources = result.stdoutBuffer;
     let recordCount = 0;
     for (const byte of resources) {
@@ -1014,6 +1049,9 @@ class LiveTmuxPort implements TmuxPort {
         throw tmuxContextRefusal("unavailable-proof");
     }
     if (recordCount > 1_024 || resources.at(-1) !== 0x0a)
+      throw tmuxContextRefusal("unavailable-proof");
+    const decoded = resources.toString("utf8");
+    if (!Buffer.from(decoded, "utf8").equals(resources))
       throw tmuxContextRefusal("unavailable-proof");
     return Buffer.concat([
       Buffer.from(JSON.stringify({ socket: before }) + "\n"),
@@ -1360,8 +1398,7 @@ class LiveTmuxPort implements TmuxPort {
   private async socketIdentity(
     socketPath: string,
   ): Promise<TmuxSocketIdentityV1> {
-    const stat = await fs.stat(socketPath);
-    return { device: String(stat.dev), inode: String(stat.ino) };
+    return this.readSocketIdentity(socketPath);
   }
   private async assertSocket(
     socketPath: string,
@@ -1560,12 +1597,13 @@ class LiveProcessPort implements ProcessPort {
 
 export function createLivePorts(
   commands: CommandRunner = new CommandExecutor(),
+  tmuxSocketIdentity?: TmuxSocketIdentityReader,
 ): RunnerPorts {
   return {
     files: new NodeFilePort(),
     git: new LiveGitPort(commands),
     github: new LiveGitHubPort(commands),
-    tmux: new LiveTmuxPort(commands),
+    tmux: new LiveTmuxPort(commands, tmuxSocketIdentity),
     processes: new LiveProcessPort(),
     clock: { now: () => new Date().toISOString() },
     ids: { nextOwnerId: () => randomUUID(), nextRunId: () => randomUUID() },
