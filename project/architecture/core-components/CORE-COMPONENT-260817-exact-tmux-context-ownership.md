@@ -28,6 +28,9 @@ This component applies to invoking-context capture, standalone fallback, `TmuxTa
 - Preserve same-issue atomic admission before target mutation. During cleanup/status or cleanup/reconcile overlap, serialize durable ownership/progress and use one atomic tmux observation so each result contains either one complete pre-cleanup target or complete absence.
 - Keep raw `TMUX`/`TMUX_PANE` values, raw resolver output, server PID, client data, inherited unrelated values, and malformed sentinels ephemeral. Never include them in snapshots, events, diagnostics, logs, human output, or JSON output. Render only closed mode/reason enums and bounded counts.
 - Preserve Doctor 24 ordered IDs and private mechanics probe. Add a read-only `command.tmux` targeting classification using the shared resolver, never mutate an invoking or fallback target, and prove before/after ambient and unrelated inventories unchanged.
+- Treat a missing socket during targeting inventory as one stable empty inventory. Do not invoke tmux, create the socket/server, or convert absence into a targeting failure.
+- Treat timeout, nonzero exit, malformed output, byte or record overflow, inaccessible identity, post-query identity loss, and device/inode replacement as typed unavailable proof. Convert that failure only at the `command.tmux` targeting boundary, preserve every completed non-tmux observation, and expose only the closed value-free targeting classification.
+- Execute each targeting inventory once with an explicit `-S` selector and a 2000 ms limit. Drain command streams while retaining at most 65,536 stdout bytes, reject a 65,537th byte, cap accepted inventories at 1,024 LF-terminated records, and keep all inventory bytes and values ephemeral.
 - Use isolated repository-local sockets, sessions, deterministic barriers, and machine-observable inventories for custom-socket, fallback, collision, invalid-context, repeated, overlap, and cleanup proof. Require no credentials, network, Sparkta installation, or ambient default server.
 
 ### Interfaces
@@ -44,6 +47,8 @@ This component applies to invoking-context capture, standalone fallback, `TmuxTa
 - Two servers with identical names and local IDs remain disjoint through every lifecycle command and cleanup.
 - Every invalid-context matrix row exits nonzero before mutation with byte-identical run and server inventories.
 - Human and JSON rendering agree on match, absence, mismatch, and refusal without exposing target paths or evidence values.
+- A valid custom-socket Doctor run with the unrelated/default socket absent samples that absence before and after as equal empty inventory, never invokes or creates the absent server, and retains completed repository, command, and authentication observations.
+- Every genuine targeting-inventory failure is value-free and bounded, fails only `command.tmux`, and leaves completed non-tmux observations and repository facts unchanged.
 - Concurrent and repeated operations never mutate outside the persisted server/session and never produce a mixed target.
 
 ## Rationale

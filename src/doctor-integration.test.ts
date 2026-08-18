@@ -15,10 +15,11 @@ import {
   type DoctorCheckResultV2,
   type DoctorResultV2,
 } from "./doctor";
-import { DoctorService } from "./doctor-service";
+import { DoctorService, type DoctorTmuxInventories } from "./doctor-service";
+import { renderDoctor } from "./doctor-render";
 import type { DoctorTmuxProbePort } from "./doctor-tmux";
 import { runCli } from "./index";
-import type { RunnerPorts } from "./ports";
+import type { RunnerPorts, TmuxPort } from "./ports";
 
 const projectRoot = path.resolve(__dirname, "..");
 const manifests = path.join(projectRoot, "fixtures", "doctor");
@@ -420,7 +421,13 @@ class ControlledDoctorRunner implements DoctorCommandRunner {
     };
   }
 }
-async function actualDoctorFixture(failedId: DoctorCheckId | null): Promise<{
+async function actualDoctorFixture(
+  failedId: DoctorCheckId | null,
+  targeting: {
+    readonly tmuxPort?: TmuxPort;
+    readonly tmuxInventory?: () => Promise<DoctorTmuxInventories>;
+  } = {},
+): Promise<{
   root: string;
   doctor: DoctorService;
   runner: ControlledDoctorRunner;
@@ -495,6 +502,7 @@ async function actualDoctorFixture(failedId: DoctorCheckId | null): Promise<{
       pathValue: bin,
       token: "isolated",
       tmuxProbe,
+      ...targeting,
     }),
   };
 }
@@ -731,6 +739,86 @@ async function builtDoctorDiagnostic(
     readiness: (await controlledReadinessDiagnostics(bin)).slice(-2),
   };
 }
+
+describe("Issue 38 Doctor targeting containment", () => {
+  it("preserves controlled repository facts, canonical checks, and seven prerequisites", async () => {
+    const stable = async () => ({
+      ambient: Buffer.alloc(0),
+      unrelated: Buffer.alloc(0),
+    });
+    const fixture = await actualDoctorFixture(null, {
+      tmuxPort: {} as TmuxPort,
+      tmuxInventory: stable,
+    });
+    try {
+      const first = await fixture.doctor.run(fixture.root);
+      const second = await fixture.doctor.run(fixture.root);
+      expect(first.repository).toEqual({
+        github: "owner/repo",
+        defaultBranch: "main",
+      });
+      expect(first.checks.map((check) => check.id)).toEqual(DOCTOR_CHECK_IDS);
+      expect(new Set(first.checks.map((check) => check.id)).size).toBe(24);
+      for (const id of [
+        "command.git",
+        "command.gh",
+        "command.tmux",
+        "command.node",
+        "command.copilot",
+        "authentication.github-cli",
+        "authentication.copilot-cli",
+      ] as const)
+        expect(first.checks.find((check) => check.id === id)?.status).toBe(
+          "passed",
+        );
+      expect(first).toEqual(second);
+      expect(normalizeHuman(renderDoctor(first, false))).toEqual(first);
+      expect(JSON.parse(renderDoctor(first, true))).toEqual(first);
+    } finally {
+      await fs.rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["before", "after"] as const)(
+    "contains a %s inventory failure to command.tmux",
+    async (phase) => {
+      let samples = 0;
+      const fixture = await actualDoctorFixture(null, {
+        tmuxPort: {} as TmuxPort,
+        tmuxInventory: async () => {
+          samples += 1;
+          if (phase === "before" || samples === 2)
+            throw new Error("sentinel inventory failure");
+          return { ambient: Buffer.alloc(0), unrelated: Buffer.alloc(0) };
+        },
+      });
+      try {
+        const result = await fixture.doctor.run(fixture.root);
+        expect(result.repository).toEqual({
+          github: "owner/repo",
+          defaultBranch: "main",
+        });
+        expect(result.checks.map((check) => check.id)).toEqual(
+          DOCTOR_CHECK_IDS,
+        );
+        expect(
+          result.checks
+            .filter((check) => check.status === "failed")
+            .map((check) => check.id),
+        ).toEqual(["command.tmux"]);
+        expect(
+          result.checks.find((check) => check.id === "command.tmux"),
+        ).toMatchObject({
+          status: "failed",
+          evidence: { mode: "invalid-context", reason: "unavailable-proof" },
+        });
+        expect(JSON.stringify(result)).not.toContain("sentinel");
+      } finally {
+        await fs.rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+  );
+});
 
 describe("Doctor manifest-driven acceptance fixtures", () => {
   beforeAll(() => {
