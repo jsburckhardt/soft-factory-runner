@@ -28,7 +28,8 @@ This component applies to Runner code and npm package deliveries, `package.json`
 - Document how an existing user upgrades or reinstalls the exact delivered package version, confirms the installed package version, and reconverges package-coupled official asset metadata.
 - Keep `AGENTS.md` instructions APS-compliant: use one absolute `You MUST` command per line, state major/minor/patch assignment explicitly, preserve unrelated content and order, and omit workflow or control-flow prose.
 - Classify the locale-compatible tmux identity correction as a backward-compatible defect fix and release it as `0.1.1`.
-- Classify `0.2.1-beta.2` as the prerelease PATCH delivery for the backward-compatible exact owned dead-pane cleanup correction. Keep authoritative package, root lock, official-asset, fixture, packed, installed, current-release, and user-guidance surfaces synchronized at that exact value with no dependency churn or registry-publication claim.
+- Classify `0.2.1-beta.2` as the prerelease PATCH delivery for the backward-compatible exact owned dead-pane cleanup correction.
+- Classify `0.2.1-beta.3` as the next prerelease PATCH delivery for checkpoint-gated live cleanup retry after exact tmux target removal. Keep authoritative package, root lock, official-asset, fixture, packed, installed, current-release, release-guidance, and cleanup-documentation surfaces synchronized at that exact value with no dependency churn or registry-publication claim.
 
 ### Interfaces
 
@@ -41,7 +42,7 @@ This component applies to Runner code and npm package deliveries, `package.json`
 ### Expectations
 
 - All authoritative product surfaces produce the same exact package version.
-- Packed and installed evidence distinguishes the delivered version from the previous version.
+- Packed and installed evidence distinguishes the delivered version from the previous version and proves `0.2.1-beta.3` from a repository-local tarball.
 - Release-only updates do not change the dependency graph, lockfile dependency metadata, or package file inventory.
 - Documentation names the current version and gives copyable upgrade, reinstall, confirmation, and official-asset reconvergence guidance.
 
@@ -62,7 +63,7 @@ incompatible stable contract change:   1.4.2 -> 2.0.0
 
 - Determine the highest-impact change class before editing release metadata.
 - Update only the finite authoritative Runner version surfaces; distinguish dependency versions from root package entries.
-- Generate packed, installed, and official-asset manifest evidence in repository-controlled temporary prefixes without publication or network services.
+- Generate packed, installed, and official-asset manifest evidence in repository-controlled temporary prefixes without publication or network services. Keep visible Sparkta recovery deferred and non-gating until repository proof is accepted.
 - Keep upgrade and reinstall guidance consistent with the finite package inventory.
 - Update `AGENTS.md` only during Implement while preserving unrelated instruction content and order.
 

@@ -39,6 +39,15 @@ export interface TmuxTargetObservationV1 {
   readonly state: "live" | "dead";
   readonly target: TmuxTargetV2;
 }
+export type TmuxMissingTargetCategoryV1 =
+  "missing_pane" | "missing_window" | "missing_session";
+export interface TmuxMissingTargetObservationV1 {
+  readonly state: "missing";
+  readonly category: TmuxMissingTargetCategoryV1;
+  readonly socketIdentity: "unchanged";
+}
+export type TmuxLifecycleObservationV1 =
+  TmuxTargetObservationV1 | TmuxMissingTargetObservationV1;
 export interface ParsedInvokingTmuxEvidenceV1 {
   readonly socketPath: string;
   readonly paneId: string;
@@ -208,4 +217,26 @@ export function tmuxContextRefusal(
     "Use one valid current tmux client context, or remove both TMUX and TMUX_PANE to select the standalone target.",
     { details: { reason } },
   );
+}
+
+export function classifyTmuxMissingTarget(
+  stderr: Buffer,
+  target: Pick<TmuxTargetV2, "paneId" | "windowId" | "sessionId">,
+): TmuxMissingTargetCategoryV1 | null {
+  if (stderr.length === 0 || stderr.at(-1) !== 0x0a) return null;
+  const body = stderr.subarray(0, -1);
+  if (body.includes(0x0a) || body.includes(0x0d) || body.includes(0x00))
+    return null;
+  const text = body.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(body)) return null;
+  const match = /^can't find (pane|window|session): (.+)$/.exec(text);
+  if (match === null) return null;
+  const expected =
+    match[1] === "pane"
+      ? target.paneId
+      : match[1] === "window"
+        ? target.windowId
+        : target.sessionId;
+  if (match[2] !== expected) return null;
+  return `missing_${match[1]}` as TmuxMissingTargetCategoryV1;
 }

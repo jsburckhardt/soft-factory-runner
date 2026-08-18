@@ -50,7 +50,7 @@ This component applies to snapshot and event recovery, lock and resource observa
 - Event replay either proves one complete latest snapshot or makes mutation unavailable.
 - Reinvoking recovery while the recorded RPIV process remains active performs zero process launches.
 - A stopped run retains both its owned worktree and inspectable terminal transcript.
-- Observation failures produce stable actionable non-success outcomes and never become inferred absence, except the established nonzero tmux target observation that means absence; malformed zero-exit identity output remains unknown and retains bounded structure.
+- Observation failures produce stable actionable non-success outcomes. Only the three strict selector-bound tmux missing-target categories become absence after exact same-owner/run cleanup checkpoint proof and unchanged socket identity; pre-checkpoint, malformed, truncated, replaced, unavailable, mismatched, and every other nonzero result remain non-authorizing.
 - Missing or unusable progress reports phase unknown without changing operational state or safe actions.
 
 ## Rationale
@@ -74,7 +74,7 @@ How should other parts of the system integrate with this component?
 - Read and reconcile history before deciding whether a snapshot may be upgraded or mutated.
 - Persist transition intent and identity before exposing success from launch, stop, or recovery.
 - Add stable typed errors and outcome codes for every refusal and map nonsuccess to nonzero CLI results.
-- Test each command through shared fixtures that can interrupt every persistence and process boundary.
+- Test each command through shared fixtures that can interrupt every persistence and process boundary, including real-adapter retry from completed tmux/worktree progress and lease/lock release failures.
 - Integrate exact tmux targeting through `CORE-COMPONENT-260817-exact-tmux-context-ownership` and identity parsing, retention, name-only refusal, and preparation proof through `CORE-COMPONENT-260814-tmux-identity-diagnostics`.
 
 ## Exceptions

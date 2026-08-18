@@ -1190,21 +1190,22 @@ describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
       "0.2.1-beta.1",
       "stale socket",
       "0.2.1-beta.2",
-      "only for guarded",
-      "dead-pane cleanup",
+      "guarded dead-pane cleanup",
+      "0.2.1-beta.3",
+      "checkpoint-gated",
       "unavailable-proof",
     ])
       expect(combined).toContain(phrase);
     expect(docsIndex).toContain("Explicit cleanup refuses a live match");
   });
 
-  it("documents exact local 0.2.1-beta.1-to-0.2.1-beta.2 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents exact local 0.2.1-beta.2-to-0.2.1-beta.3 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.2.1-beta.2",
+      "0.2.1-beta.3",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.2.1-beta.3");
       expect(document).toContain("0.2.1-beta.2");
-      expect(document).toContain("0.2.1-beta.1");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }

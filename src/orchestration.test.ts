@@ -328,13 +328,17 @@ class RecordingTmux implements TmuxPort {
   public async observeIssueWindowName(): Promise<boolean> {
     return false;
   }
-  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null> {
+  public async observe(target: TmuxTargetV2) {
     this.trace.push(`tmux:observe:${target.paneId}`);
     if (this.observeFailure !== null) throw this.observeFailure;
     const observed =
       this.observedOverride === undefined ? target : this.observedOverride;
     return observed === null
-      ? null
+      ? {
+          state: "missing" as const,
+          category: "missing_pane" as const,
+          socketIdentity: "unchanged" as const,
+        }
       : { state: "live" as const, target: observed };
   }
   public async panePid(target: TmuxIdentity): Promise<number> {

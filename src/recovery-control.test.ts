@@ -397,7 +397,11 @@ class ControlTmux implements TmuxPort {
     if (this.observationFailure !== null) throw this.observationFailure;
     return this.present
       ? { state: this.dead ? ("dead" as const) : ("live" as const), target }
-      : null;
+      : {
+          state: "missing" as const,
+          category: "missing_pane" as const,
+          socketIdentity: "unchanged" as const,
+        };
   }
   public async panePid() {
     return 500;
@@ -1001,7 +1005,7 @@ describe("V-13 through V-16 recovery candidate incident", () => {
 
   it.each([
     ["exact", true],
-    ["proved absent", false],
+    ["pre-checkpoint absent", false],
   ])(
     "exposes one unaccepted candidate with %s tmux and no mutation",
     async (_label, tmuxPresent) => {
@@ -1010,9 +1014,11 @@ describe("V-13 through V-16 recovery candidate incident", () => {
       const before = await f.store.load(5);
       const report = await new IssueRunService(f.ports).reconcile(5, root);
       expect(report).toMatchObject({
-        decisionCode: "FINALIZATION_RECOVERY_AVAILABLE",
+        decisionCode: tmuxPresent
+          ? "FINALIZATION_RECOVERY_AVAILABLE"
+          : "RECONCILIATION_UNKNOWN",
         resultAuthority: "recovery_candidate",
-        safeActions: ["retry_finalization"],
+        safeActions: tmuxPresent ? ["retry_finalization"] : [],
         observations: {
           result: { state: "match", code: "RESULT_RECOVERY_CANDIDATE" },
           remote: { state: "match", code: "REMOTE_BRANCH_MATCH" },
@@ -1445,7 +1451,9 @@ describe("Issue 29 one-pass observation diagnostic lifecycle", () => {
     const absent = await service.reconcile(5, root);
     expect(f.tmux.identityObservations).toBe(2);
     expect(absent).toMatchObject({
-      observations: { tmux: { state: "absent", code: "TMUX_ABSENT" } },
+      observations: {
+        tmux: { state: "unknown", code: "TMUX_MISSING_TARGET_UNPROVED" },
+      },
       tmuxIdentityDiagnostic: observeDiagnostic,
     });
 
@@ -1905,8 +1913,9 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         });
         await liveTmux.setRemainOnExit(target);
         const deadline = Date.now() + 3_000;
-        let targetObservation: Awaited<ReturnType<typeof liveTmux.observe>> =
-          null;
+        let targetObservation: Awaited<
+          ReturnType<typeof liveTmux.observe>
+        > | null = null;
         while (targetObservation?.state !== "dead" && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, 25));
           try {
@@ -1998,7 +2007,10 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
           snapshot: f.files.values.has(f.store.snapshotPath(5)),
           events: f.files.values.has(f.store.eventsPath(5)),
         };
-        const ports: RunnerPorts = { ...f.ports, tmux: liveTmux };
+        const stableCwdTmux = Object.create(liveTmux) as TmuxPort;
+        stableCwdTmux.observe = (observedTarget) =>
+          liveTmux.observe(observedTarget, process.cwd());
+        const ports: RunnerPorts = { ...f.ports, tmux: stableCwdTmux };
         const service = new IssueRunService(ports);
         expect((await service.reconcile(5, root)).safeActions).toEqual([
           "explicit_clean",
@@ -2028,7 +2040,11 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
           lock: true,
         });
         expect(exactAfter).toEqual({
-          tmux: null,
+          tmux: {
+            state: "missing",
+            category: "missing_pane",
+            socketIdentity: "unchanged",
+          },
           worktree: false,
           lease: null,
           lock: null,
@@ -2153,6 +2169,65 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     );
     releaseResolve?.();
     await expect(cleanup).resolves.toMatchObject({ code: "CLEANUP_COMPLETED" });
+  });
+
+  it("retries only the remaining lease and lock after checkpoint-proved tmux and worktree completion", async () => {
+    const initial = snapshot({
+      state: "interrupted",
+      rpivProcess: null,
+      admission: lease,
+      cleanup: {
+        mode: "explicit",
+        ownerId: "owner-5",
+        runId: "run-5",
+        intentAt: "2026-08-11T13:01:00.000Z",
+        completedSteps: ["tmux", "worktree"],
+        startedCheckpoints: [
+          { step: "tmux", resourceIdentity: JSON.stringify(tmux) },
+        ],
+        remainingSteps: ["lease", "lock"],
+        blockedCode: null,
+        updatedAt: "2026-08-11T13:02:00.000Z",
+      },
+    });
+    const f = await fixture(initial);
+    f.processes.observed = null;
+    f.tmux.present = false;
+    f.git.pathExists = false;
+    f.git.registered = false;
+    f.files.values.delete(worktree);
+    const evidencePath = "/repo/.soft-factory/logs/5/1.log";
+    f.files.values.set(evidencePath, "retained-terminal-marker\n");
+    const evidenceBefore = {
+      branch: await f.git.branchExists(root, branch),
+      snapshot: f.files.values.has(f.store.snapshotPath(5)),
+      events: f.files.values.has(f.store.eventsPath(5)),
+      log: f.files.values.get(evidencePath),
+    };
+    const service = new IssueRunService(f.ports);
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_COMPLETED",
+      exitCode: 0,
+      facts: { completedSteps: ["tmux", "worktree", "lease", "lock"] },
+    });
+    expect(f.tmux.trace).toEqual([]);
+    expect(f.git.trace).toEqual([]);
+    expect(f.files.compareAndDeleteTrace).toEqual([
+      f.store.leasePath(lease.slot),
+      f.store.lockPath(5),
+    ]);
+    expect({
+      branch: await f.git.branchExists(root, branch),
+      snapshot: f.files.values.has(f.store.snapshotPath(5)),
+      events: f.files.values.has(f.store.eventsPath(5)),
+      log: f.files.values.get(evidencePath),
+    }).toEqual(evidenceBefore);
+    const destructiveTrace = [...f.files.compareAndDeleteTrace];
+    await expect(service.clean(5, root)).resolves.toMatchObject({
+      code: "CLEANUP_ALREADY_COMPLETED",
+      exitCode: 0,
+    });
+    expect(f.files.compareAndDeleteTrace).toEqual(destructiveTrace);
   });
 
   it("returns an idempotent already-cleaned result after explicit cleanup", async () => {

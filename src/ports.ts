@@ -13,7 +13,7 @@ import type {
 import type {
   InvokingTmuxEvidenceV1,
   TmuxSessionTargetV1,
-  TmuxTargetObservationV1,
+  TmuxLifecycleObservationV1,
   TmuxTargetV2,
 } from "./tmux-target";
 
@@ -123,7 +123,10 @@ export interface TmuxPort {
     readonly windowName: string;
     readonly cwd: string;
   }): Promise<boolean>;
-  observe(target: TmuxTargetV2): Promise<TmuxTargetObservationV1 | null>;
+  observe(
+    target: TmuxTargetV2,
+    executionCwd?: string,
+  ): Promise<TmuxLifecycleObservationV1>;
   panePid(target: TmuxTargetV2): Promise<number | null>;
   setRemainOnExit(target: TmuxTargetV2): Promise<void>;
   capturePane(target: TmuxTargetV2, maxBytes: number): Promise<PaneCaptureV1>;

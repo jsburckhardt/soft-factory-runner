@@ -178,7 +178,7 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 123 | Use original command bytes for tmux identity parsing and pre-decode byte counts | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
 | 124 | Persist only bounded value-free tmux identity structure in RunSnapshotV5 | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
 | 125 | Retry starting_tmux creation only after exact clean fetched-HEAD ownership and zero same-name candidates | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
-| 126 | Treat nonzero tmux observation as absence and malformed zero-exit output as unknown | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
+| 126 | Classify tmux nonzero observations through exact bounded failure categories | ADR-260814-tmux-identity-failure-recovery | 2026-08-14 |
 | 127 | Require exact vertical-bar-framed LF-terminated tmux identity records and strict identifier grammars | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-15 |
 | 128 | Cap tmux identity diagnostics at eight records, eight fields, and 32 tokens | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
 | 129 | Retain the latest tmux identity diagnostic until valid identity proof clears it | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-14 |
@@ -251,3 +251,13 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 196 | Release exact owned dead-pane cleanup as prerelease 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
 | 197 | Preserve dependencies and use local package proof for 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
 | 198 | Refuse explicit cleanup for live tmux matches and require exact dead corroboration | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 199 | Require an exact same-owner checkpoint before accepting post-removal tmux absence | ADR-260814-tmux-identity-failure-recovery | 2026-08-18 |
+| 200 | Require unchanged socket identity around accepted missing-target responses | ADR-260814-tmux-identity-failure-recovery | 2026-08-18 |
+| 201 | Run cleanup-retry observations from an existing repository directory | ADR-260814-tmux-identity-failure-recovery | 2026-08-18 |
+| 202 | Accept only selector-bound pane, window, or session missing-target records | CORE-COMPONENT-260814-tmux-identity-diagnostics | 2026-08-18 |
+| 203 | Resume only remaining lease and lock steps after proved earlier cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-18 |
+| 204 | Refuse pre-checkpoint, malformed, replaced, unavailable, or nonaccepted tmux absence | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-18 |
+| 205 | Bound cleanup overlaps to complete target or checkpoint-proved absence reads | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 206 | Release checkpoint-gated cleanup retry as prerelease 0.2.1-beta.3 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
+| 207 | Preserve dependencies and use local package proof for 0.2.1-beta.3 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
+| 208 | Classify exact-target nonzero results only through checkpoint-gated missing-target proof | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |

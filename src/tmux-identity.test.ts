@@ -220,7 +220,9 @@ describe("Issue 36 LiveTmuxPort exact selector routing", () => {
         result(""),
         result(""),
       ]);
-      const tmux = createLivePorts(commands).tmux;
+      const socketIdentity = fixture.target.socketIdentity;
+      if (socketIdentity === null) throw new Error("fixture identity missing");
+      const tmux = createLivePorts(commands, async () => socketIdentity).tmux;
       const created = await tmux.createIssueWindow({
         target: fixture.target,
         windowName: "1",
