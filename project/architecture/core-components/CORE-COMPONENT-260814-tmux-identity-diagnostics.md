@@ -10,7 +10,7 @@ Define one portable parsing, bounded-diagnostic, persistence, rendering, and ret
 
 ## Scope
 
-This component applies to command-result byte capture, normal `LiveTmuxPort` creation and observation, isolated Doctor creation and observation, shared identity parsing, typed failures, `RunSnapshotV5` and `TransitionEventV2` persistence, reconciliation/status/control rendering, preparation resume, deterministic fixtures, and operator documentation. It does not authorize tmux adoption, change process identity, retain pane output, add polling, inherit ambient locale or tmux state, or inspect an external consumer repository.
+This component applies to command-result byte capture, normal `LiveTmuxPort` creation and observation, isolated Doctor creation and observation, shared identity parsing, typed failures, `RunSnapshotV6` and `TransitionEventV2` persistence, reconciliation/status/control rendering, preparation resume, deterministic fixtures, and operator documentation. It does not authorize tmux adoption, change process identity, retain pane output, add polling, inherit ambient locale or tmux state, or inspect an external consumer repository.
 
 ## Definition
 
@@ -31,7 +31,7 @@ This component applies to command-result byte capture, normal `LiveTmuxPort` cre
 - Continue to read the legacy schema-v1 tokens `window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other`; add `vertical_bar` without invalidating an already-persisted diagnostic.
 - Derive a diagnostic for a completed create command that exits nonzero or has malformed identity output. Keep nonzero creation as `EXTERNAL_COMMAND_FAILED`; use `TMUX_IDENTITY_MALFORMED` for rejected zero-exit identity output.
 - Treat nonzero observation as target absence without creating or replacing a diagnostic. Treat malformed zero-exit observation as unknown with `TMUX_IDENTITY_MALFORMED`. Treat spawn and timeout failures as existing external-command unknowns without invented byte facts.
-- Persist only the latest diagnostic in nullable `RunSnapshotV5.tmuxIdentityDiagnostic`. Replace it on a later identity failure for the same owned run. Clear it only after valid create or observe identity proof.
+- Persist only the latest diagnostic in nullable `RunSnapshotV6.tmuxIdentityDiagnostic`. Replace it on a later identity failure for the same owned run. Clear it only after valid create or observe identity proof.
 - Persist a creation parse failure as a revisioned `starting_tmux` transition while preserving exact lock, lease, branch, and worktree ownership. Persist malformed observation after the one collected reconciliation pass without a second observation.
 - Keep diagnostics non-authorizing and distinct from logs. Retained identity evidence alone never authorizes ownership, retry, adoption, signaling, or cleanup and never satisfies `logs`.
 - Authorize `starting_tmux` retry only when exact lock/lease, worktree path/registration/branch, fetched-base HEAD, cleanliness, no persisted identity, and zero same-name candidates are proved. Repeat name absence immediately before one create attempt.
@@ -45,7 +45,7 @@ This component applies to command-result byte capture, normal `LiveTmuxPort` cre
 - `TmuxPort` exposes exact create/observe operations plus bounded name-only presence observation.
 - Normal and Doctor adapters import one shared transport format and parser rather than duplicating delimiter grammar.
 - Typed tmux identity failures carry a safe diagnostic to orchestration and Doctor without raw command details.
-- `RunSnapshotV5`, `TransitionEventV2`, `ReconciliationReportV2`, and status schema version 4 preserve the existing bounded diagnostic lifecycle.
+- `RunSnapshotV6`, `TransitionEventV2`, `ReconciliationReportV3`, and status schema version 5 preserve the existing bounded diagnostic lifecycle while exact target authority remains governed by `CORE-COMPONENT-260817-exact-tmux-context-ownership`.
 
 ### Expectations
 
@@ -93,3 +93,4 @@ same-name candidate: present                   -> RESOURCE_OWNERSHIP_UNKNOWN, no
 - [ADR-260814-tmux-identity-failure-recovery](../ADR/ADR-260814-tmux-identity-failure-recovery.md)
 - [ADR-260812-repository-doctor-readiness](../ADR/ADR-260812-repository-doctor-readiness.md)
 - [ADR-260811-prototype-three-recovery-concurrency](../ADR/ADR-260811-prototype-three-recovery-concurrency.md)
+- [ADR-260817-invoking-tmux-context-targeting](../ADR/ADR-260817-invoking-tmux-context-targeting.md)

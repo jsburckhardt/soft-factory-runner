@@ -7,14 +7,15 @@ import type {
   IssueFacts,
   RepositoryFacts,
   ProcessIdentityV1,
-  RunSnapshotV3,
-  TmuxIdentity,
+  RunSnapshotV6,
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import { createLivePorts, processObservationDisposition } from "./live";
 import type { CommandResult, CommandRunner } from "./live";
 import { RunnerError } from "./errors";
 import { IssueRunService } from "./orchestrator";
+import { integrationLaunch } from "./integration";
+import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import type {
   FilePort,
   GitHubPort,
@@ -216,15 +217,32 @@ class CountingGit implements GitPort {
 
 class CountingTmux implements TmuxPort {
   public windows = 0;
-  public readonly identities: TmuxIdentity[] = [];
+  public readonly identities: TmuxTargetV2[] = [];
+  public async selectTarget(input: {
+    readonly repository: import("./domain").RepositoryIdentity;
+  }) {
+    return {
+      ...deriveStandaloneTmuxTarget(input.repository),
+      socketIdentity: { device: "1", inode: "1" },
+      sessionId: "$1",
+    };
+  }
   public async createIssueWindow(input: {
-    readonly sessionName: string;
+    readonly target: import("./tmux-target").TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
-  }): Promise<TmuxIdentity> {
+  }): Promise<TmuxTargetV2> {
     this.windows += 1;
-    const identity = {
-      sessionName: input.sessionName,
+    const identity: TmuxTargetV2 = {
+      schemaVersion: 2,
+      selectionMode: input.target.selectionMode,
+      socketPath: input.target.socketPath,
+      socketIdentity: input.target.socketIdentity ?? {
+        device: "1",
+        inode: "1",
+      },
+      sessionId: input.target.sessionId ?? "$1",
+      sessionName: input.target.sessionName,
       windowName: input.windowName,
       windowId: `@${input.windowName}`,
       paneId: `%${input.windowName}`,
@@ -236,7 +254,7 @@ class CountingTmux implements TmuxPort {
   public async observeIssueWindowName(): Promise<boolean> {
     return false;
   }
-  public async observe(target: TmuxIdentity): Promise<TmuxIdentity> {
+  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2> {
     return target;
   }
   public async panePid(): Promise<number> {
@@ -823,8 +841,8 @@ describe("real filesystem and Git integration", () => {
           2,
         );
         expect(
-          tmux.identities.every(
-            (entry) => entry.sessionName === "sf-owner-repo",
+          tmux.identities.every((entry) =>
+            entry.sessionName.startsWith("sf-owner-repo-"),
           ),
         ).toBe(true);
         const admittedIssues = new Set(
@@ -1063,52 +1081,73 @@ describe("real filesystem and Git integration", () => {
       const requiredAcceptanceCriteria = [
         { id: "AC-1", text: "authoritative remote proof" },
       ];
-      const snapshotFor = (updatedAt: string): RunSnapshotV3 => ({
-        schemaVersion: 3,
-        revision: 1,
-        attempt: 1,
-        runId: "run-stale-remote",
-        ownerId: "owner-stale-remote",
-        repository: "owner/repo",
-        issueNumber: 4,
-        state: "running_rpiv",
-        branchType: "feat",
-        branch,
-        worktreePath: root,
-        fetchedBaseProof: {
-          schemaVersion: 1,
-          remote: "origin",
-          defaultBranch: "main",
-          advertisedHeadSha: shaA,
-          trackingRefSha: shaA,
-          fetchedAt: "2026-08-11T12:00:00.000Z",
-          matches: true,
-        },
-        tmux: {
-          sessionName: "sf-owner-repo",
-          windowName: "4",
-          windowId: "@4",
-          paneId: "%4",
-          cwd: root,
-        },
-        copilot: null,
-        admission: null,
-        launchIntent: null,
-        workerProcess: null,
-        rpivProcess: null,
-        stop: null,
-        cleanup: null,
-        logs: [],
-        mergedPullRequest: null,
-        error: null,
-        updatedAt,
-        requiredAcceptanceCriteria,
-        requiredValidations: [
-          { command: "just verify-focused" },
-          { command: "just verify" },
-        ],
-        finalization: null,
-      });
+      const snapshotFor = (updatedAt: string): RunSnapshotV6 => {
+        const requiredFinalValidation = { command: "just verify" };
+        const selected = {
+          selectionMode: "standalone" as const,
+          socketPath: "/tmp/soft-factory-integration.sock",
+          socketIdentity: { device: "1", inode: "1" },
+          sessionId: "$1",
+          sessionName: "sf-owner-repo-test",
+          repository: "owner/repo",
+        };
+        return {
+          schemaVersion: 6,
+          revision: 1,
+          attempt: 1,
+          runId: "run-stale-remote",
+          ownerId: "owner-stale-remote",
+          repository: "owner/repo",
+          issueNumber: 4,
+          state: "running_rpiv",
+          branchType: "feat",
+          branch,
+          worktreePath: root,
+          fetchedBaseProof: {
+            schemaVersion: 1,
+            remote: "origin",
+            defaultBranch: "main",
+            advertisedHeadSha: shaA,
+            trackingRefSha: shaA,
+            fetchedAt: "2026-08-11T12:00:00.000Z",
+            matches: true,
+          },
+          tmuxSelection: selected,
+          tmux: {
+            schemaVersion: 2,
+            ...selected,
+            windowName: "4",
+            windowId: "@4",
+            paneId: "%4",
+            cwd: root,
+          },
+          copilot: null,
+          admission: null,
+          launchIntent: null,
+          workerProcess: null,
+          rpivProcess: null,
+          stop: null,
+          cleanup: null,
+          logs: [],
+          mergedPullRequest: null,
+          error: null,
+          updatedAt,
+          requiredAcceptanceCriteria,
+          requiredFinalValidation,
+          integrationLaunch: integrationLaunch({
+            runId: "run-stale-remote",
+            attempt: 1,
+            issueNumber: 4,
+            branch,
+            worktreePath: root,
+            startedAt: updatedAt,
+            requiredFinalValidation,
+          }),
+          progress: null,
+          finalization: null,
+          tmuxIdentityDiagnostic: null,
+        };
+      };
       const resultFor = (headSha: string) => ({
         schemaVersion: 1,
         issueNumber: 4,

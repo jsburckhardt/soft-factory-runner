@@ -5,9 +5,8 @@ import type {
   OwnerRecordV1,
   ProcessIdentityV1,
   ReconciliationObservationsV1,
-  RunSnapshotV3,
+  RunSnapshotV6,
 } from "./domain";
-import { REQUIRED_VALIDATIONS } from "./domain";
 import { RunStore } from "./persistence";
 import type { FilePort } from "./ports";
 import { buildReconciliationReport } from "./reconciliation";
@@ -38,8 +37,8 @@ const lease: ConcurrencyLeaseV1 = {
   configuredLimit: 2,
   acquiredAt: "time",
 };
-const snapshot: RunSnapshotV3 = {
-  schemaVersion: 3,
+const snapshot: RunSnapshotV6 = {
+  schemaVersion: 6,
   revision: 7,
   attempt: 2,
   runId: "run-5",
@@ -51,7 +50,20 @@ const snapshot: RunSnapshotV3 = {
   branch: "feat/5-recovery",
   worktreePath: "/repo/.trees/5",
   fetchedBaseProof: null,
+  tmuxSelection: {
+    selectionMode: "standalone",
+    socketPath: "/tmp/sf.sock",
+    socketIdentity: { device: "1", inode: "1" },
+    sessionId: "$1",
+    sessionName: "sf-owner-repo",
+    repository: "owner/repo",
+  },
   tmux: {
+    schemaVersion: 2,
+    selectionMode: "standalone",
+    socketPath: "/tmp/sf.sock",
+    socketIdentity: { device: "1", inode: "1" },
+    sessionId: "$1",
     sessionName: "sf-owner-repo",
     windowName: "5",
     windowId: "@5",
@@ -70,8 +82,24 @@ const snapshot: RunSnapshotV3 = {
   error: null,
   updatedAt: "2026-08-11T13:00:00.000Z",
   requiredAcceptanceCriteria: [{ id: "AC-1", text: "recover" }],
-  requiredValidations: REQUIRED_VALIDATIONS,
+  requiredFinalValidation: { command: "just verify" },
+  integrationLaunch: {
+    schemaVersion: 1,
+    runId: "run-5",
+    attempt: 2,
+    issueNumber: 5,
+    branch: "feat/5-recovery",
+    startedAt: "2026-08-11T13:00:00.000Z",
+    progressPath: "/repo/.trees/5/.soft-factory/rpiv-status.json",
+    resultPath: "/repo/.trees/5/.soft-factory/agent-result.json",
+    requiredFinalValidation: { command: "just verify" },
+    publishProgressCommand: "x",
+    publishResultCommand: "x",
+    validateResultCommand: "x",
+  },
+  progress: null,
   finalization: null,
+  tmuxIdentityDiagnostic: null,
 };
 function observation<T>(
   state: ObservationV1<T>["state"],
@@ -170,7 +198,7 @@ describe("V-2 full reconciliation matrix", () => {
     const second = buildReconciliationReport(snapshot, matchingObservations());
     expect(first).toEqual(second);
     expect(first).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       decisionCode: "active_preserved",
       activity: "active",
       safeActions: ["preserve_active", "attach", "stop"],

@@ -51,7 +51,7 @@ describe("Doctor contracts", () => {
   });
 
   it("aggregates readiness and rejects missing or unordered checks", () => {
-    const allPass = DOCTOR_CHECK_IDS.map(passedCheck);
+    const allPass = DOCTOR_CHECK_IDS.map((id) => passedCheck(id));
     expect(
       makeDoctorResult({ github: null, defaultBranch: null }, allPass),
     ).toEqual({

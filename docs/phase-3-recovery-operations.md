@@ -66,7 +66,7 @@ Unknown leases consume capacity. An occupied, malformed, unknown, or stale lease
 
 ## Reconciliation and persisted history
 
-New transitions use `RunSnapshotV5` and `TransitionEventV2`. A v5 snapshot preserves the v4 final-validation/integration binding and records monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
+New transitions use `RunSnapshotV6` and `TransitionEventV2`. A v6 snapshot preserves the v4 final-validation/integration binding and records monotonic revision, attempt, slot lease, launch intent, worker/RPIV process identity, stop, cleanup, log, and merged-PR facts. A v2 event records prior/resulting revision and the complete redacted resulting snapshot. Runner appends the event before atomically replacing the snapshot.
 
 On load, only a complete, contiguous, issue/run-identity-matching v2 chain may advance an event-ahead snapshot. Malformed, truncated, duplicate-conflicting, wrong-run, noncontiguous, and legacy-v1-ahead histories return `STATE_HISTORY_INVALID` without inferred mutation. Repetition over unchanged bytes returns the same normalized result.
 
@@ -142,12 +142,12 @@ Automatic mode removes only the clean exact worktree registration/path, exact in
 
 ## Migration and upgrade notes
 
-- Valid `RunSnapshotV1` through `RunSnapshotV5` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation` preserved unchanged in v5, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4/v5 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
+- Valid `RunSnapshotV1` through `RunSnapshotV6` remain readable; unknown versions are rejected. Completed v2/v3 records use an exact historical AgentResult parser only at the legacy boundary: one persisted passed `just verify` entry becomes the deterministic v4 `requiredFinalValidation` preserved unchanged in v5, focused entries remain supplementary, and current configuration is never read. The historical result shape remains invalid for current publication and v4/v5 snapshots; malformed, unsupported, missing, or failed legacy completion data is rejected.
 - Legacy snapshots do not contain the complete v4/v5 integration binding. They are never silently treated as v4 or v5 and cannot resume, stop, or clean until an explicit reconciliation transition proves migration.
 - Existing version-1 events remain append-only history. A v2 event ahead of a legacy snapshot is not replayed because the prior revision cannot be proved.
-- New runs write schema v5 and event v2. Supported v4 snapshots normalize only through one explicit revisioned v5 transition with `tmuxIdentityDiagnostic: null`; v1-v3 continue through the existing explicit v4 transition first. ReconciliationReportV2 and status schema v4 expose the latest diagnostic separately from authorization. No destructive data migration or purge is performed.
+- New runs write schema v6 and event v2. Supported exact v4/v5 snapshots normalize only through explicit revisioned transitions that preserve the v5 diagnostic and add complete exact-target authority; v1-v3 continue through the existing explicit v4 transition first and remain non-authorizing without exact selectors. `ReconciliationReportV3` with schema version 3 and `StatusFactsV5` with status schema version 5 expose the latest diagnostic separately from authorization. No destructive data migration or purge is performed.
 - `execution.max_concurrent_runs` defaults to 1, preserving prior single-run behavior. Configure a higher strict value only after inspecting current leases; unsafe reductions block rather than evict.
-- Candidate finalization recovery adds decision and rendering fields but no configuration option/default, network API, data migration, service, container, or deployment change. Existing v5 records need no migration.
+- Candidate finalization recovery adds decision and rendering fields but no configuration option/default, network API, data migration, service, container, or deployment change. Existing v5 records remain readable but require an explicit proved exact-target migration before tmux mutation.
 - Tmux identity recovery changes persisted schema and local CLI rendering but adds no configuration option/default and requires no configuration migration. It adds no network API contract, server, daemon, database, container, or deployment procedure; there is no deployment change. API migration is not applicable.
 
 ## Troubleshooting
@@ -192,3 +192,9 @@ Before issue execution, run `just run doctor` or `just run doctor --json` to ins
 ## RPIV progress and final-result operations
 
 Status and list display a separately observed RPIV phase and stable progress classification; unusable current progress is `unknown`, a byte-equivalent accepted current artifact may display its phase as `PROGRESS_REPEATED`, and no progress classification changes completion, activity, decision code, safe actions, cleanup eligibility, ownership, recovery, or process control. Verify publishes immutable AgentResultV1 only after PR creation, and the coordinator validates it before zero exit. See [RPIV integration, progress, and completion handoff](rpiv-integration-contract.md) for exact schemas, atomicity, classifications, helper ownership, redaction, and troubleshooting.
+
+## Exact target recovery and repeated absence
+
+Every tmux operation uses `tmux -S <persisted-socket>`; ambient tmux context at recovery time is irrelevant. Observation compares the complete persisted socket filesystem identity, session, immutable window, pane, and cwd in one record. Attach and logs use the pane ID; clean removes only the immutable window ID. A mismatch or unproved absence blocks resume, attach, logs, stop, and cleanup before mutation. Once terminal state and exact observation prove absence, repeated stop/clean remains an idempotent no-op. A same-name session/window on either the selected or another server is never adopted.
+
+Migration compatibility retains strict `RunSnapshotV1` through `RunSnapshotV5` readers and never silently treats an older record as a newer schema. New runs use `RunSnapshotV6` exact-target authority.

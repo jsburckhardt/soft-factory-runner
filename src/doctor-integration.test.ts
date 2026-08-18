@@ -100,7 +100,18 @@ function normalizeHuman(text: string): DoctorResultV2 {
         ),
       );
       index += evidenceLine?.startsWith("  EVIDENCE: ") ? 3 : 2;
-    } else checks.push(passedCheck(id));
+    } else {
+      const evidenceLine = lines[index + 1];
+      checks.push(
+        passedCheck(
+          id,
+          evidenceLine?.startsWith("  EVIDENCE: ")
+            ? JSON.parse(evidenceLine.slice(12))
+            : undefined,
+        ),
+      );
+      if (evidenceLine?.startsWith("  EVIDENCE: ")) index += 1;
+    }
   }
   const github = lines[1].slice("REPOSITORY github=".length);
   const branch = lines[2].slice("REPOSITORY defaultBranch=".length);

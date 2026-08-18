@@ -5,10 +5,16 @@ import type {
   MergedPullRequestFactsV1,
   ProcessIdentityV1,
   RepositoryFacts,
+  RepositoryIdentity,
   RunSnapshot,
   TmuxIdentity,
   WorktreeObservationV1,
 } from "./domain";
+import type {
+  InvokingTmuxEvidenceV1,
+  TmuxSessionTargetV1,
+  TmuxTargetV2,
+} from "./tmux-target";
 
 export interface ClockPort {
   now(): string;
@@ -96,29 +102,37 @@ export interface PaneCaptureV1 {
 }
 
 export interface TmuxPort {
+  selectTarget?(input: {
+    readonly evidence: InvokingTmuxEvidenceV1;
+    readonly repository: RepositoryIdentity;
+  }): Promise<TmuxSessionTargetV1>;
+  inventoryServerResources?(input: {
+    readonly socketPath: string;
+    readonly cwd: string;
+  }): Promise<Uint8Array>;
   createIssueWindow(input: {
-    readonly sessionName: string;
+    readonly target: TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
     readonly executable: string;
     readonly args: readonly string[];
-  }): Promise<TmuxIdentity>;
+  }): Promise<TmuxTargetV2>;
   observeIssueWindowName(input: {
-    readonly sessionName: string;
+    readonly target: TmuxSessionTargetV1;
     readonly windowName: string;
     readonly cwd: string;
   }): Promise<boolean>;
-  observe(target: TmuxIdentity): Promise<TmuxIdentity | null>;
-  panePid(target: TmuxIdentity): Promise<number | null>;
-  setRemainOnExit(target: TmuxIdentity): Promise<void>;
-  capturePane(target: TmuxIdentity, maxBytes: number): Promise<PaneCaptureV1>;
+  observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null>;
+  panePid(target: TmuxTargetV2): Promise<number | null>;
+  setRemainOnExit(target: TmuxTargetV2): Promise<void>;
+  capturePane(target: TmuxTargetV2, maxBytes: number): Promise<PaneCaptureV1>;
   restartWorker(
-    target: TmuxIdentity,
+    target: TmuxTargetV2,
     executable: string,
     args: readonly string[],
   ): Promise<void>;
-  removeWindow(target: TmuxIdentity): Promise<void>;
-  attach(target: TmuxIdentity): Promise<void>;
+  removeWindow(target: TmuxTargetV2): Promise<void>;
+  attach(target: TmuxTargetV2): Promise<void>;
 }
 
 export interface SpawnedProcessV1 {

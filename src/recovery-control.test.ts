@@ -13,7 +13,7 @@ import type {
   RunSnapshotV2,
   RunSnapshotV3,
   RunSnapshotV4,
-  RunSnapshotV5,
+  RunSnapshotV6,
   TmuxIdentity,
   TmuxIdentityDiagnosticV1,
 } from "./domain";
@@ -22,6 +22,7 @@ import {
   REQUIRED_VALIDATIONS,
 } from "./domain";
 import { RunnerError } from "./errors";
+import { deriveStandaloneTmuxTarget, type TmuxTargetV2 } from "./tmux-target";
 import { TmuxIdentityOutputError } from "./tmux-identity";
 import { runCli } from "./index";
 import { integrationLaunch } from "./integration";
@@ -41,7 +42,12 @@ const root = "/repo";
 const worktree = "/repo/.trees/5";
 const branch = "feat/5-recovery";
 const sha = "a".repeat(40);
-const tmux: TmuxIdentity = {
+const tmux: TmuxTargetV2 = {
+  schemaVersion: 2,
+  selectionMode: "standalone",
+  socketPath: "/tmp/soft-factory-test.sock",
+  socketIdentity: { device: "1", inode: "1" },
+  sessionId: "$1",
   sessionName: "sf-owner-repo",
   windowName: "5",
   windowId: "@5",
@@ -334,7 +340,16 @@ class ControlTmux implements TmuxPort {
   public createCalls = 0;
   public createdWindows = 0;
   public captureContent = "token=[REDACTED] pane evidence";
-  public async createIssueWindow(): Promise<TmuxIdentity> {
+  public async selectTarget(input: {
+    readonly repository: import("./domain").RepositoryIdentity;
+  }) {
+    return {
+      ...deriveStandaloneTmuxTarget(input.repository),
+      socketIdentity: tmux.socketIdentity,
+      sessionId: tmux.sessionId,
+    };
+  }
+  public async createIssueWindow(): Promise<TmuxTargetV2> {
     this.createCalls += 1;
     if (await this.observeIssueWindowName())
       throw new RunnerError(
@@ -352,7 +367,7 @@ class ControlTmux implements TmuxPort {
     this.trace.push("observe-name");
     return this.nameResults.shift() ?? this.namePresent;
   }
-  public async observe(target: TmuxIdentity) {
+  public async observe(target: TmuxTargetV2) {
     this.identityObservations += 1;
     if (this.observationFailure !== null) throw this.observationFailure;
     return this.present ? target : null;
@@ -451,7 +466,7 @@ class ControlProcess implements ProcessPort {
   }
 }
 
-function snapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
+function legacySnapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
   return {
     schemaVersion: 3,
     revision: 1,
@@ -487,7 +502,39 @@ function snapshot(overrides: Partial<RunSnapshotV3> = {}): RunSnapshotV3 {
   };
 }
 
-async function fixture(initial: RunSnapshotV3 | RunSnapshotV4) {
+function snapshot(overrides: Partial<RunSnapshotV6> = {}): RunSnapshotV6 {
+  const legacy = legacySnapshot(overrides as Partial<RunSnapshotV3>);
+  const { requiredValidations: _legacyValidations, ...base } = legacy;
+  void _legacyValidations;
+  const requiredFinalValidation = { command: "just verify" };
+  return {
+    ...base,
+    schemaVersion: 6,
+    tmuxSelection: {
+      selectionMode: tmux.selectionMode,
+      socketPath: tmux.socketPath,
+      socketIdentity: tmux.socketIdentity,
+      sessionId: tmux.sessionId,
+      sessionName: tmux.sessionName,
+      repository: legacy.repository,
+    },
+    requiredFinalValidation,
+    integrationLaunch: integrationLaunch({
+      runId: legacy.runId,
+      attempt: legacy.attempt,
+      issueNumber: legacy.issueNumber,
+      branch: legacy.branch,
+      worktreePath: legacy.worktreePath,
+      startedAt: legacy.updatedAt,
+      requiredFinalValidation,
+    }),
+    progress: null,
+    tmuxIdentityDiagnostic: null,
+    ...overrides,
+  };
+}
+
+async function fixture(initial: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV6) {
   const files = new ControlFiles();
   files.values.set(worktree, "directory");
   const git = new ControlGit(files);
@@ -502,7 +549,10 @@ async function fixture(initial: RunSnapshotV3 | RunSnapshotV4) {
     tmux: tmuxPort,
     processes,
     clock: {
-      now: () => `2026-08-11T13:00:${String(tick++).padStart(2, "0")}.000Z`,
+      now: () =>
+        new Date(
+          Date.parse("2026-08-11T13:00:00.000Z") + tick++ * 1000,
+        ).toISOString(),
     },
     ids: { nextOwnerId: () => "unused", nextRunId: () => "unused" },
   };
@@ -552,11 +602,11 @@ function versionFour(value: RunSnapshotV3): RunSnapshotV4 {
 describe("V-1 explicit legacy migration", () => {
   it("normalizes a supported v4 snapshot through one explicit revisioned v5 event", async () => {
     const f = await fixture(
-      versionFour(snapshot({ state: "interrupted", rpivProcess: null })),
+      versionFour(legacySnapshot({ state: "interrupted", rpivProcess: null })),
     );
     const report = await new IssueRunService(f.ports).reconcile(5, root);
     expect(report.persisted).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       revision: 2,
       tmuxIdentityDiagnostic: null,
     });
@@ -565,8 +615,8 @@ describe("V-1 explicit legacy migration", () => {
       schemaVersion: 2,
       priorRevision: 1,
       resultingRevision: 2,
-      reason: "v4-v5-snapshot-normalized",
-      resultingSnapshot: { schemaVersion: 5, tmuxIdentityDiagnostic: null },
+      reason: "legacy-v6-exact-target-migration",
+      resultingSnapshot: { schemaVersion: 6, tmuxIdentityDiagnostic: null },
     });
   });
 
@@ -608,16 +658,20 @@ describe("V-1 explicit legacy migration", () => {
     );
     const report = await new IssueRunService(f.ports).reconcile(5, root);
     expect(report.persisted).toMatchObject({
-      schemaVersion: 5,
-      revision: 2,
+      schemaVersion: 2,
       state: "interrupted",
     });
-    expect(await f.store.loadHistory(5)).toHaveLength(3);
+    expect(report.decisionCode).toBe("LEGACY_RECONCILIATION_REQUIRED");
+    expect(await f.store.loadHistory(5)).toHaveLength(1);
   });
 
   it("normalizes supported legacy state to sole just verify despite invalid current final-validation config", async () => {
     const f = await fixture(
-      snapshot({ state: "interrupted", rpivProcess: null, admission: null }),
+      legacySnapshot({
+        state: "interrupted",
+        rpivProcess: null,
+        admission: null,
+      }),
     );
     f.files.values.set(
       path.join(root, ".soft-factory", "config.yml"),
@@ -625,7 +679,7 @@ describe("V-1 explicit legacy migration", () => {
     );
     await new IssueRunService(f.ports).reconcile(5, root);
     await expect(f.store.load(5)).resolves.toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       requiredFinalValidation: { command: "just verify" },
       integrationLaunch: {
         requiredFinalValidation: { command: "just verify" },
@@ -634,7 +688,7 @@ describe("V-1 explicit legacy migration", () => {
   });
 
   it("deterministically migrates completed v3 proof without current config or focused requirements", async () => {
-    const completed = snapshot({
+    const completed = legacySnapshot({
       state: "completed",
       admission: null,
       rpivProcess: null,
@@ -664,7 +718,7 @@ describe("V-1 explicit legacy migration", () => {
       );
       const report = await new IssueRunService(f.ports).reconcile(5, root);
       expect(report.persisted).toMatchObject({
-        schemaVersion: 5,
+        schemaVersion: 6,
         state: "completed",
         requiredFinalValidation: { command: "just verify" },
         finalization: {
@@ -689,7 +743,7 @@ describe("V-1 explicit legacy migration", () => {
       });
       normalized.push({
         requiredFinalValidation:
-          report.persisted.schemaVersion === 5
+          report.persisted.schemaVersion === 6
             ? report.persisted.requiredFinalValidation
             : null,
         result: migratedResult,
@@ -732,7 +786,7 @@ describe("V-2 collected reconciliation facts", () => {
       state: "completed",
       rpivProcess: null,
       finalization: {
-        result: legacyResult,
+        result: result,
         git: null,
         pullRequest: null,
         reconciliation: null,
@@ -999,7 +1053,7 @@ describe("V-13 through V-16 recovery candidate incident", () => {
     };
     const latest = {
       ...before,
-      schemaVersion: 5,
+      schemaVersion: 6,
       revision: before.revision + 4,
       state: "running_rpiv",
       workerProcess: worker,
@@ -1016,7 +1070,7 @@ describe("V-13 through V-16 recovery candidate incident", () => {
         updatedAt: "2026-08-11T13:01:00.000Z",
       },
       tmuxIdentityDiagnostic: tmuxDiagnostic,
-    } as unknown as RunSnapshotV5;
+    } as unknown as RunSnapshotV6;
 
     expect(
       classifyPostWaitState(latest, {
@@ -1138,7 +1192,7 @@ describe("resume reconciliation gates", () => {
         state: "finalizing",
         rpivProcess: null,
         finalization: {
-          result: legacyResult,
+          result: result,
           git: null,
           pullRequest: null,
           reconciliation: null,
@@ -1159,7 +1213,7 @@ describe("resume reconciliation gates", () => {
 });
 
 describe("Issue 29 preparation identity recovery", () => {
-  function startingTmuxSnapshot(): RunSnapshotV3 {
+  function startingTmuxSnapshot(): RunSnapshotV6 {
     return snapshot({
       state: "starting_tmux",
       admission: lease,
@@ -1193,7 +1247,7 @@ describe("Issue 29 preparation identity recovery", () => {
       code: "TMUX_IDENTITY_MALFORMED",
     });
     await expect(f.store.load(5)).resolves.toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       state: "starting_tmux",
       admission: lease,
       tmux: null,
@@ -1207,7 +1261,7 @@ describe("Issue 29 preparation identity recovery", () => {
     const beforeRetryCreates = f.tmux.createCalls;
     const report = await service.reconcile(5, root);
     expect(report).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       decisionCode: "PREPARATION_RESUME_AVAILABLE",
       safeActions: ["resume"],
       tmuxIdentityDiagnostic: tmuxDiagnostic,
@@ -1323,10 +1377,10 @@ describe("Issue 29 preparation identity recovery", () => {
     });
     const jsonStatus = await runCli(["status", "5", "--json"], root, f.ports);
     expect(JSON.parse(jsonStatus.stdout)).toMatchObject({
-      schemaVersion: 4,
-      persisted: { schemaVersion: 5, tmuxIdentityDiagnostic: tmuxDiagnostic },
+      schemaVersion: 5,
+      persisted: { schemaVersion: 6, tmuxIdentityDiagnostic: tmuxDiagnostic },
       reconciliation: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         tmuxIdentityDiagnostic: tmuxDiagnostic,
       },
     });
@@ -1537,7 +1591,7 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
         matches: true,
       },
       finalization: {
-        result: legacyResult,
+        result: result,
         git: {
           localHeadSha: sha,
           remote: "origin",
@@ -1648,6 +1702,93 @@ describe("V-8/V-9/V-10 guarded cleanup", () => {
     expect(f.tmux.trace).toEqual(["capture", "remove-window"]);
     expect(f.git.trace).toEqual(worktreeCalls);
     expect(f.files.compareAndDeleteTrace).toEqual(deleteCalls);
+  });
+
+  it("bounds cleanup/status overlap at the complete pre-target", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null }),
+    );
+    f.processes.observed = null;
+    let startedResolve: (() => void) | undefined;
+    let releaseResolve: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedResolve = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseResolve = resolve;
+    });
+    const originalRemove = f.tmux.removeWindow.bind(f.tmux);
+    f.tmux.removeWindow = async () => {
+      startedResolve?.();
+      await release;
+      await originalRemove();
+    };
+    const service = new IssueRunService(f.ports);
+    const cleanup = service.clean(5, root);
+    await Promise.race([
+      started,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("cleanup/status overlap exceeded bound")),
+          1000,
+        ),
+      ),
+    ]);
+    const status = await service.status(5, root);
+    expect(status.reconciliation.observations.tmux).toMatchObject({
+      state: "match",
+      facts: tmux,
+    });
+    expect(f.tmux.present).toBe(true);
+    releaseResolve?.();
+    await expect(cleanup).resolves.toMatchObject({ code: "CLEANUP_COMPLETED" });
+  });
+
+  it("bounds cleanup/reconciliation overlap at complete target absence without unrelated mutation", async () => {
+    const f = await fixture(
+      snapshot({ state: "interrupted", rpivProcess: null }),
+    );
+    f.processes.observed = null;
+    const unrelatedInventory = JSON.stringify({
+      server: "unrelated",
+      windows: ["sentinel"],
+    });
+    let removedResolve: (() => void) | undefined;
+    let releaseResolve: (() => void) | undefined;
+    const removed = new Promise<void>((resolve) => {
+      removedResolve = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseResolve = resolve;
+    });
+    const originalRemove = f.tmux.removeWindow.bind(f.tmux);
+    f.tmux.removeWindow = async () => {
+      await originalRemove();
+      removedResolve?.();
+      await release;
+    };
+    const service = new IssueRunService(f.ports);
+    const cleanup = service.clean(5, root);
+    await Promise.race([
+      removed,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(new Error("cleanup/reconciliation overlap exceeded bound")),
+          1000,
+        ),
+      ),
+    ]);
+    const report = await service.reconcile(5, root);
+    expect(report.observations.tmux).toMatchObject({
+      state: "absent",
+      facts: null,
+    });
+    expect(JSON.stringify({ server: "unrelated", windows: ["sentinel"] })).toBe(
+      unrelatedInventory,
+    );
+    releaseResolve?.();
+    await expect(cleanup).resolves.toMatchObject({ code: "CLEANUP_COMPLETED" });
   });
 
   it("returns an idempotent already-cleaned result after explicit cleanup", async () => {

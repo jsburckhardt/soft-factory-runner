@@ -19,6 +19,9 @@ const runReconciliationContract = read(
 const tmuxIdentityContract = read(
   "project/architecture/core-components/CORE-COMPONENT-260814-tmux-identity-diagnostics.md",
 );
+const tmuxIdentityAdr = read(
+  "project/architecture/ADR/ADR-260814-tmux-identity-failure-recovery.md",
+);
 const decisionLog = read("project/architecture/ADR/DECISION-LOG.md");
 const verifierAgent = read(".github/agents/rpiv-verifier.agent.md");
 const rpivAgent = read(".github/agents/rpiv.agent.md");
@@ -135,12 +138,12 @@ describe("V-11 Phase 3 operator documentation", () => {
     );
   });
 
-  it("guards corrected v5 architecture and final publication ordering against stale contracts", () => {
+  it("guards corrected v6 architecture and final publication ordering against stale contracts", () => {
     for (const phrase of [
-      "Persist new runs as `RunSnapshotV5`",
-      "snapshot versions 1 through 5",
-      "explicit revisioned v5 transition",
-      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, or `RunSnapshotV5`",
+      "Persist new runs as `RunSnapshotV6`",
+      "snapshot versions 1 through 6",
+      "explicit revisioned v6 transition",
+      "a complete resulting `RunSnapshotV3`, `RunSnapshotV4`, `RunSnapshotV5`, or `RunSnapshotV6`",
       "nullable `tmuxIdentityDiagnostic`",
     ])
       expect(runReconciliationContract).toContain(phrase);
@@ -151,7 +154,7 @@ describe("V-11 Phase 3 operator documentation", () => {
       "Read valid snapshot versions 1 through 3",
     );
     expect(decisionLog).toContain(
-      "Read RunSnapshotV1-V5 and persist new runs as revisioned RunSnapshotV5",
+      "Read RunSnapshotV1-V6 and persist new runs as revisioned RunSnapshotV6",
     );
     for (const phrase of [
       "commits and pushes the required verification summary and verifier retro records",
@@ -368,13 +371,19 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     ])
       expect(operations + issueRun).toContain(phrase);
     for (const phrase of [
-      "RunSnapshotV5",
-      "ReconciliationReportV2",
-      "status schema v4",
-      "explicit revisioned v5 transition",
-      "tmuxIdentityDiagnostic: null",
+      "RunSnapshotV6",
+      "ReconciliationReportV3",
+      "schema version 3",
+      "StatusFactsV5",
+      "status schema v5",
+      "explicit revisioned transitions",
+      "complete exact-target authority",
     ])
       expect(readme + operations + prd).toContain(phrase);
+    expect(tmuxIdentityAdr).toContain("Preserve `RunSnapshotV5`");
+    expect(integrationGuide).toContain(
+      "Compatibility note: `RunSnapshotV5` remains readable as legacy input",
+    );
     expect(tmuxIdentityContract).toContain(
       "window_id`, `pane_id`, `vertical_bar`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other",
     );
@@ -407,7 +416,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.",
     );
     expect(section).not.toContain("all supported inputs to sole");
-    expect(section).toContain("new runs use revisioned `RunSnapshotV5`");
+    expect(section).toContain("new runs use revisioned `RunSnapshotV6`");
     expect(section).toContain(
       "Valid Phase 1 `RunSnapshotV1` files remain readable",
     );
@@ -416,7 +425,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
     );
   });
 
-  it("parses the exact current PRD RunSnapshotV5 and distinguishes schema families", () => {
+  it("parses the exact current PRD RunSnapshotV6 and distinguishes schema families", () => {
     const assetSection = sectionBetween(
       prd,
       "# 12. Asset Manifest",
@@ -437,9 +446,9 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "# 35. RPIV Result Artifact",
       "# 36. Completion Reconciliation",
     );
-    expect(snapshotSection).toContain("New runs write `RunSnapshotV5`");
+    expect(snapshotSection).toContain("New runs write `RunSnapshotV6`");
     expect(snapshotSection).toContain(
-      "Snapshot versions v1-v4 are compatibility inputs only and migrate only through supported explicit transitions.",
+      "Snapshot versions v1-v5 are compatibility inputs only and migrate only through supported explicit transitions that prove an exact target.",
     );
 
     const assetExample = firstFencedJson(assetSection);
@@ -451,7 +460,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       doctor: objectValue(doctorExample, "schemaVersion"),
       snapshot: objectValue(snapshotExample, "schemaVersion"),
       result: objectValue(resultExample, "schemaVersion"),
-    }).toEqual({ asset: 1, doctor: 2, snapshot: 5, result: 1 });
+    }).toEqual({ asset: 1, doctor: 2, snapshot: 6, result: 1 });
 
     const expectedKeys = [
       "schemaVersion",
@@ -464,6 +473,7 @@ describe("V-8 Issue 29 tmux identity recovery documentation", () => {
       "branch",
       "worktreePath",
       "fetchedBaseProof",
+      "tmuxSelection",
       "tmux",
       "copilot",
       "error",
@@ -1055,7 +1065,7 @@ describe("Issue 31 APS Semantic Versioning instructions", () => {
   });
 });
 
-describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
+describe("Issue 36 exact tmux ownership and 0.2.0 guidance", () => {
   it("keeps the issue-run guide structurally unique and grammatically complete", () => {
     const title = "# Issue run and Phase 2 completion proof";
     const bodyAnchor =
@@ -1076,6 +1086,7 @@ describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
       "## Troubleshooting",
       "## Deterministic evidence fixtures",
       "## Phase 3 continuation",
+      "## Invoking tmux target and v6 migration",
     ]);
     expect(issueRun.split("^@[0-9]+$")).toHaveLength(2);
     expect(issueRun.split("^%[0-9]+$")).toHaveLength(2);
@@ -1112,13 +1123,47 @@ describe("Issues 5 and 34 combined recovery safety and 0.1.3 guidance", () => {
     }
   });
 
-  it("documents exact local 0.1.3 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents invoking selection, v6 lifecycle isolation, refusal, confidentiality, and Doctor classification", () => {
+    const combined = [
+      readme,
+      issueRun,
+      operations,
+      doctorGuide,
+      docsIndex,
+      prd,
+    ].join("\n");
+    for (const phrase of [
+      "TMUX_PANE",
+      "standalone",
+      "RunSnapshotV6",
+      "same-name",
+      "never adopted",
+      "persisted socket",
+      "invalid-context",
+      "server PIDs",
+      "v1-v5",
+      "no network API",
+    ])
+      expect(combined).toContain(phrase);
+    expect(readme).toContain("Complete equality authorizes action");
+    expect(operations).toContain("tmux -S <persisted-socket>");
+    expect(doctorGuide).toContain("ordered 24 check IDs");
+    for (const phrase of [
+      "actual session, window, and pane records",
+      "explicit `-S` selectors",
+      "Directory entries are not inventory proof",
+      "65,536 bytes",
+    ])
+      expect(readme + doctorGuide + prd).toContain(phrase);
+  });
+
+  it("documents exact local 0.1.3-to-0.2.0 upgrade, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.1.3",
+      "0.2.0",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.2.0");
       expect(document).toContain("0.1.3");
-      expect(document).toContain("0.1.2");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }

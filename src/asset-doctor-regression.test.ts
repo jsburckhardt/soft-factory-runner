@@ -77,7 +77,7 @@ describe("V-8 Doctor non-regression and canonical authority", () => {
     ]);
     const ready = makeDoctorResult(
       { github: null, defaultBranch: null },
-      DOCTOR_CHECK_IDS.map(passedCheck),
+      DOCTOR_CHECK_IDS.map((id) => passedCheck(id)),
     );
     expect(ready.ready).toBe(true);
     const blocked = makeDoctorResult(

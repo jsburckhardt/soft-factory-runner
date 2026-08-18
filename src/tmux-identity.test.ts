@@ -1,4 +1,6 @@
-import type { TmuxIdentity } from "./domain";
+import * as fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import type { CommandResult, CommandRunner } from "./live";
 import { createLivePorts } from "./live";
 import { isTmuxIdentityDiagnostic } from "./persistence";
@@ -31,120 +33,6 @@ function result(
   };
 }
 
-type ClientState = {
-  readonly name: "UTF-8" | "non-UTF8";
-  readonly clientUtf8: boolean;
-  readonly inheritedLocale: false;
-  readonly inheritedTmux: false;
-  readonly defaultServer: false;
-  readonly credentials: false;
-  readonly network: false;
-  readonly sparkta: false;
-};
-
-const clientStates: readonly ClientState[] = [
-  {
-    name: "UTF-8",
-    clientUtf8: true,
-    inheritedLocale: false,
-    inheritedTmux: false,
-    defaultServer: false,
-    credentials: false,
-    network: false,
-    sparkta: false,
-  },
-  {
-    name: "non-UTF8",
-    clientUtf8: false,
-    inheritedLocale: false,
-    inheritedTmux: false,
-    defaultServer: false,
-    credentials: false,
-    network: false,
-    sparkta: false,
-  },
-];
-
-class Barrier {
-  private arrivals = 0;
-  private release!: () => void;
-  private readonly ready = new Promise<void>((resolve) => {
-    this.release = resolve;
-  });
-
-  public async arrive(): Promise<void> {
-    this.arrivals += 1;
-    if (this.arrivals === 2) this.release();
-    await this.ready;
-  }
-}
-
-class ProtocolCommandRunner implements CommandRunner {
-  public readonly calls: Array<{
-    readonly executable: string;
-    readonly args: readonly string[];
-    readonly cwd: string;
-    readonly timeoutMs: number;
-    readonly shell: false | undefined;
-  }> = [];
-  public readonly resources: Array<{
-    readonly windowId: string;
-    readonly paneId: string;
-    readonly cwd: string;
-  }> = [];
-  public readonly prohibitedAccess: readonly string[] = [];
-
-  public constructor(
-    public readonly state: ClientState,
-    private readonly identity: {
-      readonly windowId: string;
-      readonly paneId: string;
-      readonly cwd: string;
-    },
-    private readonly barrier?: Barrier,
-  ) {}
-
-  public async run(
-    executable: string,
-    args: readonly string[],
-    cwd: string,
-    timeoutMs: number,
-    shell?: false,
-  ): Promise<CommandResult> {
-    this.calls.push({ executable, args, cwd, timeoutMs, shell });
-    const command = args[0];
-    if (command === "has-session") return result("");
-    if (command === "list-windows") return result("");
-    if (command === "new-window") {
-      await this.barrier?.arrive();
-      const format = args[args.indexOf("-F") + 1];
-      if (format === undefined) throw new Error("controlled format missing");
-      this.resources.push(this.identity);
-      return result(
-        renderTmuxFormat(format, this.identity, this.state.clientUtf8),
-      );
-    }
-    if (command === "list-panes") {
-      const format = args[args.indexOf("-F") + 1];
-      if (format === undefined) throw new Error("controlled format missing");
-      return result(
-        renderTmuxFormat(format, this.identity, this.state.clientUtf8),
-      );
-    }
-    throw new Error(
-      "unexpected controlled tmux command: " + (command ?? "none"),
-    );
-  }
-
-  public async runInherited(
-    executable: string,
-    args: readonly string[],
-    cwd: string,
-  ): Promise<CommandResult> {
-    return this.run(executable, args, cwd, 0, false);
-  }
-}
-
 class QueueCommandRunner implements CommandRunner {
   public readonly calls: Array<{ readonly args: readonly string[] }> = [];
 
@@ -168,52 +56,6 @@ class QueueCommandRunner implements CommandRunner {
   ): Promise<CommandResult> {
     return this.run(executable, args, cwd, 0);
   }
-}
-
-function renderTmuxFormat(
-  format: string,
-  identity: {
-    readonly windowId: string;
-    readonly paneId: string;
-    readonly cwd: string;
-  },
-  clientUtf8: boolean,
-): Buffer {
-  const rendered = format
-    .replaceAll("#{window_id}", identity.windowId)
-    .replaceAll("#{pane_id}", identity.paneId)
-    .replaceAll("#{pane_current_path}", identity.cwd);
-  const bytes = Buffer.from(rendered, "utf8");
-  const clientBytes = clientUtf8
-    ? bytes
-    : Buffer.from(bytes.map((byte) => (byte <= 0x1f ? 0x5f : byte)));
-  return Buffer.concat([clientBytes, Buffer.from([0x0a])]);
-}
-
-async function runNormalFlow(
-  state: ClientState,
-  identity: {
-    readonly windowId: string;
-    readonly paneId: string;
-    readonly cwd: string;
-  },
-  barrier?: Barrier,
-): Promise<{
-  readonly runner: ProtocolCommandRunner;
-  readonly created: TmuxIdentity;
-  readonly observed: TmuxIdentity | null;
-}> {
-  const runner = new ProtocolCommandRunner(state, identity, barrier);
-  const tmux = createLivePorts(runner).tmux;
-  const created = await tmux.createIssueWindow({
-    sessionName: "sf-owner-repo",
-    windowName: identity.windowId.slice(1),
-    cwd: identity.cwd,
-    executable: "soft-factory",
-    args: ["internal", "run-agent", "--issue", identity.windowId.slice(1)],
-  });
-  const observed = await tmux.observe(created);
-  return { runner, created, observed };
 }
 
 function malformed(phase: "create" | "observe", stdout: Buffer | string): void {
@@ -340,170 +182,127 @@ describe("Issue 31 closed tmux identity byte grammar", () => {
   });
 });
 
-describe("Issue 31 LiveTmuxPort client-state and isolation matrix", () => {
-  it.each(clientStates)(
-    "creates and observes exact identities in the $name row and repeat",
-    async (state) => {
-      const identity = {
-        windowId: "@1",
-        paneId: "%1",
-        cwd: "/tmp/normal|mé",
-      };
-      const first = await runNormalFlow(state, identity);
-      const repeated = await runNormalFlow(state, identity);
-      const expected = {
-        sessionName: "sf-owner-repo",
-        windowName: "1",
-        ...identity,
-      };
-      expect(first.created).toEqual(expected);
-      expect(first.observed).toEqual(expected);
-      expect(repeated.created).toEqual(expected);
-      expect(repeated.observed).toEqual(expected);
-      expect(first.runner.calls).toEqual(repeated.runner.calls);
-      expect(first.runner.resources).toEqual(repeated.runner.resources);
-      expect(first.runner.resources).toEqual([identity]);
-      const formats = first.runner.calls.flatMap((call) => {
-        const index = call.args.indexOf("-F");
-        return index < 0 ? [] : [call.args[index + 1]];
-      });
-      expect(formats).toEqual([
-        "#{window_name}",
-        TMUX_CREATE_IDENTITY_FORMAT,
-        TMUX_OBSERVE_IDENTITY_FORMAT,
-      ]);
-      expect(first.runner.state).toEqual(state);
-      expect(first.runner.prohibitedAccess).toEqual([]);
-      expect(state).toMatchObject({
-        inheritedLocale: false,
-        inheritedTmux: false,
-        defaultServer: false,
-        credentials: false,
-        network: false,
-        sparkta: false,
-      });
-      const createBytes = renderTmuxFormat(
-        TMUX_CREATE_IDENTITY_FORMAT,
-        identity,
-        state.clientUtf8,
-      );
-      expect(createBytes).toEqual(Buffer.from("@1|%1\n"));
-      expect(createBytes).toHaveLength(6);
-      expect(createBytes.includes(0x09)).toBe(false);
-      if (!state.clientUtf8) {
-        expect(
-          renderTmuxFormat(
-            "#{window_id}\t#{pane_id}",
-            identity,
-            state.clientUtf8,
-          ),
-        ).toEqual(Buffer.from("@1_%1\n"));
-      }
-    },
-  );
+describe("Issue 36 LiveTmuxPort exact selector routing", () => {
+  async function exactTarget() {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), "sf-target-test-"),
+    );
+    const socketPath = path.join(directory, "socket");
+    await fs.writeFile(socketPath, "fixture");
+    const stat = await fs.stat(socketPath);
+    return {
+      directory,
+      target: {
+        selectionMode: "invoking" as const,
+        socketPath,
+        socketIdentity: { device: String(stat.dev), inode: String(stat.ino) },
+        sessionId: "$1",
+        sessionName: "session",
+        repository: "owner/repo",
+      },
+    };
+  }
 
-  it.each(createRejections)(
-    "maps malformed create %s to TMUX_IDENTITY_MALFORMED",
-    async (_label, stdout) => {
+  it("prefixes every lifecycle command and uses immutable IDs", async () => {
+    const fixture = await exactTarget();
+    try {
+      const context = `${fixture.target.socketPath}|$1|session|@1|1|%1|/tmp/work\n`;
       const commands = new QueueCommandRunner([
         result(""),
+        result("@1|%1\n"),
+        result(context),
         result(""),
-        result(stdout),
+        result("123\n"),
+        result("pane transcript"),
+        result(""),
+        result(""),
+        result(""),
+        result(""),
+        result(""),
       ]);
-      const created = createLivePorts(commands).tmux.createIssueWindow({
-        sessionName: "sf-owner-repo",
-        windowName: "31",
-        cwd: "/tmp/normal",
+      const tmux = createLivePorts(commands).tmux;
+      const created = await tmux.createIssueWindow({
+        target: fixture.target,
+        windowName: "1",
+        cwd: "/tmp/work",
         executable: "soft-factory",
-        args: ["internal", "run-agent", "--issue", "31"],
+        args: ["internal"],
       });
-      await expect(created).rejects.toMatchObject({
-        code: "TMUX_IDENTITY_MALFORMED",
-        tmuxIdentityDiagnostic: { phase: "create" },
-      });
-      expect(commands.calls).toHaveLength(3);
-    },
-  );
+      await expect(tmux.observe(created)).resolves.toEqual(created);
+      await tmux.setRemainOnExit(created);
+      await expect(tmux.panePid(created)).resolves.toBe(123);
+      await tmux.capturePane(created, 1024);
+      await tmux.restartWorker(created, "soft-factory", ["internal"]);
+      await tmux.removeWindow(created);
+      await tmux.attach(created);
+      expect(
+        commands.calls.every(
+          ({ args }) =>
+            args[0] === "-S" && args[1] === fixture.target.socketPath,
+        ),
+      ).toBe(true);
+      expect(
+        commands.calls.some(
+          ({ args }) =>
+            args.includes(created.windowId) && args.includes("kill-window"),
+        ),
+      ).toBe(true);
+      expect(
+        commands.calls
+          .filter(
+            ({ args }) =>
+              args.includes("select-pane") || args.includes("capture-pane"),
+          )
+          .every(({ args }) => args.includes(created.paneId)),
+      ).toBe(true);
+      const selectWindow = commands.calls.findIndex(({ args }) =>
+        args.includes("select-window"),
+      );
+      const selectPane = commands.calls.findIndex(({ args }) =>
+        args.includes("select-pane"),
+      );
+      const attachSession = commands.calls.findIndex(({ args }) =>
+        args.includes("attach-session"),
+      );
+      expect(selectWindow).toBeGreaterThanOrEqual(0);
+      expect(commands.calls[selectWindow]?.args).toContain(created.windowId);
+      expect(selectPane).toBeGreaterThan(selectWindow);
+      expect(attachSession).toBeGreaterThan(selectPane);
+    } finally {
+      await fs.rm(fixture.directory, { recursive: true, force: true });
+    }
+  });
 
-  it.each(observeRejections)(
-    "maps malformed observe %s to TMUX_IDENTITY_MALFORMED",
-    async (_label, stdout) => {
-      const commands = new QueueCommandRunner([result(stdout)]);
-      const target: TmuxIdentity = {
-        sessionName: "sf-owner-repo",
-        windowName: "31",
-        windowId: "@31",
-        paneId: "%31",
-        cwd: "/tmp/normal",
-      };
+  it("preserves same-name windows and malformed creation output", async () => {
+    const fixture = await exactTarget();
+    try {
+      const collision = new QueueCommandRunner([result("1\n")]);
       await expect(
-        createLivePorts(commands).tmux.observe(target),
-      ).rejects.toMatchObject({
-        code: "TMUX_IDENTITY_MALFORMED",
-        tmuxIdentityDiagnostic: { phase: "observe" },
-      });
-      expect(commands.calls).toHaveLength(1);
-    },
-  );
-
-  it("keeps nonzero observation as absence", async () => {
-    const commands = new QueueCommandRunner([result("not retained", 1)]);
-    await expect(
-      createLivePorts(commands).tmux.observe({
-        sessionName: "sf-owner-repo",
-        windowName: "31",
-        windowId: "@31",
-        paneId: "%31",
-        cwd: "/tmp/normal",
-      }),
-    ).resolves.toBeNull();
-  });
-
-  it("refuses same-name adoption before creating or modifying a window", async () => {
-    const commands = new QueueCommandRunner([result(""), result("31\n")]);
-    await expect(
-      createLivePorts(commands).tmux.createIssueWindow({
-        sessionName: "sf-owner-repo",
-        windowName: "31",
-        cwd: "/tmp/normal",
-        executable: "soft-factory",
-        args: ["internal", "run-agent", "--issue", "31"],
-      }),
-    ).rejects.toMatchObject({ code: "RESOURCE_OWNERSHIP_UNKNOWN" });
-    expect(commands.calls.map((call) => call.args[0])).toEqual([
-      "has-session",
-      "list-windows",
-    ]);
-  });
-
-  it("keeps two barrier-overlapped owner flows disjoint", async () => {
-    const barrier = new Barrier();
-    const identities = [
-      { windowId: "@31", paneId: "%31", cwd: "/tmp/owner-a|é" },
-      { windowId: "@32", paneId: "%32", cwd: "/tmp/owner-b|ß" },
-    ] as const;
-    const [first, second] = await Promise.all([
-      runNormalFlow(clientStates[0], identities[0], barrier),
-      runNormalFlow(clientStates[1], identities[1], barrier),
-    ]);
-    expect(first.observed).toEqual(first.created);
-    expect(second.observed).toEqual(second.created);
-    expect(first.runner.resources).toEqual([identities[0]]);
-    expect(second.runner.resources).toEqual([identities[1]]);
-    expect(first.created).not.toMatchObject({
-      windowId: identities[1].windowId,
-      paneId: identities[1].paneId,
-      cwd: identities[1].cwd,
-    });
-    expect(second.created).not.toMatchObject({
-      windowId: identities[0].windowId,
-      paneId: identities[0].paneId,
-      cwd: identities[0].cwd,
-    });
-    expect([
-      ...first.runner.prohibitedAccess,
-      ...second.runner.prohibitedAccess,
-    ]).toEqual([]);
+        createLivePorts(collision).tmux.createIssueWindow({
+          target: fixture.target,
+          windowName: "1",
+          cwd: "/tmp/work",
+          executable: "soft-factory",
+          args: [],
+        }),
+      ).rejects.toMatchObject({ code: "RESOURCE_OWNERSHIP_UNKNOWN" });
+      expect(collision.calls).toHaveLength(1);
+      const malformedRunner = new QueueCommandRunner([
+        result(""),
+        result("bad\n"),
+      ]);
+      await expect(
+        createLivePorts(malformedRunner).tmux.createIssueWindow({
+          target: fixture.target,
+          windowName: "1",
+          cwd: "/tmp/work",
+          executable: "soft-factory",
+          args: [],
+        }),
+      ).rejects.toMatchObject({ code: "TMUX_IDENTITY_MALFORMED" });
+    } finally {
+      await fs.rm(fixture.directory, { recursive: true, force: true });
+    }
   });
 });
 

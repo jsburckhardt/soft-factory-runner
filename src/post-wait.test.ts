@@ -1,4 +1,4 @@
-import type { ProcessIdentityV1, RunSnapshotV5 } from "./domain";
+import type { ProcessIdentityV1, RunSnapshotV6 } from "./domain";
 import { renderError } from "./render";
 import { classifyPostWaitState, postWaitRefusal } from "./post-wait";
 
@@ -32,13 +32,13 @@ const expected = {
   rpivProcess: rpiv,
 };
 const active = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   runId: expected.runId,
   ownerId: expected.ownerId,
   state: "running_rpiv",
   workerProcess: worker,
   rpivProcess: rpiv,
-} as unknown as RunSnapshotV5;
+} as unknown as RunSnapshotV6;
 
 function changedIdentity(
   identity: ProcessIdentityV1,

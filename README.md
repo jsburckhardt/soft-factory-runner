@@ -20,27 +20,27 @@ just verify
 
 The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
-### Current package release and 0.1.2 upgrade
+### Current package release and 0.1.3-to-0.2.0 upgrade
 
-The current local npm package release is **0.1.3**, a backward-compatible defect correction. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.2 prefix or reinstall the same tarball:
+The current local npm package release is **0.2.0**, backward-compatible exact tmux-context functionality. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.3 prefix or reinstall the same tarball:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.1.3
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.1.3
+mkdir -p /tmp/soft-factory-runner-0.2.0
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.0
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.1.3/soft-factory-runner-0.1.3.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.0/soft-factory-runner-0.2.0.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The metadata command must print exactly `0.1.3`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
+The metadata command must print exactly `0.2.0`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
 
 ```text
 "$PREFIX/node_modules/.bin/soft-factory" install --recommended
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The manifest command must also print exactly `0.1.3`.
+The manifest command must also print exactly `0.2.0`.
 
 ## Quick start and control commands
 
@@ -63,9 +63,9 @@ just run logs 5 --json
 
 ## RPIV integration contract
 
-`just run instructions [--json]` deterministically reports the Runner-owned progress/result handoff. New runs require the root `justfile` to prove and snapshot one declared `rpiv.final_validation`, defaulting to `just verify`; a missing root file fails before ownership, and focused validation is implementation feedback only. RPIV publishes mutable `.soft-factory/rpiv-status.json`, while Verify publishes immutable no-clobber `.soft-factory/agent-result.json` only after PR creation, the tracked verification summary/retro commit is pushed, and the PR is independently confirmed at the final head. Runner binds the helper to those observed PR facts, and the coordinator validates that bound result before zero exit; every failure path first attempts terminal failed progress. Status/list report phase separately from operational state, and every progress classification remains diagnostic-only. See [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) for configuration grammar, schemas, classifications, atomicity, v5/v4/legacy migration, redaction, troubleshooting, API applicability, and local deployment boundaries.
+`just run instructions [--json]` deterministically reports the Runner-owned progress/result handoff. New runs require the root `justfile` to prove and snapshot one declared `rpiv.final_validation`, defaulting to `just verify`; a missing root file fails before ownership, and focused validation is implementation feedback only. RPIV publishes mutable `.soft-factory/rpiv-status.json`, while Verify publishes immutable no-clobber `.soft-factory/agent-result.json` only after PR creation, the tracked verification summary/retro commit is pushed, and the PR is independently confirmed at the final head. Runner binds the helper to those observed PR facts, and the coordinator validates that bound result before zero exit; every failure path first attempts terminal failed progress. Status/list report phase separately from operational state, and every progress classification remains diagnostic-only. See [`docs/rpiv-integration-contract.md`](docs/rpiv-integration-contract.md) for configuration grammar, schemas, classifications, atomicity, v6/v5/v4/legacy migration, redaction, troubleshooting, API applicability, and local deployment boundaries.
 
-After Copilot exits, Runner reloads the strict current snapshot and requires the exact run, owner, worker, and awaited RPIV identity before using the latest revision for zero-exit finalization or nonzero failure. Concurrent progress, immutable result, and retained diagnostic facts survive unchanged. Missing, invalid, mismatched, or reload/save-raced state returns `POST_WAIT_STATE_REFUSED` with a closed reason and no stale fallback save, duplicate launch, result overwrite, or ownership release; exact terminal repeats are idempotent. This 0.1.3 correction changes no network API, configuration key/default, snapshot schema, database/data migration, service, container, or deployment procedure.
+After Copilot exits, Runner reloads the strict current snapshot and requires the exact run, owner, worker, and awaited RPIV identity before using the latest revision for zero-exit finalization or nonzero failure. Concurrent progress, immutable result, and retained diagnostic facts survive unchanged. Missing, invalid, mismatched, or reload/save-raced state returns `POST_WAIT_STATE_REFUSED` with a closed reason and no stale fallback save, duplicate launch, result overwrite, or ownership release; exact terminal repeats are idempotent. Release 0.2.0 upgrades new run persistence to v6 for exact tmux targeting. Existing v1-v5 records remain readable but cannot authorize tmux mutation without a complete explicitly migrated target. There is no network API, configuration key/default, database migration, service, container, or deployment change.
 
 ## Official delivery agent
 
@@ -76,7 +76,7 @@ just run install agent soft-factory
 just run install --recommended
 ```
 
-The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.1.3, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.2.0, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
 Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 
@@ -134,7 +134,7 @@ Every product run names one explicit positive issue number. Runner never queries
 
 ## Recovery and concurrency
 
-New runs use revisioned `RunSnapshotV5` and replayable `TransitionEventV2` records. V5 adds a nullable latest `TmuxIdentityDiagnosticV1`; supported v4 records normalize only through an explicit revisioned transition, while v1-v5 remain readable under their versioned safety limits. Reconciliation reports use schema v2 and status uses schema v4. Reconciliation separately observes mutable RPIV progress and compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
+New runs use revisioned `RunSnapshotV6` and replayable `TransitionEventV2` records. V6 adds complete persisted tmux server/session/window/pane authority while retaining the nullable `TmuxIdentityDiagnosticV1`; supported exact legacy records normalize only through explicit revisioned transitions, while v1-v5 remain readable under their versioned safety limits and cannot invent missing selectors. `ReconciliationReportV3` uses schema v3 and `StatusFactsV5` uses status schema v5. Reconciliation separately observes mutable RPIV progress and compares persisted state with issue locks, concurrency slot leases, filesystem paths, Git worktree/branch/HEAD/dirtiness, tmux identity, worker and RPIV process identity, strictly parsed identity-matching result artifacts, remote branch facts, and GitHub pull-request facts. Unknown or contradictory observations block launch, signaling, reuse, and cleanup.
 
 A matching live RPIV process is identified by PID, process group, OS start token, resolved executable, exact arguments, cwd, launch time, and tmux pane lineage. It is preserved as `active_preserved`; reconcile and resume do not increment the attempt or launch a duplicate.
 
@@ -174,3 +174,13 @@ See [`docs/phase-3-recovery-operations.md`](docs/phase-3-recovery-operations.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — RPIV contribution workflow
 - [`.harness/engineering-harness.md`](.harness/engineering-harness.md) — deterministic harness governance
 - [`project/`](project/) — architecture decisions, core-components, and work-item evidence
+
+## Exact tmux context ownership (0.2.0)
+
+At command entry Runner reads only the complete pair `TMUX` and `TMUX_PANE`. A valid in-tmux invocation resolves the canonical custom socket, current session, window, pane, and cwd with one bounded read-only query. With both variables absent, Runner deterministically derives a repository-owned standalone socket/session; it never probes or adopts an ambient/default server. Partial, malformed, stale, cross-socket, nested, contradictory, or ambiguous evidence returns `TMUX_CONTEXT_REFUSED` before ownership or tmux mutation. Existing same-name windows are preserved, never adopted.
+
+New `RunSnapshotV6` state persists the canonical socket path and filesystem device/inode plus immutable session, window, pane, and cwd identity. Status, reconcile, resume, stop, clean, attach, and logs always route with the persisted socket selector, regardless of the later caller's tmux context. Attach/capture target the pane ID and cleanup targets the window ID. Complete equality authorizes action; mismatch or unproved absence refuses. Proved-absent terminal stop/cleanup repeats are stable. Raw `TMUX` tuples, server PIDs, malformed values, and unrelated inherited environment values are never persisted or rendered.
+
+Doctor retains its ordered 24 checks. `command.tmux` adds value-free targeting evidence classified as `invoking-valid`, `standalone-fallback`, or `invalid-context` with a closed reason. Before and after classification, Doctor uses explicit `-S` selectors to inventory actual sessions, windows, and panes plus socket filesystem identity on the evidenced custom server and the unrelated default server; fallback or structurally unusable evidence instead compares the explicit default and deterministic standalone selectors. Each query is read-only, bounded to 2 seconds, 1,024 records, and 65,536 bytes. Only value-free unchanged booleans are emitted; socket paths, resource identities, names, and cwd values remain ephemeral. Doctor performs no target mutation or standalone creation.
+
+The local snapshot schema changes to v6; this is not a database or data migration and does not introduce a service, container, deployment, network API, or API specification.

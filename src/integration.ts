@@ -293,7 +293,9 @@ export function classifyProgress(input: {
   readonly observedAt: string;
 }): ProgressObservationV1 {
   const lastAccepted =
-    input.snapshot.schemaVersion === 4 || input.snapshot.schemaVersion === 5
+    input.snapshot.schemaVersion === 4 ||
+    input.snapshot.schemaVersion === 5 ||
+    input.snapshot.schemaVersion === 6
       ? input.snapshot.progress
       : null;
   if (input.text === null)
@@ -315,7 +317,8 @@ export function classifyProgress(input: {
     observed.branch !== input.snapshot.branch ||
     ((input.snapshot.schemaVersion === 3 ||
       input.snapshot.schemaVersion === 4 ||
-      input.snapshot.schemaVersion === 5) &&
+      input.snapshot.schemaVersion === 5 ||
+      input.snapshot.schemaVersion === 6) &&
       observed.attempt !== input.snapshot.attempt)
   )
     return progressObservation(
@@ -324,7 +327,9 @@ export function classifyProgress(input: {
       lastAccepted,
     );
   const launchTime =
-    input.snapshot.schemaVersion === 4 || input.snapshot.schemaVersion === 5
+    input.snapshot.schemaVersion === 4 ||
+    input.snapshot.schemaVersion === 5 ||
+    input.snapshot.schemaVersion === 6
       ? input.snapshot.integrationLaunch.startedAt
       : input.snapshot.updatedAt;
   if (
@@ -386,7 +391,9 @@ export async function publishProgress(
 ): Promise<RpivStatusV1> {
   const priorText = await files.readText(launch.progressPath);
   const lastAccepted =
-    snapshot.schemaVersion === 4 || snapshot.schemaVersion === 5
+    snapshot.schemaVersion === 4 ||
+    snapshot.schemaVersion === 5 ||
+    snapshot.schemaVersion === 6
       ? snapshot.progress
       : null;
   if (

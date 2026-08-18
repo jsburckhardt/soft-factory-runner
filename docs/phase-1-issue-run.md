@@ -113,11 +113,11 @@ All fields are required. Issue and PR numbers are positive; the SHA is full hexa
 
 ## Finalization and false-completion protection
 
-After the launched Copilot wait resolves, Runner strictly reloads the current snapshot and contiguous history before any exit transition. It proceeds only when the current v5 `running_rpiv` run ID, owner ID, complete worker identity, and complete RPIV identity match the pre-wait run and the exact process whose exit was awaited. A zero exit enters `finalizing` from that latest revision; a nonzero exit becomes `failed` with the observed code in history and cannot be overridden by an artifact. Concurrently accepted research, plan, implement, verify, terminal progress, immutable result bytes, and retained tmux diagnostics remain unchanged and ordered.
+After the launched Copilot wait resolves, Runner strictly reloads the current snapshot and contiguous history before any exit transition. It proceeds only when the current v6 `running_rpiv` run ID, owner ID, complete worker identity, and complete RPIV identity match the pre-wait run and the exact process whose exit was awaited. A zero exit enters `finalizing` from that latest revision; a nonzero exit becomes `failed` with the observed code in history and cannot be overridden by an artifact. Concurrently accepted research, plan, implement, verify, terminal progress, immutable result bytes, and retained tmux diagnostics remain unchanged and ordered.
 
 Missing, invalid, run-mismatched, owner-mismatched, worker-mismatched, or RPIV-mismatched current state returns `POST_WAIT_STATE_REFUSED` with reason `missing`, `invalid`, `run_mismatch`, `owner_mismatch`, `worker_mismatch`, or `rpiv_mismatch`. If another writer advances after reload but before save, the store preserves the newer revision and returns reason `state_advanced`. These refusals append no fallback terminal event, release no ownership, relaunch no Copilot process, and overwrite no accepted result or diagnostic. If the exact matching current run is already terminal, repeated handling returns that existing outcome without another launch, exit, finalization, lease-release, or terminal transition.
 
-This backward-compatible correction adds no network API or API specification, configuration option/default, snapshot/result/event schema, database or data migration, service, container, or deployment/runtime procedure. Existing persisted v5 data needs no migration.
+This backward-compatible correction adds no network API or API specification, configuration option/default, database migration, service, container, or deployment runtime. New runs use snapshot schema v6; existing v1-v5 data remains readable but cannot authorize tmux mutation until an explicit migration proves the complete target.
 
 A zero exit is never sufficient by itself. Runner then reads the owned artifact and makes one bounded fresh observation of:
 
@@ -134,7 +134,7 @@ A missing, malformed, unsupported, timed-out, or incomplete result/Git/GitHub ob
 
 ## Persistence and status
 
-Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV5` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
+Legacy runs use v1-v3 compatibility records; new runs use revisioned `RunSnapshotV6` files at `.soft-factory/runs/<issue>.json`. Every transition first appends a schema-versioned JSONL event to `.soft-factory/events/<issue>.jsonl`, then atomically replaces the snapshot. An event append failure leaves the prior snapshot; a snapshot replacement failure leaves the appended event for later recovery and never reports completion from the failed write.
 
 Valid Phase 1 `RunSnapshotV1` files remain readable. Unknown versions are rejected, and a legacy snapshot is not completion proof or implicitly upgraded. Only an explicit proved versioned transition can carry required evidence. Supported v1-v3 inputs normalize through v4 to sole just verify and never consult later configuration; supported v4 inputs preserve their snapshotted final validation while normalizing through an explicit revisioned v5 transition; malformed persistence fails safe.
 
@@ -183,3 +183,9 @@ Restart reconciliation, deterministic resume, bounded stop, guarded cleanup, ret
 Use [`phase-3-recovery-operations.md`](phase-3-recovery-operations.md) for the full command grammar, separately observed RPIV progress, `execution.max_concurrent_runs`, process identity, schema-v1/v2 migration, stop bounds, cleanup refusal categories, automatic trigger, and retained-resource behavior.
 
 For the authoritative integration command, progress classifications, no-clobber result publication, coordinator gate, v5/v4 migration, API applicability, and deployment boundaries, see [the RPIV integration guide](rpiv-integration-contract.md).
+
+## Invoking tmux target and v6 migration
+
+A new run inside tmux uses only a valid complete `TMUX`/`TMUX_PANE` pair to select the canonical invoking socket and current session. Complete absence selects a deterministic repository-owned standalone socket/session. Invalid, stale, nested, contradictory, cross-socket, or ambiguous evidence refuses before state or tmux mutation; absence is never permission to use the default server. Same-name windows are not ownership proof and are preserved.
+
+New snapshots are `RunSnapshotV6` and persist socket path plus device/inode, session ID/name, window ID/name, pane ID, and cwd. Raw tuples and server PIDs are discarded. Versions 1 through 5 remain readable compatibility inputs, but missing selectors are never invented and cannot authorize lifecycle mutation. This is a local persistence migration only: no API, configuration, database, service, or deployment change.

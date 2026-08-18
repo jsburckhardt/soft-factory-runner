@@ -13,10 +13,10 @@ import type {
   RunSnapshotV3,
   RunSnapshotV4,
   RunSnapshotV5,
+  RunSnapshotV6,
   TmuxIdentityDiagnosticV1,
   WorktreeObservationV1,
 } from "./domain";
-import { normalizeRepositoryName, tmuxSessionName } from "./domain";
 import {
   isMigratedLegacyAgentResult,
   migrateLegacyAgentResult,
@@ -43,7 +43,9 @@ export async function collectReconciliation(input: {
     runId: persisted.runId,
     repository: persisted.repository,
     acquiredAt:
-      (persisted.schemaVersion === 4 || persisted.schemaVersion === 5) &&
+      (persisted.schemaVersion === 4 ||
+        persisted.schemaVersion === 5 ||
+        persisted.schemaVersion === 6) &&
       persisted.admission !== null
         ? persisted.admission.acquiredAt
         : "",
@@ -80,7 +82,8 @@ export async function collectReconciliation(input: {
     }),
     persisted.schemaVersion !== 3 &&
     persisted.schemaVersion !== 4 &&
-    persisted.schemaVersion !== 5
+    persisted.schemaVersion !== 5 &&
+    persisted.schemaVersion !== 6
       ? Promise.resolve(notApplicable<ConcurrencyLeaseV1>("LEASE_NOT_RECORDED"))
       : persisted.admission === null
         ? Promise.resolve(
@@ -106,7 +109,8 @@ export async function collectReconciliation(input: {
     collectTmuxObservation(persisted, ports),
     (persisted.schemaVersion !== 3 &&
       persisted.schemaVersion !== 4 &&
-      persisted.schemaVersion !== 5) ||
+      persisted.schemaVersion !== 5 &&
+      persisted.schemaVersion !== 6) ||
     persisted.workerProcess === null
       ? Promise.resolve(
           notApplicable<ProcessIdentityV1>("WORKER_PROCESS_NOT_RECORDED"),
@@ -114,7 +118,8 @@ export async function collectReconciliation(input: {
       : observeProcess(ports, persisted.workerProcess, "WORKER"),
     (persisted.schemaVersion !== 3 &&
       persisted.schemaVersion !== 4 &&
-      persisted.schemaVersion !== 5) ||
+      persisted.schemaVersion !== 5 &&
+      persisted.schemaVersion !== 6) ||
     persisted.rpivProcess === null
       ? Promise.resolve(absent<ProcessIdentityV1>("RPIV_PROCESS_NOT_RECORDED"))
       : observeProcess(ports, persisted.rpivProcess, "RPIV"),
@@ -138,7 +143,7 @@ export async function collectReconciliation(input: {
   ]);
 
   const recoveryProcessContext =
-    persisted.schemaVersion === 5 &&
+    persisted.schemaVersion === 6 &&
     persisted.state === "running_rpiv" &&
     rpivProcess.state === "absent" &&
     (workerProcess.state === "absent" ||
@@ -273,14 +278,16 @@ export async function collectReconciliation(input: {
   ]);
 
   const priorDiagnostic =
-    persisted.schemaVersion === 5 ? persisted.tmuxIdentityDiagnostic : null;
+    persisted.schemaVersion === 5 || persisted.schemaVersion === 6
+      ? persisted.tmuxIdentityDiagnostic
+      : null;
   const desiredDiagnostic =
     tmuxResult.disposition === "preserve"
       ? priorDiagnostic
       : tmuxResult.diagnostic;
   let reportSnapshot = persisted;
   if (
-    persisted.schemaVersion === 5 &&
+    (persisted.schemaVersion === 5 || persisted.schemaVersion === 6) &&
     !same(priorDiagnostic, desiredDiagnostic)
   ) {
     reportSnapshot = {
@@ -332,7 +339,7 @@ export function buildReconciliationReport(
   const diagnostics = [...unknown, ...mismatched].map(
     ([boundary, observation]) => boundary + ":" + observation.code,
   );
-  if (persisted.schemaVersion === 1 || persisted.schemaVersion === 2) {
+  if (persisted.schemaVersion !== 6) {
     return report(
       persisted,
       observations,
@@ -559,7 +566,7 @@ export function buildReconciliationReport(
 }
 
 function buildCompletedReport(
-  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
   observations: ReconciliationObservationsV1,
   diagnostics: readonly string[],
 ): ReconciliationReportV2 {
@@ -663,7 +670,7 @@ function buildCompletedReport(
 }
 
 function cleanupStepsCompleted(
-  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
   steps: readonly CleanupStep[],
 ): boolean {
   const progress = persisted.cleanup;
@@ -676,7 +683,7 @@ function cleanupStepsCompleted(
 }
 
 function canExplicitCleanup(
-  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5,
+  persisted: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6,
   observations: ReconciliationObservationsV1,
 ): boolean {
   const progress = persisted.cleanup;
@@ -734,7 +741,7 @@ function report(
   remediation: string | null,
 ): ReconciliationReportV2 {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     issueNumber: persisted.issueNumber,
     persisted,
     observations,
@@ -750,7 +757,9 @@ function report(
     diagnostics,
     remediation,
     tmuxIdentityDiagnostic:
-      persisted.schemaVersion === 5 ? persisted.tmuxIdentityDiagnostic : null,
+      persisted.schemaVersion === 5 || persisted.schemaVersion === 6
+        ? persisted.tmuxIdentityDiagnostic
+        : null,
   };
 }
 
@@ -764,6 +773,13 @@ async function collectTmuxObservation(
   persisted: RunSnapshot,
   ports: RunnerPorts,
 ): Promise<TmuxObservationCollection> {
+  if (persisted.schemaVersion !== 6) {
+    return {
+      observation: unknown("LEGACY_TMUX_SELECTOR_MISSING"),
+      disposition: "preserve",
+      diagnostic: null,
+    };
+  }
   if (persisted.tmux === null) {
     if (persisted.state !== "starting_tmux")
       return {
@@ -773,10 +789,7 @@ async function collectTmuxObservation(
       };
     try {
       const present = await ports.tmux.observeIssueWindowName({
-        sessionName: tmuxSessionName({
-          nameWithOwner: persisted.repository,
-          normalizedName: normalizeRepositoryName(persisted.repository),
-        }),
+        target: persisted.tmuxSelection,
         windowName: String(persisted.issueNumber),
         cwd: persisted.worktreePath,
       });
@@ -880,7 +893,7 @@ function sameOwner(actual: OwnerRecordV1, expected: OwnerRecordV1): boolean {
   );
 }
 function recoveryCandidateMismatch(
-  snapshot: RunSnapshotV5,
+  snapshot: RunSnapshotV6,
   result: AgentResultV1,
 ): string | null {
   if (
@@ -929,7 +942,9 @@ function parseObservedResult(
     return parseAgentResult(text);
   } catch (cause: unknown) {
     if (
-      (snapshot.schemaVersion !== 4 && snapshot.schemaVersion !== 5) ||
+      (snapshot.schemaVersion !== 4 &&
+        snapshot.schemaVersion !== 5 &&
+        snapshot.schemaVersion !== 6) ||
       persistedResult === null ||
       !isMigratedLegacyAgentResult(persistedResult)
     )

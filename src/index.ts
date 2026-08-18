@@ -10,6 +10,7 @@ import { createLiveDoctorService, type DoctorRunner } from "./doctor-service";
 import { createLivePorts } from "./live";
 import { IssueRunService } from "./orchestrator";
 import type { RunnerPorts } from "./ports";
+import type { InvokingTmuxEvidenceV1 } from "./tmux-target";
 import {
   renderAttach,
   renderControl,
@@ -38,6 +39,7 @@ export async function runCli(
   ports: RunnerPorts,
   doctorRunner?: DoctorRunner,
   assetInstaller?: AssetInstaller,
+  invokingEvidence: InvokingTmuxEvidenceV1 = { tmux: null, tmuxPane: null },
 ): Promise<CliResult> {
   const jsonRequested = args.includes("--json");
   try {
@@ -66,7 +68,11 @@ export async function runCli(
         stderr: "",
       };
     }
-    const service = new IssueRunService(ports);
+    const service = new IssueRunService(
+      ports,
+      "soft-factory",
+      invokingEvidence,
+    );
     if (command.kind === "instructions")
       return {
         exitCode: 0,
@@ -200,7 +206,14 @@ export async function main(): Promise<void> {
   ) {
     process.stdout.write(workerStartupMarker(Number(args[3])));
   }
-  const result = await runCli(args, process.cwd(), createLivePorts());
+  const result = await runCli(
+    args,
+    process.cwd(),
+    createLivePorts(),
+    undefined,
+    undefined,
+    { tmux: process.env.TMUX ?? null, tmuxPane: process.env.TMUX_PANE ?? null },
+  );
   if (result.stdout !== "") process.stdout.write(result.stdout);
   if (result.stderr !== "") process.stderr.write(result.stderr);
   process.exitCode = result.exitCode;

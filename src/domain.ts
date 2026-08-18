@@ -1,4 +1,5 @@
-export const RUN_SNAPSHOT_SCHEMA_VERSION = 5 as const;
+import type { TmuxSessionTargetV1, TmuxTargetV2 } from "./tmux-target";
+export const RUN_SNAPSHOT_SCHEMA_VERSION = 6 as const;
 export const EVENT_SCHEMA_VERSION = 2 as const;
 export const AGENT_RESULT_SCHEMA_VERSION = 1 as const;
 
@@ -116,6 +117,12 @@ export interface PaneLineageV1 {
   readonly paneId: string;
   readonly panePid: number;
 }
+export interface PaneLineageV2 extends PaneLineageV1 {
+  readonly schemaVersion: 2;
+  readonly socketPath: string;
+  readonly socketIdentity: import("./tmux-target").TmuxSocketIdentityV1;
+  readonly sessionId: string;
+}
 
 export interface ProcessIdentityV1 {
   readonly schemaVersion: 1;
@@ -126,7 +133,7 @@ export interface ProcessIdentityV1 {
   readonly args: readonly string[];
   readonly cwd: string;
   readonly launchedAt: string;
-  readonly paneLineage: PaneLineageV1;
+  readonly paneLineage: PaneLineageV1 | PaneLineageV2;
 }
 
 export interface LaunchIntentV1 {
@@ -407,9 +414,22 @@ export interface RunSnapshotV5 extends Omit<RunSnapshotV4, "schemaVersion"> {
   readonly schemaVersion: 5;
   readonly tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null;
 }
+export interface RunSnapshotV6 extends Omit<
+  RunSnapshotV5,
+  "schemaVersion" | "tmux"
+> {
+  readonly schemaVersion: 6;
+  readonly tmuxSelection: TmuxSessionTargetV1;
+  readonly tmux: TmuxTargetV2 | null;
+}
 
 export type RunSnapshot =
-  RunSnapshotV1 | RunSnapshotV2 | RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5;
+  | RunSnapshotV1
+  | RunSnapshotV2
+  | RunSnapshotV3
+  | RunSnapshotV4
+  | RunSnapshotV5
+  | RunSnapshotV6;
 
 export interface TransitionEventV1 {
   readonly schemaVersion: 1;
@@ -429,7 +449,8 @@ export interface TransitionEventV2 {
   readonly priorRevision: number;
   readonly resultingRevision: number;
   readonly reason: string;
-  readonly resultingSnapshot: RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5;
+  readonly resultingSnapshot:
+    RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6;
 }
 
 export type TransitionEvent = TransitionEventV1 | TransitionEventV2;
@@ -476,8 +497,8 @@ export type SafeAction =
   | "explicit_clean"
   | "automatic_clean";
 
-export interface ReconciliationReportV2 {
-  readonly schemaVersion: 2;
+export interface ReconciliationReportV3 {
+  readonly schemaVersion: 3;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
   readonly observations: ReconciliationObservationsV1;
@@ -491,8 +512,10 @@ export interface ReconciliationReportV2 {
   readonly tmuxIdentityDiagnostic: TmuxIdentityDiagnosticV1 | null;
 }
 
+export type ReconciliationReportV2 = ReconciliationReportV3;
+
 export interface StatusFacts {
-  readonly schemaVersion: 4;
+  readonly schemaVersion: 5;
   readonly issueNumber: number;
   readonly persisted: RunSnapshot;
   readonly observed: TmuxIdentity | TmuxNamePresenceV1 | null;

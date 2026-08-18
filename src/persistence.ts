@@ -13,6 +13,7 @@ import type {
   RunSnapshotV3,
   RunSnapshotV4,
   RunSnapshotV5,
+  RunSnapshotV6,
   RunState,
   TransitionEvent,
   TransitionEventV2,
@@ -400,7 +401,8 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
     value.schemaVersion !== 2 &&
     value.schemaVersion !== 3 &&
     value.schemaVersion !== 4 &&
-    value.schemaVersion !== 5
+    value.schemaVersion !== 5 &&
+    value.schemaVersion !== 6
   )
     return false;
   if (
@@ -408,8 +410,11 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
     !isRequiredAcceptance(value.requiredAcceptanceCriteria) ||
     (value.schemaVersion !== 4 &&
       value.schemaVersion !== 5 &&
+      value.schemaVersion !== 6 &&
       !isRequiredValidations(value.requiredValidations)) ||
-    (value.schemaVersion === 4 || value.schemaVersion === 5
+    (value.schemaVersion === 4 ||
+    value.schemaVersion === 5 ||
+    value.schemaVersion === 6
       ? !isFinalization(value.finalization)
       : !isLegacyFinalization(value.finalization, value.state))
   )
@@ -435,9 +440,12 @@ export function isSnapshot(value: unknown): value is RunSnapshot {
     isBoundIntegrationLaunch(value.integrationLaunch, value) &&
     (value.progress === null || isRpivStatus(value.progress));
   if (!versionFourShape) return false;
+  if (value.schemaVersion === 4) return true;
+  if (!isTmuxIdentityDiagnostic(value.tmuxIdentityDiagnostic)) return false;
+  if (value.schemaVersion === 5) return true;
   return (
-    value.schemaVersion === 4 ||
-    isTmuxIdentityDiagnostic(value.tmuxIdentityDiagnostic)
+    isTmuxSessionTarget(value.tmuxSelection) &&
+    (value.tmux === null || isTmuxTargetV2(value.tmux))
   );
 }
 
@@ -464,7 +472,8 @@ export function isTransitionEvent(value: unknown): value is TransitionEvent {
     isSnapshot(value.resultingSnapshot) &&
     (value.resultingSnapshot.schemaVersion === 3 ||
       value.resultingSnapshot.schemaVersion === 4 ||
-      value.resultingSnapshot.schemaVersion === 5)
+      value.resultingSnapshot.schemaVersion === 5 ||
+      value.resultingSnapshot.schemaVersion === 6)
   );
 }
 
@@ -737,6 +746,42 @@ function isTmux(value: unknown): boolean {
       typeof value.cwd === "string")
   );
 }
+function isTmuxSessionTarget(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.selectionMode === "invoking" ||
+      value.selectionMode === "standalone") &&
+    typeof value.socketPath === "string" &&
+    (value.socketIdentity === null || isSocketIdentity(value.socketIdentity)) &&
+    (value.sessionId === null ||
+      (typeof value.sessionId === "string" &&
+        /^\$[0-9]+$/.test(value.sessionId))) &&
+    typeof value.sessionName === "string" &&
+    typeof value.repository === "string"
+  );
+}
+function isSocketIdentity(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    Object.keys(value).length === 2 &&
+    typeof value.device === "string" &&
+    /^[0-9]+$/.test(value.device) &&
+    typeof value.inode === "string" &&
+    /^[0-9]+$/.test(value.inode)
+  );
+}
+function isTmuxTargetV2(value: unknown): boolean {
+  if (!isRecord(value) || !isTmux(value)) return false;
+  return (
+    value.schemaVersion === 2 &&
+    (value.selectionMode === "invoking" ||
+      value.selectionMode === "standalone") &&
+    typeof value.socketPath === "string" &&
+    isSocketIdentity(value.socketIdentity) &&
+    typeof value.sessionId === "string" &&
+    /^\$[0-9]+$/.test(value.sessionId)
+  );
+}
 function isCopilot(value: unknown): boolean {
   return (
     value === null ||
@@ -853,6 +898,11 @@ function isProcessIdentity(value: unknown): boolean {
     typeof value.launchedAt === "string" &&
     isRecord(value.paneLineage) &&
     typeof value.paneLineage.sessionName === "string" &&
+    (value.paneLineage.schemaVersion === undefined ||
+      (value.paneLineage.schemaVersion === 2 &&
+        typeof value.paneLineage.socketPath === "string" &&
+        isSocketIdentity(value.paneLineage.socketIdentity) &&
+        typeof value.paneLineage.sessionId === "string")) &&
     typeof value.paneLineage.windowId === "string" &&
     typeof value.paneLineage.paneId === "string" &&
     isPositiveInteger(value.paneLineage.panePid)
@@ -968,10 +1018,11 @@ function parseRecordAt<T>(
 
 function isRevisionedSnapshot(
   snapshot: RunSnapshot,
-): snapshot is RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 {
+): snapshot is RunSnapshotV3 | RunSnapshotV4 | RunSnapshotV5 | RunSnapshotV6 {
   return (
     snapshot.schemaVersion === 3 ||
     snapshot.schemaVersion === 4 ||
-    snapshot.schemaVersion === 5
+    snapshot.schemaVersion === 5 ||
+    snapshot.schemaVersion === 6
   );
 }
