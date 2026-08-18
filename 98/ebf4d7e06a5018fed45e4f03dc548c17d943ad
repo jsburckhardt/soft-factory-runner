@@ -1,0 +1,21 @@
+.harness/records/retro/2026-08-18/027-issue-44-rpiv-verifier.md
+  s_fc7ef459ee2058::t_de85fd2a096834 12,65-73
+project/work-items/44-complete-live-cleanup-retries-after-exact-tmux-target-removal/verify/summary.md
+  s_fc7ef459ee2058::t_98b5fee805e260 7,40-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "98ebf4d7e06a5018fed45e4f03dc548c17d943ad",
+  "prompts": {},
+  "sessions": {
+    "s_fc7ef459ee2058": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_uWKLBfdezKDOmJqoTtzYdXW8",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
