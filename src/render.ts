@@ -1,4 +1,5 @@
 import type {
+  CleanupStep,
   ControlOutcomeV1,
   ReconciliationReportV2,
   RunSnapshot,
@@ -7,105 +8,244 @@ import type {
 } from "./domain";
 import type { RunnerError } from "./errors";
 
+function hasControlState(
+  snapshot: RunSnapshot,
+): snapshot is Extract<RunSnapshot, { readonly schemaVersion: 3 | 4 | 5 | 6 }> {
+  return [3, 4, 5, 6].includes(snapshot.schemaVersion);
+}
+
+const CLEANUP_STEPS: readonly CleanupStep[] = [
+  "tmux",
+  "worktree",
+  "lease",
+  "lock",
+];
+
 export function renderRun(snapshot: RunSnapshot, json: boolean): string {
-  if (json)
-    return `${JSON.stringify({ schemaVersion: 1, run: snapshot }, null, 2)}\n`;
-  const revision =
-    snapshot.schemaVersion === 3 ||
-    snapshot.schemaVersion === 4 ||
-    snapshot.schemaVersion === 5 ||
-    snapshot.schemaVersion === 6
-      ? ` r${snapshot.revision}`
-      : "";
-  return `Issue #${snapshot.issueNumber}: ${snapshot.state}${revision}\nBranch: ${snapshot.branch}\nWorktree: ${snapshot.worktreePath}\nWindow: ${snapshot.tmux?.sessionName ?? "not-started"}:${snapshot.tmux?.windowName ?? "not-started"}\n`;
+  const view = {
+    schemaVersion: 1,
+    issueNumber: snapshot.issueNumber,
+    state: snapshot.state,
+    revision: hasControlState(snapshot) ? snapshot.revision : null,
+    resources: {
+      tmux: snapshot.tmux === null ? "not_started" : "recorded",
+      worktree: "recorded",
+      lease:
+        hasControlState(snapshot) && snapshot.admission !== null
+          ? "recorded"
+          : "not_applicable",
+      lock: "recorded",
+    },
+  };
+  if (json) return JSON.stringify(view, null, 2) + "\n";
+  return (
+    "Issue #" +
+    view.issueNumber +
+    ": " +
+    view.state +
+    (view.revision === null ? "" : " r" + view.revision) +
+    "\nResources: tmux=" +
+    view.resources.tmux +
+    ", worktree=" +
+    view.resources.worktree +
+    ", lease=" +
+    view.resources.lease +
+    ", lock=" +
+    view.resources.lock +
+    "\n"
+  );
 }
 
 export function renderStatus(facts: StatusFacts, json: boolean): string {
-  if (json) return `${JSON.stringify(facts, null, 2)}\n`;
-  return renderReport(facts.reconciliation);
+  return renderReport(facts.reconciliation, json);
+}
+
+function tmuxCategory(report: ReconciliationReportV2): string {
+  const observation = report.observations.tmux;
+  if (observation.code === "TMUX_MATCH") return "live";
+  if (observation.code === "TMUX_EXACT_DEAD") return "dead";
+  return observation.state;
+}
+
+function cleanupCategories(
+  report: ReconciliationReportV2,
+): Record<CleanupStep, string> {
+  const cleanup = hasControlState(report.persisted)
+    ? report.persisted.cleanup
+    : null;
+  return Object.fromEntries(
+    CLEANUP_STEPS.map((step) => [
+      step,
+      cleanup?.completedSteps.includes(step)
+        ? "completed"
+        : cleanup?.remainingSteps.includes(step)
+          ? "remaining"
+          : "present",
+    ]),
+  ) as Record<CleanupStep, string>;
+}
+
+function publicReport(report: ReconciliationReportV2) {
+  return {
+    schemaVersion: 1,
+    issueNumber: report.issueNumber,
+    state: report.persisted.state,
+    activity: report.activity,
+    decisionCode: report.decisionCode,
+    safeActions: report.safeActions,
+    resultAuthority: report.resultAuthority,
+    observations: Object.fromEntries(
+      Object.entries(report.observations).map(([name, observation]) => [
+        name,
+        { state: observation.state, code: observation.code },
+      ]),
+    ),
+    tmux: tmuxCategory(report),
+    cleanup: cleanupCategories(report),
+    diagnostics: report.diagnostics,
+    remediation: report.remediation,
+    tmuxIdentityEvidence:
+      report.tmuxIdentityDiagnostic === null
+        ? "none"
+        : "malformed_or_ambiguous",
+  };
 }
 
 export function renderReport(
   report: ReconciliationReportV2,
   json = false,
 ): string {
-  if (json) return JSON.stringify(report, null, 2) + "\n";
-  const observations = Object.entries(report.observations)
+  const view = publicReport(report);
+  if (json) return JSON.stringify(view, null, 2) + "\n";
+  const observations = Object.entries(view.observations)
     .map(
-      ([boundary, observation]) =>
-        boundary +
-        "=" +
-        observation.state +
-        ":" +
-        observation.code +
-        ":" +
-        JSON.stringify(observation.facts),
+      ([name, observation]) =>
+        name + "=" + observation.state + ":" + observation.code,
     )
     .join(", ");
-  const actions =
-    report.safeActions.length === 0 ? "none" : report.safeActions.join(", ");
-  const diagnostics =
-    report.diagnostics.length === 0 ? "none" : report.diagnostics.join(", ");
-  const remediation = report.remediation ?? "none";
-  const tmuxIdentityEvidence =
-    report.tmuxIdentityDiagnostic === null
-      ? "none"
-      : "malformed or ambiguous; " +
-        JSON.stringify(report.tmuxIdentityDiagnostic);
   return (
     "Issue #" +
-    report.issueNumber +
+    view.issueNumber +
     "\nPersisted state: " +
-    report.persisted.state +
+    view.state +
     "\nReconciliation: " +
-    report.decisionCode +
+    view.decisionCode +
     " (" +
-    report.activity +
-    ")\nObservations: " +
+    view.activity +
+    ")" +
+    "\nObservations: " +
     observations +
+    "\nTmux lifecycle: " +
+    view.tmux +
     "\nResult authority: " +
-    report.resultAuthority +
-    "\nCleanup authority: persisted completion proof only; recovery candidates, progress, and absent or malformed tmux evidence are non-authorizing" +
+    view.resultAuthority +
+    "\nCleanup authority: persisted completion proof only; dead-pane state, recovery candidates, progress, and unproved absence or malformed tmux evidence are non-authorizing" +
+    "\nCleanup categories: " +
+    JSON.stringify(view.cleanup) +
     "\nSafe actions: " +
-    actions +
+    (view.safeActions.length === 0 ? "none" : view.safeActions.join(", ")) +
     "\nDiagnostics: " +
-    diagnostics +
+    (view.diagnostics.length === 0 ? "none" : view.diagnostics.join(", ")) +
     "\nTmux identity evidence: " +
-    tmuxIdentityEvidence +
+    view.tmuxIdentityEvidence +
     "\nReconciliation remediation: " +
-    remediation +
+    (view.remediation ?? "none") +
     "\n"
   );
 }
 
+function publicControlFacts(result: ControlOutcomeV1): unknown {
+  if (result.code === "LOGS_READY") {
+    const facts = result.facts as {
+      readonly retained?: readonly Record<string, unknown>[];
+      readonly live?: unknown;
+    };
+    return {
+      retained: (facts.retained ?? []).map((entry) =>
+        Object.fromEntries(
+          Object.entries(entry).filter(([key]) => key !== "path"),
+        ),
+      ),
+      live: facts.live ?? null,
+    };
+  }
+  if (result.report === null) return result.facts;
+  return {
+    cleanup: cleanupCategories(result.report),
+    retainedEvidence: ["branch", "snapshot", "events", "logs"],
+  };
+}
+
 export function renderControl(result: ControlOutcomeV1, json: boolean): string {
-  if (json) return JSON.stringify(result, null, 2) + "\n";
+  const view = {
+    schemaVersion: 1,
+    issueNumber: result.issueNumber,
+    state: result.state,
+    code: result.code,
+    exitCode: result.exitCode,
+    exitMeaning: result.exitCode === 0 ? "success" : "refused_or_partial",
+    facts: publicControlFacts(result),
+    report: result.report === null ? null : publicReport(result.report),
+    refusalReason: result.exitCode === 0 ? null : result.code,
+    remediation: result.remediation,
+  };
+  if (json) return JSON.stringify(view, null, 2) + "\n";
   const issue =
-    result.issueNumber === null ? "Repository" : "Issue #" + result.issueNumber;
-  const report =
-    result.report === null ? "" : "\n" + renderReport(result.report).trimEnd();
-  const remediation = result.remediation === null ? "none" : result.remediation;
+    view.issueNumber === null ? "Repository" : "Issue #" + view.issueNumber;
   return (
     issue +
     ": " +
-    result.state +
+    view.state +
     "\nOutcome: " +
-    result.code +
+    view.code +
+    "\nExit meaning: " +
+    view.exitMeaning +
     "\nFacts: " +
-    JSON.stringify(result.facts) +
-    report +
+    JSON.stringify(view.facts) +
+    (result.report === null
+      ? ""
+      : "\n" + renderReport(result.report).trimEnd()) +
+    "\nRefusal reason: " +
+    (view.refusalReason ?? "none") +
     "\nRemediation: " +
-    remediation +
+    (view.remediation ?? "none") +
     "\n"
   );
 }
 
 export function renderAttach(target: TmuxIdentity): string {
-  return `Attached to ${target.sessionName}:${target.windowName} (${target.paneId}).\n`;
+  void target;
+  return "Attached to the exact owned live tmux target.\n";
 }
 
 export function renderError(error: RunnerError, json: boolean): string {
-  if (json)
-    return `${JSON.stringify({ schemaVersion: 1, error: { code: error.code, message: error.message, remediation: error.remediation, details: error.details } }, null, 2)}\n`;
-  return `${error.code}: ${error.message}\nRemediation: ${error.remediation}\n`;
+  const view = {
+    schemaVersion: 1,
+    error: {
+      code: error.code,
+      message: error.message,
+      remediation: error.remediation,
+      details:
+        typeof error.details.reason === "string" ||
+        typeof error.details.causeCode === "string"
+          ? {
+              ...(typeof error.details.reason === "string"
+                ? { reason: error.details.reason }
+                : {}),
+              ...(typeof error.details.causeCode === "string"
+                ? { causeCode: error.details.causeCode }
+                : {}),
+            }
+          : undefined,
+    },
+  };
+  if (json) return JSON.stringify(view, null, 2) + "\n";
+  return (
+    error.code +
+    ": " +
+    error.message +
+    "\nRemediation: " +
+    error.remediation +
+    "\n"
+  );
 }

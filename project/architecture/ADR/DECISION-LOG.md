@@ -237,3 +237,16 @@ Short, actionable statements derived from ADRs and core-components. More than on
 | 182 | Drain targeting inventory streams with 65536-byte and 1024-record acceptance limits | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
 | 183 | Classify only exact bounded no-server targeting results as stable stale-socket absence | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |
 | 184 | Preserve stale socket identity and reject every other inventory uncertainty | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 185 | Observe dead panes only with complete selectors and strict dead-state evidence | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |
+| 186 | Treat dead-pane state as non-authorizing lifecycle corroboration | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |
+| 187 | Resume cleanup from exact same-owner pre-mutation checkpoints | ADR-260817-invoking-tmux-context-targeting | 2026-08-18 |
+| 188 | Require independent ownership and inactivity before exact dead-pane cleanup | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-18 |
+| 189 | Persist exact pre-mutation checkpoints for at-most-once cleanup retries | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-18 |
+| 190 | Expose only categorical redacted cleanup results | CORE-COMPONENT-260811-owned-resource-cleanup | 2026-08-18 |
+| 191 | Separate exact dead-pane observations from live target matches | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-18 |
+| 192 | Project public command output through redacted view models | CORE-COMPONENT-260811-run-reconciliation-control | 2026-08-18 |
+| 193 | Require complete selector equality and strict dead flags for dead-pane observations | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 194 | Prohibit dead-pane attach, live logs, resume, and stop-lineage authority | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 195 | Exclude persisted resource and process identities from all public output | CORE-COMPONENT-260817-exact-tmux-context-ownership | 2026-08-18 |
+| 196 | Release exact owned dead-pane cleanup as prerelease 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |
+| 197 | Preserve dependencies and use local package proof for 0.2.1-beta.2 | CORE-COMPONENT-260815-package-semver-governance | 2026-08-18 |

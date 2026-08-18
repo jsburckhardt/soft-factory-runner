@@ -934,6 +934,15 @@ function isCleanupFacts(value: unknown): boolean {
     value.completedSteps.every(
       (entry: unknown) => typeof entry === "string" && steps.includes(entry),
     ) &&
+    (value.startedCheckpoints === undefined ||
+      (Array.isArray(value.startedCheckpoints) &&
+        value.startedCheckpoints.every(
+          (entry: unknown) =>
+            isRecord(entry) &&
+            typeof entry.step === "string" &&
+            steps.includes(entry.step) &&
+            typeof entry.resourceIdentity === "string",
+        ))) &&
     Array.isArray(value.remainingSteps) &&
     value.remainingSteps.every(
       (entry: unknown) => typeof entry === "string" && steps.includes(entry),

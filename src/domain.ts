@@ -169,12 +169,17 @@ export interface StopFactsV1 {
 
 export type CleanupMode = "explicit" | "automatic_merged";
 export type CleanupStep = "tmux" | "worktree" | "lease" | "lock";
+export interface CleanupStartedCheckpointV1 {
+  readonly step: CleanupStep;
+  readonly resourceIdentity: string;
+}
 export interface CleanupFactsV1 {
   readonly mode: CleanupMode;
   readonly ownerId: string;
   readonly runId: string;
   readonly intentAt: string;
   readonly completedSteps: readonly CleanupStep[];
+  readonly startedCheckpoints?: readonly CleanupStartedCheckpointV1[];
   readonly remainingSteps: readonly CleanupStep[];
   readonly blockedCode: string | null;
   readonly updatedAt: string;

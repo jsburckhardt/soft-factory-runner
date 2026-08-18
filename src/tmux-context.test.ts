@@ -14,9 +14,40 @@ import {
 } from "./live";
 import {
   deriveStandaloneTmuxTarget,
+  parseExactTargetRecord,
   parseInvokingTmuxEvidence,
   tmuxContextRefusal,
 } from "./tmux-target";
+
+describe("Issue 42 strict exact dead-pane records", () => {
+  const live = "/tmp/owned.sock|$1|owned|@2|42|%3|0|/repo/.trees/42\n";
+  const dead = "/tmp/owned.sock|$1|owned|@2|42|%3|1|\n";
+
+  it("parses one complete live or dead record without process authority", () => {
+    expect(parseExactTargetRecord(Buffer.from(live))).toMatchObject({
+      paneDead: false,
+      cwd: "/repo/.trees/42",
+    });
+    expect(parseExactTargetRecord(Buffer.from(dead))).toMatchObject({
+      paneDead: true,
+      cwd: "",
+    });
+  });
+
+  it.each([
+    dead + dead,
+    dead.trimEnd(),
+    dead.replace("|1|\n", "|true|\n"),
+    dead.replace("|1|\n", "|1|/stale\n"),
+    live.replace("|0|/repo", "|0|").replace("/.trees/42", ""),
+    live.replace("%3", "%other"),
+    Buffer.concat([Buffer.from(dead.slice(0, -1)), Buffer.from([0xff, 0x0a])]),
+  ])("refuses malformed or contradictory exact records %#", (row) => {
+    expect(() =>
+      parseExactTargetRecord(Buffer.isBuffer(row) ? row : Buffer.from(row)),
+    ).toThrow();
+  });
+});
 
 const execute = promisify(execFile);
 function commandResult(stdout: string, exitCode = 0): CommandResult {
@@ -718,7 +749,10 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       ).toEqual([
         `${created.sessionId}|${created.windowId}|36|${created.paneId}`,
       ]);
-      expect(await tmux.observe(created)).toEqual(created);
+      expect(await tmux.observe(created)).toEqual({
+        state: "live",
+        target: created,
+      });
       await tmux.removeWindow(created);
       expect(await tmux.observe(created)).toBeNull();
       const afterDefault = (
@@ -953,7 +987,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       expect(await inventory(sockets[1] as string)).toBe(secondBefore);
       expect(
         await tmux.observe(targets[1] as NonNullable<(typeof targets)[number]>),
-      ).toEqual(targets[1]);
+      ).toEqual({ state: "live", target: targets[1] });
     } finally {
       for (const socket of sockets)
         await execute("tmux", ["-S", socket, "kill-server"]).catch(
@@ -1063,6 +1097,95 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
         );
       await fs.rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it("proves a real isolated remain-on-exit dead pane twice and retains its final transcript", async () => {
+    const normalized: unknown[] = [];
+    for (let run = 0; run < 2; run += 1) {
+      const directory = await fs.mkdtemp(
+        path.join(os.tmpdir(), "sf-dead-pane-"),
+      );
+      const socket = path.join(directory, "owned.sock");
+      const retained = path.join(directory, "retained.log");
+      try {
+        await execute("tmux", [
+          "-S",
+          socket,
+          "new-session",
+          "-d",
+          "-s",
+          "owned",
+          "-n",
+          "anchor",
+          "-c",
+          directory,
+          "node",
+          "-e",
+          "setInterval(() => {}, 1000)",
+        ]);
+        const pane = (
+          await execute("tmux", [
+            "-S",
+            socket,
+            "display-message",
+            "-p",
+            "#{pane_id}",
+          ])
+        ).stdout.trim();
+        const tmux = createLivePorts().tmux;
+        const selected = await tmux.selectTarget?.({
+          evidence: { tmux: socket + ",1,0", tmuxPane: pane },
+          repository: {
+            nameWithOwner: "owner/dead-proof",
+            normalizedName: "owner-dead-proof",
+          },
+        });
+        if (selected === undefined)
+          throw new Error("tmux selection unavailable");
+        const target = await tmux.createIssueWindow({
+          target: selected,
+          windowName: "42",
+          cwd: directory,
+          executable: "node",
+          args: [
+            "-e",
+            'console.log("retained-dead-marker"); setTimeout(() => {}, 300)',
+          ],
+        });
+        await tmux.setRemainOnExit(target);
+        let observed: Awaited<ReturnType<typeof tmux.observe>> = null;
+        const deadline = Date.now() + 3_000;
+        while (observed?.state !== "dead" && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          try {
+            observed = await tmux.observe(target);
+          } catch {
+            observed = null;
+          }
+        }
+        expect(observed).toEqual({ state: "dead", target });
+        const capture = await tmux.capturePane(target, 4096);
+        expect(capture.content).toContain("retained-dead-marker");
+        await fs.writeFile(retained, capture.content, "utf8");
+        await tmux.removeWindow(target);
+        expect(await tmux.observe(target)).toBeNull();
+        expect(await fs.readFile(retained, "utf8")).toContain(
+          "retained-dead-marker",
+        );
+        normalized.push({
+          outcome: "CLEANUP_COMPLETED",
+          transitions: ["tmux:present", "tmux:absent"],
+          retained: true,
+          unrelated: "unchanged",
+        });
+      } finally {
+        await execute("tmux", ["-S", socket, "kill-server"]).catch(
+          () => undefined,
+        );
+        await fs.rm(directory, { recursive: true, force: true });
+      }
+    }
+    expect(normalized[1]).toEqual(normalized[0]);
   });
 
   it("bounds cleanup overlaps with status and reconciliation to whole-target or absence", async () => {

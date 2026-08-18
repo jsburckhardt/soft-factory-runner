@@ -206,7 +206,7 @@ describe("Issue 36 LiveTmuxPort exact selector routing", () => {
   it("prefixes every lifecycle command and uses immutable IDs", async () => {
     const fixture = await exactTarget();
     try {
-      const context = `${fixture.target.socketPath}|$1|session|@1|1|%1|/tmp/work\n`;
+      const context = `${fixture.target.socketPath}|$1|session|@1|1|%1|0|/tmp/work\n`;
       const commands = new QueueCommandRunner([
         result(""),
         result("@1|%1\n"),
@@ -228,7 +228,10 @@ describe("Issue 36 LiveTmuxPort exact selector routing", () => {
         executable: "soft-factory",
         args: ["internal"],
       });
-      await expect(tmux.observe(created)).resolves.toEqual(created);
+      await expect(tmux.observe(created)).resolves.toEqual({
+        state: "live",
+        target: created,
+      });
       await tmux.setRemainOnExit(created);
       await expect(tmux.panePid(created)).resolves.toBe(123);
       await tmux.capturePane(created, 1024);

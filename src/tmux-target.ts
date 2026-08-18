@@ -35,12 +35,18 @@ export interface TmuxTargetV2 extends TmuxIdentity {
   readonly socketIdentity: TmuxSocketIdentityV1;
   readonly sessionId: string;
 }
+export interface TmuxTargetObservationV1 {
+  readonly state: "live" | "dead";
+  readonly target: TmuxTargetV2;
+}
 export interface ParsedInvokingTmuxEvidenceV1 {
   readonly socketPath: string;
   readonly paneId: string;
 }
 export const TMUX_INVOKING_CONTEXT_FORMAT =
   "#{socket_path}|#{session_id}|#{session_name}|#{window_id}|#{window_name}|#{pane_id}|#{pane_current_path}";
+export const TMUX_EXACT_TARGET_FORMAT =
+  "#{socket_path}|#{session_id}|#{session_name}|#{window_id}|#{window_name}|#{pane_id}|#{pane_dead}|#{?pane_dead,,#{pane_current_path}}";
 
 export function parseInvokingTmuxEvidence(
   evidence: InvokingTmuxEvidenceV1,
@@ -129,6 +135,62 @@ export function parseInvokingContextRecord(value: Buffer): {
     windowName: fields[4],
     paneId: fields[5],
     cwd: fields[6],
+  };
+}
+export function parseExactTargetRecord(value: Buffer): {
+  readonly socketPath: string;
+  readonly sessionId: string;
+  readonly sessionName: string;
+  readonly windowId: string;
+  readonly windowName: string;
+  readonly paneId: string;
+  readonly paneDead: boolean;
+  readonly cwd: string;
+} {
+  if (value.length === 0 || value.length > 16_384 || value.at(-1) !== 0x0a)
+    throw tmuxContextRefusal("unavailable-proof");
+  const body = value.subarray(0, -1);
+  if (body.includes(0x0a) || body.includes(0x0d) || body.includes(0x00))
+    throw tmuxContextRefusal("ambiguous-session");
+  const text = body.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(body))
+    throw tmuxContextRefusal("unavailable-proof");
+  const separators: number[] = [];
+  for (let index = 0; index < text.length && separators.length < 7; index += 1)
+    if (text[index] === "|") separators.push(index);
+  if (separators.length !== 7) throw tmuxContextRefusal("ambiguous-session");
+  const fields = [
+    text.slice(0, separators[0]),
+    text.slice(separators[0] + 1, separators[1]),
+    text.slice(separators[1] + 1, separators[2]),
+    text.slice(separators[2] + 1, separators[3]),
+    text.slice(separators[3] + 1, separators[4]),
+    text.slice(separators[4] + 1, separators[5]),
+    text.slice(separators[5] + 1, separators[6]),
+    text.slice(separators[6] + 1),
+  ];
+  if (!path.isAbsolute(fields[0])) throw tmuxContextRefusal("stale-server");
+  if (fields[2] === "" || fields[4] === "")
+    throw tmuxContextRefusal("ambiguous-session");
+  if (
+    !/^\$[0-9]+$/.test(fields[1]) ||
+    !/^@[0-9]+$/.test(fields[3]) ||
+    !/^%[0-9]+$/.test(fields[5]) ||
+    !/^[01]$/.test(fields[6])
+  )
+    throw tmuxContextRefusal("contradictory-target");
+  const paneDead = fields[6] === "1";
+  if (paneDead ? fields[7] !== "" : fields[7] === "")
+    throw tmuxContextRefusal("unavailable-proof");
+  return {
+    socketPath: path.resolve(fields[0]),
+    sessionId: fields[1],
+    sessionName: fields[2],
+    windowId: fields[3],
+    windowName: fields[4],
+    paneId: fields[5],
+    paneDead,
+    cwd: fields[7],
   };
 }
 export function sameSocketIdentity(

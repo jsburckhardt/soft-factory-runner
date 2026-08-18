@@ -331,7 +331,11 @@ class RecordingTmux implements TmuxPort {
   public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2 | null> {
     this.trace.push(`tmux:observe:${target.paneId}`);
     if (this.observeFailure !== null) throw this.observeFailure;
-    return this.observedOverride === undefined ? target : this.observedOverride;
+    const observed =
+      this.observedOverride === undefined ? target : this.observedOverride;
+    return observed === null
+      ? null
+      : { state: "live" as const, target: observed };
   }
   public async panePid(target: TmuxIdentity): Promise<number> {
     return 297 + Number(target.windowName);
@@ -632,14 +636,12 @@ describe("deterministic issue-to-RPIV fixture", () => {
       f.ports,
     );
     expect(run.exitCode).toBe(0);
-    expect(JSON.parse(run.stdout).run).toMatchObject({
+    expect(JSON.parse(run.stdout)).toMatchObject({
       state: "running_rpiv",
-      workerProcess: {
-        pid: 300,
-        executable: "/usr/bin/soft-factory",
-        paneLineage: { paneId: "%3", panePid: 300 },
-      },
+      resources: { tmux: "recorded", worktree: "recorded" },
     });
+    expect(run.stdout).not.toContain("/usr/bin/soft-factory");
+    expect(run.stdout).not.toContain("%3");
     const worker = await runCli(
       ["internal", "run-agent", "--issue", "3"],
       "/tmp/soft-factory-fixture/.trees/3",
@@ -657,16 +659,17 @@ describe("deterministic issue-to-RPIV fixture", () => {
       f.ports,
     );
     expect(JSON.parse(status.stdout)).toMatchObject({
-      persisted: { state: "completed" },
-      observed: { paneId: "%3" },
+      state: "completed",
+      tmux: "live",
     });
+    expect(status.stdout).not.toContain("%3");
     const attached = await runCli(
       ["attach", "3"],
       "/tmp/fixture-start",
       f.ports,
     );
-    expect(attached.stdout).toContain(
-      "sf-jsburckhardt-soft-factor-6ddfad3aac2a:3",
+    expect(attached.stdout).toBe(
+      "Attached to the exact owned live tmux target.\n",
     );
 
     const snapshot = readSnapshot(f.files);
@@ -1253,37 +1256,14 @@ describe("Issue 19 corrected helper integration", () => {
       "/tmp/start",
       f.ports,
     );
-    const statusFacts = JSON.parse(statusJson.stdout) as {
-      persisted: { state: string };
-      reconciliation: {
-        activity: string;
-        decisionCode: string;
-        safeActions: readonly string[];
-        observations: {
-          progress: {
-            state: string;
-            code: string;
-            facts: { classification: string; phase: string };
-          };
-        };
-      };
-    };
+    const statusFacts = JSON.parse(statusJson.stdout);
     expect(statusFacts).toMatchObject({
-      persisted: { state: "completed" },
-      reconciliation: {
-        activity: "inactive",
-        decisionCode: "MERGE_PENDING",
-        safeActions: ["attach", "explicit_clean"],
-        observations: {
-          progress: {
-            state: "mismatch",
-            code: "PROGRESS_REPEATED",
-            facts: {
-              classification: "PROGRESS_REPEATED",
-              phase: "terminal",
-            },
-          },
-        },
+      state: "completed",
+      activity: "inactive",
+      decisionCode: "MERGE_PENDING",
+      safeActions: ["attach", "explicit_clean"],
+      observations: {
+        progress: { state: "mismatch", code: "PROGRESS_REPEATED" },
       },
     });
 
@@ -1301,9 +1281,7 @@ describe("Issue 19 corrected helper integration", () => {
 
     const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
     expect(statusHuman.stdout).toContain("Persisted state: completed");
-    expect(statusHuman.stdout).toMatch(
-      /progress=mismatch:PROGRESS_REPEATED:.*phase.*terminal/,
-    );
+    expect(statusHuman.stdout).toMatch(/progress=mismatch:PROGRESS_REPEATED/);
     const listHuman = await runCli(["list"], "/tmp/start", f.ports);
     expect(listHuman.stdout).toMatch(/state.*completed/);
     expect(listHuman.stdout).toMatch(/rpivPhase.*terminal/);
@@ -1330,34 +1308,11 @@ describe("Issue 19 corrected helper integration", () => {
       "/tmp/start",
       f.ports,
     );
-    const statusFacts = JSON.parse(statusJson.stdout) as {
-      readonly persisted: { readonly state: string };
-      readonly reconciliation: {
-        readonly observations: {
-          readonly progress: {
-            readonly code: string;
-            readonly facts: {
-              readonly classification: string;
-              readonly phase: string;
-              readonly lastAccepted: { readonly phase: string } | null;
-            };
-          };
-        };
-      };
-    };
+    const statusFacts = JSON.parse(statusJson.stdout);
     expect(statusFacts).toMatchObject({
-      persisted: { state: "running_rpiv" },
-      reconciliation: {
-        observations: {
-          progress: {
-            code: "PROGRESS_MISSING",
-            facts: {
-              classification: "PROGRESS_MISSING",
-              phase: "unknown",
-              lastAccepted: { phase: "plan" },
-            },
-          },
-        },
+      state: "running_rpiv",
+      observations: {
+        progress: { code: "PROGRESS_MISSING", state: "absent" },
       },
     });
 
@@ -1381,9 +1336,7 @@ describe("Issue 19 corrected helper integration", () => {
 
     const statusHuman = await runCli(["status", "3"], "/tmp/start", f.ports);
     expect(statusHuman.stdout).toContain("Persisted state: running_rpiv");
-    expect(statusHuman.stdout).toMatch(
-      /progress=absent:PROGRESS_MISSING:.*phase.*unknown/,
-    );
+    expect(statusHuman.stdout).toMatch(/progress=absent:PROGRESS_MISSING/);
     const listHuman = await runCli(["list"], "/tmp/start", f.ports);
     expect(listHuman.stdout).toMatch(/rpivPhase.*unknown/);
     expect(listHuman.stdout).toMatch(

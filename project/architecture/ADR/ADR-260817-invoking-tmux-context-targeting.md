@@ -24,7 +24,13 @@ Keep Doctor ordered 24 check IDs and private functional probe. Extend `command.t
 
 For Doctor targeting inventory only, treat one existing queried socket as stable absence when its single shell-free, explicit-`-S` `list-panes` query completes nonzero with zero stdout and one exact LF-terminated original-byte stderr record `no server running on <queried-socket>`. Require valid UTF-8, complete bounded stderr, and equal socket type/device/inode before and after that query; retain the unchanged socket identity in the ephemeral inventory so later deletion or replacement cannot compare equal. Do not broaden this classification to substring matches, alternate text, additional records or bytes, malformed output, timeout, stdout or stderr overflow, inaccessible identity, post-query identity loss, or replacement. Those outcomes remain typed unavailable proof. Never persist or render the matched record or queried path.
 
+Extend exact target observation with one closed, LF-terminated record that carries the complete persisted socket/session/window/pane selectors, current cwd, and a strict pane-dead flag. A live pane matches only with complete target and cwd equality. A remain-on-exit dead pane may match for explicit cleanup when socket identity and immutable selectors equal the persisted target, the dead flag is true, current cwd is empty, the persisted cwd remains complete, and independent lock, lease when present, worktree, result when completed, worker, and RPIV facts satisfy cleanup. Treat pane-dead state as lifecycle corroboration only; never use it, historical process fields, empty cwd, names, or absence as ownership authority.
+
+For explicit cleanup, persist a same-owner/run per-resource checkpoint only after observing that exact resource present and immediately before mutation. A retry may classify exact absence as completion when that checkpoint binds the previously observed resource and no contradictory or replacement fact exists. This closes interruption after removal but before completed-progress persistence while preserving at-most-once mutation and refusal for unproved absence.
+
 Classify this delivery as backward-compatible functionality under project policy and release it as `0.2.0` from `0.1.3`.
+
+Amend the backward-compatible exact-target correction for Issue #42 as prerelease `0.2.1-beta.2`; keep third-party dependency metadata unchanged and require local packed and installed proof without registry publication.
 
 ## Alternatives
 
@@ -59,6 +65,7 @@ Classify this delivery as backward-compatible functionality under project policy
 
 - [#36](https://github.com/jsburckhardt/soft-factory-runner/issues/36)
 - [#40](https://github.com/jsburckhardt/soft-factory-runner/issues/40)
+- [#42](https://github.com/jsburckhardt/soft-factory-runner/issues/42)
 
 ## References
 

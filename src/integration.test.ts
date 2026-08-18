@@ -254,8 +254,8 @@ class CountingTmux implements TmuxPort {
   public async observeIssueWindowName(): Promise<boolean> {
     return false;
   }
-  public async observe(target: TmuxTargetV2): Promise<TmuxTargetV2> {
-    return target;
+  public async observe(target: TmuxTargetV2) {
+    return { state: "live" as const, target };
   }
   public async panePid(): Promise<number> {
     return 100;
