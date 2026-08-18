@@ -1,0 +1,42 @@
+.harness/records/retro/2026-08-18/017-issue-42-rpiv-implementer-documentation-gate.md
+  s_cc7ed86b03c881::t_f7c64f848437e1 7-8,10-13,17-23,25-56,59,61
+  s_cc7ed86b03c881::t_6db01ed6c475df 1-6,9,14-16,24,57-58,60
+README.md
+  s_cc7ed86b03c881::t_49d43021f0f022 133,143
+PRD.md
+  s_cc7ed86b03c881::t_49d43021f0f022 948
+docs/phase-1-issue-run.md
+  s_cc7ed86b03c881::t_49d43021f0f022 73,149
+docs/phase-3-recovery-operations.md
+  s_cc7ed86b03c881::t_49d43021f0f022 26,204
+  s_cc7ed86b03c881::t_f0109d0e972557 114,137
+  s_cc7ed86b03c881::t_986deda4650665 141
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/implementation/00-implementation.md
+  s_cc7ed86b03c881::t_965992d14abe6f 21,25-28,31-33,39-41,49,52-58
+  s_cc7ed86b03c881::t_4d7b92adb92d4b 59
+docs/README.md
+  s_cc7ed86b03c881::t_49d43021f0f022 5
+src/documentation.test.ts
+  s_cc7ed86b03c881::t_3d8852451fd58a 182-184,186,188,1113-1121,1134-1148
+  s_cc7ed86b03c881::t_37467ee7c026f1 372
+  s_cc7ed86b03c881::t_986deda4650665 355
+  s_cc7ed86b03c881::t_f6197c23b49668 1149-1150
+project/work-items/42-allow-explicit-cleanup-of-an-exact-owned-tmux-window-with-a-dead-pane/plan/02-task-breakdown.md
+  s_cc7ed86b03c881::t_d7489550b3282e 195-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0bf6b4b83e7055783bddb3daf6e75e918eac40d8",
+  "prompts": {},
+  "sessions": {
+    "s_cc7ed86b03c881": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "call_B2bBxKdndpNaIoQ3NywpgRSw",
+        "model": "unknown"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
