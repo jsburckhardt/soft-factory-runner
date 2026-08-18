@@ -170,8 +170,30 @@ function publicControlFacts(result: ControlOutcomeV1): unknown {
     };
   }
   if (result.report === null) return result.facts;
+  const categorical = cleanupCategories(result.report);
+  const facts = result.facts as {
+    readonly completedSteps?: readonly CleanupStep[];
+    readonly remainingSteps?: readonly CleanupStep[];
+  };
+  const completed =
+    facts.completedSteps ??
+    CLEANUP_STEPS.filter((step) => categorical[step] === "completed");
+  const remaining =
+    facts.remainingSteps ??
+    CLEANUP_STEPS.filter((step) => !completed.includes(step));
   return {
-    cleanup: cleanupCategories(result.report),
+    cleanup: Object.fromEntries(
+      CLEANUP_STEPS.map((step) => [
+        step,
+        completed.includes(step)
+          ? "completed"
+          : remaining.includes(step)
+            ? "remaining"
+            : categorical[step],
+      ]),
+    ),
+    completed,
+    remaining,
     retainedEvidence: ["branch", "snapshot", "events", "logs"],
   };
 }
@@ -184,6 +206,12 @@ export function renderControl(result: ControlOutcomeV1, json: boolean): string {
     code: result.code,
     exitCode: result.exitCode,
     exitMeaning: result.exitCode === 0 ? "success" : "refused_or_partial",
+    eligibility:
+      result.exitCode === 0
+        ? "eligible"
+        : result.code === "CLEANUP_PARTIAL"
+          ? "partial"
+          : "refused",
     facts: publicControlFacts(result),
     report: result.report === null ? null : publicReport(result.report),
     refusalReason: result.exitCode === 0 ? null : result.code,
@@ -200,6 +228,8 @@ export function renderControl(result: ControlOutcomeV1, json: boolean): string {
     view.code +
     "\nExit meaning: " +
     view.exitMeaning +
+    "\nEligibility: " +
+    view.eligibility +
     "\nFacts: " +
     JSON.stringify(view.facts) +
     (result.report === null

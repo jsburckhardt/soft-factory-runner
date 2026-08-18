@@ -16,6 +16,7 @@ import type {
 } from "./domain";
 import { normalizeRepositoryName } from "./domain";
 import {
+  classifyTmuxMissingTarget,
   deriveStandaloneTmuxTarget,
   parseExactTargetRecord,
   parseInvokingContextRecord,
@@ -25,9 +26,9 @@ import {
   TMUX_INVOKING_CONTEXT_FORMAT,
   tmuxContextRefusal,
   type InvokingTmuxEvidenceV1,
+  type TmuxLifecycleObservationV1,
   type TmuxSessionTargetV1,
   type TmuxSocketIdentityV1,
-  type TmuxTargetObservationV1,
   type TmuxTargetV2,
 } from "./tmux-target";
 import { RunnerError } from "./errors";
@@ -956,15 +957,28 @@ type TmuxSocketIdentityReader = (
 ) => Promise<TmuxSocketIdentityV1>;
 
 class LiveTmuxPort implements TmuxPort {
+  private readonly readSocketIdentity: TmuxSocketIdentityReader;
+  private readonly assertLifecycleSocketType: (
+    socketPath: string,
+  ) => Promise<void>;
   public constructor(
     private readonly commands: CommandRunner,
-    private readonly readSocketIdentity: TmuxSocketIdentityReader = async (
-      socketPath,
-    ) => {
-      const stat = await fs.stat(socketPath);
-      return { device: String(stat.dev), inode: String(stat.ino) };
-    },
-  ) {}
+    readSocketIdentity?: TmuxSocketIdentityReader,
+  ) {
+    this.readSocketIdentity =
+      readSocketIdentity ??
+      (async (socketPath) => {
+        const stat = await fs.stat(socketPath);
+        return { device: String(stat.dev), inode: String(stat.ino) };
+      });
+    this.assertLifecycleSocketType =
+      readSocketIdentity === undefined
+        ? async (socketPath) => {
+            if (!(await fs.stat(socketPath)).isSocket())
+              throw new Error("tmux socket identity is not a socket");
+          }
+        : async () => undefined;
+  }
 
   public async selectTarget(input: {
     readonly evidence: InvokingTmuxEvidenceV1;
@@ -1196,23 +1210,61 @@ class LiveTmuxPort implements TmuxPort {
 
   public async observe(
     target: TmuxTargetV2,
-  ): Promise<TmuxTargetObservationV1 | null> {
-    await this.assertSocket(target.socketPath, target.socketIdentity);
-    const result = await this.commands.run(
-      "tmux",
-      [
-        "-S",
-        target.socketPath,
-        "list-panes",
-        "-t",
-        target.paneId,
-        "-F",
-        TMUX_EXACT_TARGET_FORMAT,
-      ],
-      target.cwd,
-      15_000,
-    );
-    if (result.exitCode !== 0) return null;
+    executionCwd = target.cwd,
+  ): Promise<TmuxLifecycleObservationV1> {
+    let before: TmuxSocketIdentityV1;
+    try {
+      await this.assertLifecycleSocketType(target.socketPath);
+      before = await this.socketIdentity(target.socketPath);
+    } catch {
+      throw tmuxObservationRefusal("socket_identity_unavailable");
+    }
+    if (!sameSocketIdentity(before, target.socketIdentity))
+      throw tmuxObservationRefusal("socket_identity_changed");
+    let result: CommandResult;
+    try {
+      result = await this.commands.run(
+        "tmux",
+        [
+          "-S",
+          target.socketPath,
+          "list-panes",
+          "-t",
+          target.paneId,
+          "-F",
+          TMUX_EXACT_TARGET_FORMAT,
+        ],
+        executionCwd,
+        15_000,
+      );
+    } catch {
+      throw tmuxObservationRefusal("command_unavailable");
+    }
+    let after: TmuxSocketIdentityV1;
+    try {
+      await this.assertLifecycleSocketType(target.socketPath);
+      after = await this.socketIdentity(target.socketPath);
+    } catch {
+      throw tmuxObservationRefusal("socket_identity_unavailable");
+    }
+    if (
+      !sameSocketIdentity(before, after) ||
+      !sameSocketIdentity(after, target.socketIdentity)
+    )
+      throw tmuxObservationRefusal("socket_identity_changed");
+    if (result.exitCode !== 0) {
+      const category =
+        result.stdoutByteCount === 0 &&
+        result.stdoutBuffer.byteLength === 0 &&
+        result.stderrByteCount === result.stderrBuffer.byteLength
+          ? classifyTmuxMissingTarget(result.stderrBuffer, target)
+          : null;
+      if (category === null)
+        throw tmuxObservationRefusal("response_not_accepted");
+      return { state: "missing", category, socketIdentity: "unchanged" };
+    }
+    if (result.stderrByteCount !== 0 || result.stderrBuffer.byteLength !== 0)
+      throw tmuxObservationRefusal("response_not_accepted");
     const parsed = parseExactTargetRecord(result.stdoutBuffer);
     const canonical = await fs.realpath(parsed.socketPath);
     return {
@@ -1851,6 +1903,15 @@ function tmuxShellCommand(executable: string, args: readonly string[]): string {
         '"' + word.replaceAll("\\", "\\\\").replaceAll('"', '\\"') + '"',
     )
     .join(" ");
+}
+
+function tmuxObservationRefusal(reason: string): RunnerError {
+  return new RunnerError(
+    "TMUX_TARGET_OBSERVATION_REFUSED",
+    "The exact tmux target observation did not provide accepted lifecycle proof.",
+    "Preserve all resources and retry only after exact target and socket authority are restored.",
+    { details: { reason } },
+  );
 }
 
 function commandFailure(operation: string, result: CommandResult): RunnerError {

@@ -18,7 +18,7 @@ For outside-tmux starts, derive a deterministic repository-specific socket selec
 
 Persist new runs as `RunSnapshotV6` with a `TmuxTargetV2` containing selection mode, canonical explicit socket path, socket device/inode identity, session ID/name, window ID/name, pane ID, and cwd. Do not persist the raw `TMUX` tuple, `TMUX_PANE` evidence, tmux server PID, client identity, or unvalidated values. Continue to read snapshots v1-v5 as legacy inputs, but never infer a server selector for them or authorize tmux mutation until an explicit safe migration can prove one exact target.
 
-Prefix every normal runtime tmux operation with `-S <persisted-socket>` and target immutable session/window/pane IDs after selection. Creation, observation, status, reconcile, resume, attach, logs, stop, cleanup, and process-lineage checks use the same target object. Reconciliation returns match only when socket filesystem, session, window, pane, and cwd all match in one bounded observation; nonzero means complete absence and malformed zero-exit evidence means unknown. Destructive or content-reading operations require that complete match. Cleanup kills the immutable window ID, attach selects the immutable pane, and no operation discovers or adopts resources by expected name.
+Prefix every normal runtime tmux operation with `-S <persisted-socket>` and target immutable session/window/pane IDs after selection. Creation, observation, status, reconcile, resume, attach, logs, stop, cleanup, and process-lineage checks use the same target object. Reconciliation returns match only when socket filesystem, session, window, pane, and cwd all match in one bounded observation. For Issue #44 exact-target lifecycle queries, a nonzero result means complete absence only when it is one strict selector-bound pane/window/session missing-target record, an exact same-owner/run tmux cleanup checkpoint exists, and socket type/device/inode remain unchanged before and after; every other nonzero or malformed zero-exit result remains unknown or contradictory. Destructive or content-reading operations require that complete match. Cleanup kills the immutable window ID, attach selects the immutable pane, and no operation discovers or adopts resources by expected name.
 
 Keep Doctor ordered 24 check IDs and private functional probe. Extend `command.tmux` with a bounded, value-free targeting classification that uses the same resolver: `invoking-valid`, `standalone-fallback`, or a closed invalid-context reason. Invoking checks are read-only through only the evidenced socket; fallback checks derive but do not create the standalone target. Doctor and repository-local isolated-socket fixtures compare before/after inventories and fail if any ambient or unrelated resource changes.
 
@@ -66,6 +66,7 @@ Amend the backward-compatible exact-target correction for Issue #42 as prereleas
 - [#36](https://github.com/jsburckhardt/soft-factory-runner/issues/36)
 - [#40](https://github.com/jsburckhardt/soft-factory-runner/issues/40)
 - [#42](https://github.com/jsburckhardt/soft-factory-runner/issues/42)
+- [#44](https://github.com/jsburckhardt/soft-factory-runner/issues/44)
 
 ## References
 

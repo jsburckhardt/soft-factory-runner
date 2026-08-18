@@ -1613,7 +1613,11 @@ export class IssueRunService {
       if (!alreadyAbsent && step === "tmux" && snapshot.tmux !== null) {
         const target = snapshot.tmux;
         await this.ports.tmux.removeWindow(target);
-        if ((await this.ports.tmux.observe(target)) !== null)
+        const removedObservation = await this.ports.tmux.observe(
+          target,
+          repository.root,
+        );
+        if (removedObservation.state !== "missing")
           throw new RunnerError(
             "CLEANUP_PARTIAL",
             "The tmux window remained after its cleanup step.",

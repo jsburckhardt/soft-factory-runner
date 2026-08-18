@@ -106,7 +106,7 @@ export async function collectReconciliation(input: {
         ? match({ worktreePath: persisted.worktreePath }, "WORKTREE_PATH_MATCH")
         : absent<{ readonly worktreePath: string }>("WORKTREE_PATH_ABSENT"),
     ),
-    collectTmuxObservation(persisted, ports),
+    collectTmuxObservation(persisted, ports, repositoryRoot),
     (persisted.schemaVersion !== 3 &&
       persisted.schemaVersion !== 4 &&
       persisted.schemaVersion !== 5 &&
@@ -823,6 +823,7 @@ interface TmuxObservationCollection {
 async function collectTmuxObservation(
   persisted: RunSnapshot,
   ports: RunnerPorts,
+  repositoryRoot: string,
 ): Promise<TmuxObservationCollection> {
   if (persisted.schemaVersion !== 6) {
     return {
@@ -861,13 +862,20 @@ async function collectTmuxObservation(
     }
   }
   try {
-    const actual = await ports.tmux.observe(persisted.tmux);
-    if (actual === null)
+    const actual = await ports.tmux.observe(persisted.tmux, repositoryRoot);
+    if (actual.state === "missing") {
+      if (!hasExactTmuxCleanupCheckpoint(persisted))
+        return {
+          observation: unknown("TMUX_MISSING_TARGET_UNPROVED"),
+          disposition: "preserve",
+          diagnostic: null,
+        };
       return {
         observation: absent("TMUX_ABSENT"),
         disposition: "preserve",
         diagnostic: null,
       };
+    }
     const exact = same(actual.target, persisted.tmux);
     return {
       observation: exact
@@ -893,6 +901,26 @@ async function collectTmuxObservation(
       diagnostic: null,
     };
   }
+}
+
+function hasExactTmuxCleanupCheckpoint(persisted: RunSnapshotV6): boolean {
+  const cleanup = persisted.cleanup;
+  if (
+    cleanup === null ||
+    cleanup.ownerId !== persisted.ownerId ||
+    cleanup.runId !== persisted.runId
+  )
+    return false;
+  return (
+    cleanup.completedSteps.includes("tmux") ||
+    (cleanup.startedCheckpoints?.some(
+      (checkpoint) =>
+        checkpoint.step === "tmux" &&
+        checkpoint.resourceIdentity ===
+          cleanupResourceIdentity(persisted, "tmux"),
+    ) ??
+      false)
+  );
 }
 
 async function observeProcess(

@@ -4,7 +4,7 @@ import path from "node:path";
 import { OFFICIAL_ASSET_VERSION } from "./official-assets";
 
 const root = process.cwd();
-const VERSION = "0.2.1-beta.2";
+const VERSION = "0.2.1-beta.3";
 
 function readJson(relative: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
@@ -16,7 +16,7 @@ function git(args: readonly string[]): string {
   return result.stdout;
 }
 
-describe("Issue 42 beta.2 finite repository evidence", () => {
+describe("Issue 44 beta.3 finite repository evidence", () => {
   it("synchronizes every authoritative current-release surface", () => {
     const pkg = readJson("package.json") as { version: string };
     const lock = readJson("package-lock.json") as {
@@ -56,6 +56,7 @@ describe("Issue 42 beta.2 finite repository evidence", () => {
       "beta.1 recognizes only an unchanged stale socket",
     );
     expect(history).toContain("beta.2 adds only guarded dead-pane cleanup");
+    expect(history).toContain("beta.3 accepts only exact selector-bound");
     expect(history).toContain("Explicit cleanup refuses a live match");
   });
 
@@ -88,7 +89,7 @@ describe("Issue 42 beta.2 finite repository evidence", () => {
       path.join(root, "docs/phase-3-recovery-operations.md"),
       "utf8",
     );
-    expect(recovery).toContain("Deferred Sparkta beta.2 recovery handoff");
+    expect(recovery).toContain("Deferred Sparkta beta.3 recovery handoff");
     expect(recovery).toContain("does not install into or inspect Sparkta");
     expect(recovery).toContain("No force-clean");
     expect(recovery).toContain("registry publication");

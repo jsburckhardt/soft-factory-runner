@@ -30,13 +30,14 @@ This component applies to command-result byte capture, normal `LiveTmuxPort` cre
 - Tokenize only as `window_id`, `pane_id`, `vertical_bar`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other`. Preserve `horizontal_tab` for rejected legacy/control transport and persisted diagnostic compatibility. Collapse each contiguous other-byte run to one token and retain no run length or value.
 - Continue to read the legacy schema-v1 tokens `window_id`, `pane_id`, `horizontal_tab`, `carriage_return`, `line_feed`, `backslash`, or `other`; add `vertical_bar` without invalidating an already-persisted diagnostic.
 - Derive a diagnostic for a completed create command that exits nonzero or has malformed identity output. Keep nonzero creation as `EXTERNAL_COMMAND_FAILED`; use `TMUX_IDENTITY_MALFORMED` for rejected zero-exit identity output.
-- Treat nonzero observation as target absence without creating or replacing a diagnostic. Treat malformed zero-exit observation as unknown with `TMUX_IDENTITY_MALFORMED`. Treat spawn and timeout failures as existing external-command unknowns without invented byte facts.
+- Classify exact-target nonzero observation from original bytes. Accept only a completed, untruncated result with zero stdout and exactly one LF-terminated stderr record in the `can't find pane`, `can't find window`, or `can't find session` category whose strict identifier equals the corresponding persisted selector. Return that bounded category to reconciliation without raw bytes or values.
+- Treat every other nonzero observation, malformed or truncated response, extra stdout/stderr record, mismatched selector, spawn failure, and timeout as non-authorizing unknown evidence. A missing-target category becomes absence only at the same-owner/run exact-checkpoint and unchanged-socket reconciliation boundary.
 - Persist only the latest diagnostic in nullable `RunSnapshotV6.tmuxIdentityDiagnostic`. Replace it on a later identity failure for the same owned run. Clear it only after valid create or observe identity proof.
 - Persist a creation parse failure as a revisioned `starting_tmux` transition while preserving exact lock, lease, branch, and worktree ownership. Persist malformed observation after the one collected reconciliation pass without a second observation.
 - Keep diagnostics non-authorizing and distinct from logs. Retained identity evidence alone never authorizes ownership, retry, adoption, signaling, or cleanup and never satisfies `logs`.
 - Authorize `starting_tmux` retry only when exact lock/lease, worktree path/registration/branch, fetched-base HEAD, cleanliness, no persisted identity, and zero same-name candidates are proved. Repeat name absence immediately before one create attempt.
 - Refuse any same-name resource without persisted identity. Preserve it without inspecting or inferring ownership from name, cwd, pane identity, or process command.
-- Perform at most one observation at each reconciliation boundary per invocation, with no polling or hidden retry.
+- Perform at most one observation at each reconciliation boundary per invocation, with no polling or hidden retry. Read socket type/device/inode before and after a potentially accepted missing-target query and reject identity loss or replacement.
 
 ### Interfaces
 
@@ -55,6 +56,7 @@ This component applies to command-result byte capture, normal `LiveTmuxPort` cre
 - Empty, missing-field, extra-create-field, multi-record, malformed-ID, empty/invalid-cwd, terminator, unsupported-printable-separator, and unsupported-control-separator matrices fail without partial acceptance.
 - Bounded sentinel scans find no raw output or values in errors, snapshots, events, reports, logs, Doctor evidence, or human/JSON output.
 - Overlapping distinct normal flows and overlapping Doctor probes return only their own identities and leave disjoint or absent resource inventories.
+- A finite nonzero matrix accepts only the three exact selector-bound missing-target categories after checkpoint proof and refuses every other row without mutation or value disclosure.
 
 ## Rationale
 

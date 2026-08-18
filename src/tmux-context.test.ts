@@ -754,7 +754,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
         target: created,
       });
       await tmux.removeWindow(created);
-      expect(await tmux.observe(created)).toBeNull();
+      expect(await tmux.observe(created)).toMatchObject({ state: "missing" });
       const afterDefault = (
         await execute("tmux", [
           "-S",
@@ -983,7 +983,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
       );
       expect(
         await tmux.observe(targets[0] as NonNullable<(typeof targets)[number]>),
-      ).toBeNull();
+      ).toMatchObject({ state: "missing" });
       expect(await inventory(sockets[1] as string)).toBe(secondBefore);
       expect(
         await tmux.observe(targets[1] as NonNullable<(typeof targets)[number]>),
@@ -1184,7 +1184,7 @@ describe("Issue 36 isolated custom-socket acceptance", () => {
           ),
         ]);
         expect([expected, null]).toContain(overlap[0]);
-        expect(await tmux.observe(target)).toBeNull();
+        expect(await tmux.observe(target)).toMatchObject({ state: "missing" });
         expect(
           (
             await execute("tmux", [

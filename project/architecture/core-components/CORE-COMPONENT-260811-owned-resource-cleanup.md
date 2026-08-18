@@ -22,7 +22,7 @@ This component applies to automatic merged cleanup, explicit `clean`, cleanup pr
 - On the next reconciliation-capable command, automatically clean only when merged-head and ownership proof passes and the owned worktree is clean. Remove the worktree registration and directory without force, release an exact inactive slot if present, and compare-and-delete the exact issue lock last.
 - Treat an open expected PR as pending with no cleanup. Treat a closed-unmerged PR, missing merge fact, unavailable GitHub fact, or ambiguous merge or ownership evidence as actionable blocked cleanup while preserving the worktree and the previously proved completed run state.
 - Let explicit `clean` remove the exact terminal tmux window after transcript capture in addition to the guarded worktree, slot, and lock operations. Automatic merged cleanup retains tmux. Neither cleanup mode removes the local issue branch, snapshot, events, or retained transcripts. Permit a remain-on-exit dead pane only when one complete observation matches its persisted socket/session/window/pane selectors, reports strict dead state and empty current cwd, retains a complete persisted cwd, and every independent cleanup prerequisite agrees; dead state never supplies ownership.
-- Persist cleanup intent, then observe each exact resource present and durably bind its immutable identity in a same-owner/run started checkpoint immediately before mutation; persist completed progress after verified absence. On retry, accept absence only after either same-owner/run completion or that exact pre-mutation checkpoint, and only when no contradictory or replacement fact exists. Never invoke a removal twice after such proved absence.
+- Persist cleanup intent, then observe each exact resource present and durably bind its immutable identity in a same-owner/run started checkpoint immediately before mutation; persist completed progress after verified absence. On retry, accept exact-target missing-response absence only after either same-owner/run completion or that exact pre-mutation checkpoint, unchanged socket identity across the bounded query, and no contradictory or replacement fact. Never invoke a removal twice after such proved absence.
 - Order explicit cleanup as final transcript capture, exact tmux-window removal, non-forced worktree removal, exact inactive lease release, and exact issue-lock release. Verify each completed operation before advancing.
 - Return human and JSON cleanup views from one public structure containing eligibility, outcome/exit meaning, completed and remaining tmux/worktree/lease/lock categories, refusal reason, and remediation. Exclude socket paths, tmux identifiers, cwd, process identifiers, persisted private objects, and unrelated-resource values. Every refusal and partial cleanup is nonzero.
 
@@ -39,6 +39,8 @@ This component applies to automatic merged cleanup, explicit `clean`, cleanup pr
 - A squash or merge commit may differ from the recorded source head without blocking when the immutable source head matches.
 - Closed-unmerged and incomplete merge observations leave every worktree byte intact and identify the missing or contradictory proof.
 - Repeating cleanup after a recorded partial success resumes at the first unproved step without deleting an unrelated replacement resource.
+- A retry from tmux and worktree completed with lease and lock remaining releases only the exact remaining lease and lock, then reports completion; a subsequent clean is mutation-free idempotent success.
+- Failures or interruption at lease and lock release preserve truthful completed/remaining categories and safe retry evidence.
 
 ## Rationale
 
@@ -61,7 +63,7 @@ How should other parts of the system integrate with this component?
 - Persist comparison facts and progress before reporting any resource as removed.
 - Keep automatic and explicit cleanup modes distinct in domain types and output.
 - Use temporary repositories and fake GitHub/tmux/process adapters to prove every refusal and partial-step retry.
-- Document merge-head meaning, non-forced removal, evidence retention, blocked remediation, and operational triggers.
+- Document merge-head meaning, non-forced removal, evidence retention, blocked remediation, operational triggers, checkpoint-gated missing-target categories, and partial lease/lock retry.
 
 ## Exceptions
 
