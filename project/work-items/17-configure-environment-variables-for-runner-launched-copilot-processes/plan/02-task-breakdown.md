@@ -136,3 +136,22 @@ Run the focused environment/parser/orchestration/documentation suites through `j
 - Successful `just verify-focused` and `just verify` command results.
 - Successful structured harness envelopes showing delegation to root recipes.
 - Redacted AC/scenario ledger and coverage summary in `implementation/00-implementation.md`.
+
+
+## Verify-return Follow-up Task T-6: Restore the explicit PRD invocation contract
+
+- **Status:** Complete
+- **Complexity:** Low
+- **Dependencies:** T-4, T-5
+- **Acceptance Criteria:** AC-5, AC-13
+
+### Description
+Preserve the completed T-1 through T-5 history. Update PRD section 27 with exactly the one-line generic invocation `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo` while retaining the complete concrete Runner command. Add a focused `src/documentation.test.ts` regression assertion for both forms. Do not alter Issue #17 runtime behavior.
+
+### Test Coverage
+- Implement V-11 as a repository-documentation assertion that counts exactly one generic invocation line and matches the complete concrete command.
+- Run root `just verify-focused` and `just verify`, plus their harness delegates, without changing product execution code.
+
+### Expected Evidence
+- PRD section 27 contains the exact generic line once and retains the concrete Runner command.
+- Focused and full validation pass with the new documentation regression.

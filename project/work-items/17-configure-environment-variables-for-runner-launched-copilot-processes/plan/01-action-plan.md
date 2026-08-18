@@ -52,3 +52,4 @@ Coverage proof: all AC-1 through AC-13 have at least one dependency-ordered impl
 3. **T-3 — Prove correction, concurrency, and confidentiality** (AC-9, AC-10, AC-11, AC-12): extend deterministic orchestration/integration fixtures and leak scans.
 4. **T-4 — Document the public configuration contract** (AC-5): align README and issue-run, recovery, and Doctor configuration guidance plus documentation assertions.
 5. **T-5 — Run direct and harness validation and record evidence** (AC-13): execute focused/full root recipes and delegating harness checks, recording named redacted outcomes.
+6. **T-6 — Restore the explicit PRD invocation contract after Verify return** (AC-5, AC-13): retain the complete concrete Runner command, add exactly one one-line generic invocation, and lock both forms with focused documentation evidence.

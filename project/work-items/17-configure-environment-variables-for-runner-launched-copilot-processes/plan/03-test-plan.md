@@ -220,3 +220,23 @@ Both direct root recipes and both delegating harness checks succeed; coverage re
 
 ### Expected Evidence
 Successful direct command results, structured `ok` harness envelopes, coverage summary, and redacted AC/scenario ledger.
+
+
+## Test V-11: Preserve generic and concrete PRD Copilot invocations
+
+- **Type:** Documentation regression
+- **Task:** T-6
+- **Acceptance Criteria:** AC-5, AC-13
+- **Priority:** High
+
+### Steps
+1. Load PRD section 27 through `src/documentation.test.ts`.
+2. Assert exactly one line equals `OTEL_RESOURCE_ATTRIBUTES="project.name=<project>,issue.id=issue-<number>" copilot --yolo`.
+3. Assert the complete concrete Runner command remains unchanged.
+4. Run the focused and full root validation recipes.
+
+### Expected Result
+The generic operator-facing invocation is explicit and singular, the concrete Runner command is preserved, and no Issue #17 runtime behavior changes.
+
+### Expected Evidence
+Passing named documentation assertion plus focused and full validation results mapped to AC-5 and AC-13.
