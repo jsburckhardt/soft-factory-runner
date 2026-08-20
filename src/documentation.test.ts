@@ -1205,13 +1205,13 @@ describe("Issue 36 exact tmux ownership and beta.2 guidance", () => {
     );
   });
 
-  it("documents exact local 0.2.1-beta.2-to-0.2.1-beta.3 upgrade, reinstall, confirmation, and reconvergence", () => {
+  it("documents exact local 0.2.1-beta.3-to-0.2.1 promotion, reinstall, confirmation, and reconvergence", () => {
     expect((JSON.parse(packageJson) as { version: string }).version).toBe(
-      "0.2.1-beta.3",
+      "0.2.1",
     );
     for (const document of [readme, assetGuide, docsIndex]) {
+      expect(document).toContain("0.2.1");
       expect(document).toContain("0.2.1-beta.3");
-      expect(document).toContain("0.2.1-beta.2");
       expect(document).not.toContain("soft-factory --version");
       expect(document).not.toContain("registry publication complete");
     }

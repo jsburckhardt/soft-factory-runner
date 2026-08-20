@@ -4,7 +4,7 @@ import path from "node:path";
 import { OFFICIAL_ASSET_VERSION } from "./official-assets";
 
 const root = process.cwd();
-const VERSION = "0.2.1-beta.3";
+const VERSION = "0.2.1";
 
 function readJson(relative: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
@@ -16,7 +16,7 @@ function git(args: readonly string[]): string {
   return result.stdout;
 }
 
-describe("Issue 44 beta.3 finite repository evidence", () => {
+describe("Issue 46 stable 0.2.1 finite repository evidence", () => {
   it("synchronizes every authoritative current-release surface", () => {
     const pkg = readJson("package.json") as { version: string };
     const lock = readJson("package-lock.json") as {
@@ -60,9 +60,9 @@ describe("Issue 44 beta.3 finite repository evidence", () => {
     expect(history).toContain("Explicit cleanup refuses a live match");
   });
 
-  it("keeps third-party dependency ranges and lock package metadata equal to merge base", () => {
-    const mergeBase = git(["merge-base", "HEAD", "origin/main"]).trim();
-    const basePackage = JSON.parse(git(["show", mergeBase + ":package.json"]));
+  it("keeps third-party dependency ranges and lock package metadata equal to the immutable baseline", () => {
+    const baseline = "1a3ed0006383cdfe9a7073ab2d5da5dd625435a5";
+    const basePackage = JSON.parse(git(["show", baseline + ":package.json"]));
     const currentPackage = readJson("package.json");
     for (const key of [
       "dependencies",
@@ -71,9 +71,7 @@ describe("Issue 44 beta.3 finite repository evidence", () => {
       "peerDependencies",
     ])
       expect(currentPackage[key]).toEqual(basePackage[key]);
-    const baseLock = JSON.parse(
-      git(["show", mergeBase + ":package-lock.json"]),
-    );
+    const baseLock = JSON.parse(git(["show", baseline + ":package-lock.json"]));
     const currentLock = readJson("package-lock.json") as {
       packages: Record<string, unknown>;
     };
@@ -89,7 +87,9 @@ describe("Issue 44 beta.3 finite repository evidence", () => {
       path.join(root, "docs/phase-3-recovery-operations.md"),
       "utf8",
     );
-    expect(recovery).toContain("Deferred Sparkta beta.3 recovery handoff");
+    expect(recovery).toContain(
+      "Deferred Sparkta stable 0.2.1 recovery handoff",
+    );
     expect(recovery).toContain("does not install into or inspect Sparkta");
     expect(recovery).toContain("No force-clean");
     expect(recovery).toContain("registry publication");

@@ -90,7 +90,7 @@ describe("Issue 36 repository release and deletion proof", () => {
     expect(symlinks).toEqual([]);
   });
 
-  it("synchronizes all governed release values at 0.2.1-beta.3", () => {
+  it("synchronizes all governed release values at 0.2.1", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
     ) as { version: string };
@@ -106,10 +106,10 @@ describe("Issue 36 repository release and deletion proof", () => {
       lock: lock.version,
       lockRoot: lock.packages[""].version,
     }).toEqual({
-      package: "0.2.1-beta.3",
-      lock: "0.2.1-beta.3",
-      lockRoot: "0.2.1-beta.3",
+      package: "0.2.1",
+      lock: "0.2.1",
+      lockRoot: "0.2.1",
     });
-    expect(catalog).toContain('OFFICIAL_ASSET_VERSION = "0.2.1-beta.3"');
+    expect(catalog).toContain('OFFICIAL_ASSET_VERSION = "0.2.1"');
   });
 });
