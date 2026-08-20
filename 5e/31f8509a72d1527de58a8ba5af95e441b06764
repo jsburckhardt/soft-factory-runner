@@ -1,0 +1,19 @@
+project/work-items/46-promote-0-2-1-beta-3-to-stable-0-2-1/verify/summary.md
+  s_9e1cae695a0486::t_383d7d8d061453 10,19-25,94-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5e31f8509a72d1527de58a8ba5af95e441b06764",
+  "prompts": {},
+  "sessions": {
+    "s_9e1cae695a0486": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "4b350482-4f2f-4603-bebf-5ffa4ce09302",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
