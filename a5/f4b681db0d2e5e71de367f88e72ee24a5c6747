@@ -1,0 +1,22 @@
+.harness/records/retro/2026-08-20/004-issue-46-rpiv-verifier.md
+  s_9e1cae695a0486::t_396dbc54e4172b 7-8,10-13,17-23,25-55,58,60-62
+  s_9e1cae695a0486::t_a5528ceef9de2b 1-6,9,14-16,24,56-57,59
+project/work-items/46-promote-0-2-1-beta-3-to-stable-0-2-1/verify/summary.md
+  s_9e1cae695a0486::t_4c9542731f7b42 1-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a5f4b681db0d2e5e71de367f88e72ee24a5c6747",
+  "prompts": {},
+  "sessions": {
+    "s_9e1cae695a0486": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "4b350482-4f2f-4603-bebf-5ffa4ce09302",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "jsburckhardt <jsburckhardt@gmail.com>"
+    }
+  }
+}
