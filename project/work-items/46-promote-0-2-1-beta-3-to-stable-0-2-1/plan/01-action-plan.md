@@ -48,4 +48,3 @@ preservation, and local package proof. Historical beta records and
 | AC-4 | T-1, T-4 | V-4 | Unchanged tag/release inventories and PR-only handoff |
 | AC-5 | T-3 | V-5 | Pack JSON, tarball digest, isolated installed metadata, manifest metadata |
 | AC-6 | T-4 | V-6 | Four successful gate results and full test counts |
-

@@ -78,3 +78,15 @@ Implemented GitHub Issue #46 as a release-only promotion from `0.2.1-beta.3` to 
 - `.harness/records/retro/2026-08-20/003-issue-46-rpiv-planner.md` — 2 observations.
 - Durable read-back confirmed every pending ID, description, fingerprint, and first-seen timestamp before clearing. All coordinator, Research, Plan, and Implement buffers then reported zero pending entries.
 - `harness retro insights --plan 46-promote-0-2-1-beta-3-to-stable-0-2-1 --json` returned status `ok`: 3 records, 22 entries, 3 agents, 0 malformed records, and 0 pending buffer entries.
+
+## CI correction after Verify
+
+- PR #47 CI at head `a5f4b681db0d2e5e71de367f88e72ee24a5c6747` exposed baseline-aware diff hygiene that the working-tree-only root recipe did not detect: one extra EOF blank line in each of `plan/01-action-plan.md` and `plan/02-task-breakdown.md`.
+- Removed only those two extra EOF blank lines. Product behavior, version surfaces, dependencies, package evidence, documentation contracts, and Verify’s accepted summary remain unchanged.
+- Direct `git diff --check 1a3ed0006383cdfe9a7073ab2d5da5dd625435a5` exited 0 after the correction.
+- `harness checks --focused --json` returned status `ok`, delegated `just verify-focused`, exited 0, and reported 29 suites/670 tests.
+- Direct `just verify-focused` exited 0 with 29 suites/670 tests and diff hygiene passing.
+- `harness checks --json` returned status `ok`, delegated `just verify`, exited 0, and reported 29 suites/670 tests.
+- Direct `just verify` exited 0; lint, formatting, type checking, 29 suites/670 tests, coverage, build, and diff hygiene passed.
+- Documentation impact: no application documentation changed because this correction affects only Plan artifact EOF whitespace; no setup, API, configuration, usage, migration, architecture, operations, or deployment behavior changed.
+- New Implement friction was persisted at `.harness/records/retro/2026-08-20/005-issue-46-rpiv-implementer.md`, read back completely, and then cleared from the transient buffer.

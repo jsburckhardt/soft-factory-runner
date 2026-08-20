@@ -71,4 +71,3 @@ Test coverage: V-3, V-4, V-6.
 Expected evidence: four successful gates, test counts, final comparisons,
 unchanged publication inventories, implementation notes, commit SHA, and clean
 handoff.
-
