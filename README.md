@@ -20,27 +20,27 @@ just verify
 
 The root `justfile` is command authority. `just setup` and `just build` do not globally install or link `soft-factory`; run the local CLI through `just run`. Harness checks delegate to root recipes and do not replace direct RPIV validation.
 
-### Current package release and 0.2.1-beta.2-to-0.2.1-beta.3 upgrade
+### Current stable package release and 0.2.1-beta.3-to-0.2.1 upgrade
 
-The current local npm package release is **0.2.1-beta.3**, a backward-compatible prerelease PATCH correction for checkpoint-gated live cleanup retry after exact tmux target removal. Prerelease history is intentionally separate: beta.0 prevents Doctor collapse when an unrelated/default tmux server is absent; beta.1 recognizes only an unchanged stale socket with exact bounded no-server evidence; beta.2 adds only guarded dead-pane cleanup; beta.3 accepts only exact selector-bound missing-target categories after a same-owner/run removal checkpoint and unchanged socket authority, then resumes only remaining lease and lock release. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.1.3 prefix or reinstall the same tarball:
+The current local npm package release is stable **0.2.1**, promoted from 0.2.1-beta.3 with no functional or dependency changes. It includes the backward-compatible PATCH correction for checkpoint-gated live cleanup retry after exact tmux target removal. Prerelease history is intentionally separate: beta.0 prevents Doctor collapse when an unrelated/default tmux server is absent; beta.1 recognizes only an unchanged stale socket with exact bounded no-server evidence; beta.2 adds only guarded dead-pane cleanup; beta.3 accepts only exact selector-bound missing-target categories after a same-owner/run removal checkpoint and unchanged socket authority, then resumes only remaining lease and lock release. This repository does not claim registry publication and the CLI has no `--version` command. Build and pack the checked-out release, then upgrade an existing 0.2.1-beta.3 prefix or reinstall the same tarball:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.2.1-beta.3
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1-beta.3
+mkdir -p /tmp/soft-factory-runner-0.2.1
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1-beta.3/soft-factory-runner-0.2.1-beta.3.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1/soft-factory-runner-0.2.1.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The metadata command must print exactly `0.2.1-beta.3`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
+The metadata command must print exactly `0.2.1`. For a clean reinstall, run `npm uninstall --prefix "$PREFIX" soft-factory-runner` before the same local-tarball install. From each target repository, reconverge package-coupled official assets and confirm the generated manifest:
 
 ```text
 "$PREFIX/node_modules/.bin/soft-factory" install --recommended
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The manifest command must also print exactly `0.2.1-beta.3`.
+The manifest command must also print exactly `0.2.1`.
 
 ## Quick start and control commands
 
@@ -76,7 +76,7 @@ just run install agent soft-factory
 just run install --recommended
 ```
 
-The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.2.1-beta.3, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
+The package-local source `assets/official/soft-factory.agent.md` installs byte-for-byte at `.github/agents/soft-factory.agent.md`; strict schema-v1 ownership remains at `.agents/manifest.json` with package version 0.2.1, Runner protocol 1, destination, and SHA-256. The npm allowlist names only that source, so assessor, skill, sibling, and local comparison files are not published. Removed assessor and skill selectors return `CLI_INVALID`.
 
 Existing matching ownership at `.agents/agents/soft-factory.agent.md` migrates to the Copilot project-agent path; an absent old file retires stale metadata. Desired current bytes are adopted without rewrite, while older current bytes upgrade only with exact recorded digest proof. Matching historical assessor and skill files retire; modified or unproved bytes refuse the complete operation with `No files changed`. Untracked skill siblings and every unrelated file remain unchanged, and known legacy directories are removed only when proved retirement leaves them empty. Repeating a successful operation is a zero-mutation no-op.
 

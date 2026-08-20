@@ -31,20 +31,20 @@ The current catalog and recommended set contain only `agent:soft-factory`. Catal
 
 Runner reads the package-local source and verifies protocol and SHA-256 before mutation. `ASSET_PROTOCOL_INCOMPATIBLE`, `ASSET_INTEGRITY_INVALID`, and `ASSET_CATALOG_INVALID` refuse with `No files changed`. Reinstall a compatible trusted package before retrying; there is no remote fallback.
 
-### Upgrade or reinstall 0.2.1-beta.2 as 0.2.1-beta.3
+### Upgrade or reinstall 0.2.1-beta.3 as stable 0.2.1
 
-The current package and official-asset catalog version is **0.2.1-beta.3**, a backward-compatible prerelease PATCH correction for checkpoint-gated cleanup retry after exact tmux target removal. Strict dead state is non-authorizing and public control output remains categorical and confidential. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the 0.2.1-beta.3 checkout, build and pack, then install that exact tarball over a 0.2.1-beta.2 prefix:
+The current package and official-asset catalog version is stable **0.2.1**, promoted from 0.2.1-beta.3 with no functional or dependency changes. It includes the backward-compatible PATCH correction for checkpoint-gated cleanup retry after exact tmux target removal. Strict dead state is non-authorizing and public control output remains categorical and confidential. This repository proves a local npm tarball and does not claim registry publication; `soft-factory` has no `--version` command. From the stable 0.2.1 checkout, build and pack, then install that exact tarball over a 0.2.1-beta.3 prefix:
 
 ```text
 just build
-mkdir -p /tmp/soft-factory-runner-0.2.1-beta.3
-npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1-beta.3
+mkdir -p /tmp/soft-factory-runner-0.2.1
+npm pack --json --pack-destination /tmp/soft-factory-runner-0.2.1
 PREFIX="${SOFT_FACTORY_PREFIX:-$HOME/.local/soft-factory-runner}"
-npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1-beta.3/soft-factory-runner-0.2.1-beta.3.tgz
+npm install --ignore-scripts --no-audit --no-fund --omit=dev --prefix "$PREFIX" /tmp/soft-factory-runner-0.2.1/soft-factory-runner-0.2.1.tgz
 node -p "require('$PREFIX/node_modules/soft-factory-runner/package.json').version"
 ```
 
-The final command must print `0.2.1-beta.3`. To force a clean reinstall in the same dedicated prefix, first run `npm uninstall --prefix "$PREFIX" soft-factory-runner`, then repeat the local-tarball install. Do not use or document a nonexistent `--version` command.
+The final command must print `0.2.1`. To force a clean reinstall in the same dedicated prefix, first run `npm uninstall --prefix "$PREFIX" soft-factory-runner`, then repeat the local-tarball install. Do not use or document a nonexistent `--version` command.
 
 After the package is installed, run the installed CLI from each target repository and inspect package-coupled ownership metadata:
 
@@ -53,7 +53,7 @@ After the package is installed, run the installed CLI from each target repositor
 node -p "require('./.agents/manifest.json').assets.map(({version}) => version).join(',')"
 ```
 
-The generated manifest must contain one current `0.2.1-beta.3` entry. An exact schema-v1 manifest still naming 0.1.0 is historical ownership input only: digest-proved current bytes reconverge its metadata to 0.2.1-beta.3, and a repeat returns `ASSETS_UP_TO_DATE`.
+The generated manifest must contain one current `0.2.1` entry. An exact schema-v1 manifest still naming 0.2.1-beta.3 is historical ownership input only: digest-proved current bytes reconverge its metadata to 0.2.1, and a repeat returns `ASSETS_UP_TO_DATE`.
 
 ## Strict manifest schema version 1
 
@@ -66,7 +66,7 @@ The final manifest is always one current entry:
     {
       "type": "agent",
       "name": "soft-factory",
-      "version": "0.2.1-beta.3",
+      "version": "0.2.1",
       "runnerProtocol": 1,
       "destination": ".github/agents/soft-factory.agent.md",
       "sha256": "<lowercase-64-character-sha256>"
