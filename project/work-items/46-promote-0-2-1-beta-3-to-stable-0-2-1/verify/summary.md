@@ -7,7 +7,7 @@
 - Pull request: [#47](https://github.com/jsburckhardt/soft-factory-runner/pull/47)
 - Branch: `issue-46-stable-0.2.1`
 - Verified implementation commit:
-  `9b03586f110ad3e31cc5c08fe27063fd539b2dc2`
+  `777d560bce3c1e556e7e6dac187421549d0d9250`
 - Baseline: `1a3ed0006383cdfe9a7073ab2d5da5dd625435a5`
 - Release assignment: stable Semantic Versioning patch `0.2.1`
 
@@ -15,6 +15,13 @@ Verify independently inspected the exact implementation commit, full branch
 diff, affected documentation, dependency metadata, package proof, publication
 state, and required validation. All six acceptance criteria passed. Issue #46
 was updated with six checked criteria, and PR #47 was opened for review.
+
+The first PR run exposed two Plan files with an extra EOF blank line. Implement
+removed only those two blank lines, recorded the CI evidence, and committed the
+correction without changing product source, tests, application documentation,
+version metadata, dependencies, or architecture. Re-Verify inspected that
+exact delta and accepted the corrected head after Node 22, Node 24, and package
+smoke CI passed.
 
 No Git tag, GitHub release, npm publication, or production access occurred;
 repository policy does not authorize those publication actions.
@@ -84,8 +91,8 @@ verifier buffer was cleared and confirmed empty.
 `harness retro insights --plan
 46-promote-0-2-1-beta-3-to-stable-0-2-1 --json` returned status `ok` with:
 
-- 4 committed records
-- 25 entries
+- 5 committed records
+- 26 entries
 - 4 agents
 - 0 malformed records
 - 0 pending buffer entries
